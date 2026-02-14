@@ -83,9 +83,14 @@ app.listen(PORT, async () => {
   console.log(`📊 Health check available at http://localhost:${PORT}/api/health`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
   
+  // Wait a moment for database to be fully ready
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
   // Initialize admin user on first startup
   const initializeAdmin = require('./init-admin');
   await initializeAdmin();
+  
+  console.log('🎉 Server startup complete!');
 });
 
 module.exports = app;

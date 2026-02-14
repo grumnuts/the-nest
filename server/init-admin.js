@@ -1,26 +1,45 @@
-const db = require('./database');
+const Database = require('./database');
 const bcrypt = require('bcryptjs');
+const db = new Database();
 
 async function initializeAdmin() {
   try {
     console.log('🔧 Checking for initial admin setup...');
     
-    // Check if any users exist
-    const userCount = await new Promise((resolve, reject) => {
-      db.db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
+    // Check if admin user already exists
+    const existingAdmin = await new Promise((resolve, reject) => {
+      db.db.get('SELECT * FROM users WHERE username = ?', ['admin'], (err, row) => {
         if (err) reject(err);
-        else resolve(row.count);
+        else resolve(row);
       });
     });
     
-    if (userCount === 0) {
-      console.log('📝 No users found. Creating initial admin user...');
+    if (existingAdmin) {
+      console.log('✅ Admin user already exists. Verifying password...');
+      
+      // Test if password works
+      const isValid = await bcrypt.compare('admin123', existingAdmin.password_hash);
+      if (isValid) {
+        console.log('✅ Admin password is correct');
+      } else {
+        console.log('⚠️  Admin password incorrect, resetting...');
+        const newHash = await bcrypt.hash('admin123', 10);
+        await new Promise((resolve, reject) => {
+          db.db.run('UPDATE users SET password_hash = ? WHERE username = ?', [newHash, 'admin'], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+        console.log('✅ Admin password reset successfully');
+      }
+    } else {
+      console.log('📝 No admin user found. Creating initial admin user...');
       
       // Create default admin
       const defaultPassword = 'admin123';
       const hashedPassword = await bcrypt.hash(defaultPassword, 10);
       
-      await new Promise((resolve, reject) => {
+      const userId = await new Promise((resolve, reject) => {
         db.db.run(
           'INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)',
           ['admin', 'admin@localhost', hashedPassword, new Date().toISOString()],
@@ -31,17 +50,31 @@ async function initializeAdmin() {
         );
       });
       
-      console.log('✅ Initial admin user created successfully!');
-      console.log('📋 Login credentials:');
-      console.log('   Username: admin');
-      console.log('   Email: admin@localhost');
-      console.log('   Password: admin123');
-      console.log('');
-      console.log('🌐 Access your app at: http://localhost:5000');
-      console.log('⚠️  Remember to change the password after first login!');
+      // Verify the admin was created correctly
+      const createdAdmin = await new Promise((resolve, reject) => {
+        db.db.get('SELECT * FROM users WHERE id = ?', [userId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
       
-    } else {
-      console.log('✅ Users already exist. Skipping admin initialization.');
+      if (createdAdmin) {
+        const isValid = await bcrypt.compare('admin123', createdAdmin.password_hash);
+        if (isValid) {
+          console.log('✅ Initial admin user created and verified successfully!');
+          console.log('📋 Login credentials:');
+          console.log('   Username: admin');
+          console.log('   Email: admin@localhost');
+          console.log('   Password: admin123');
+          console.log('');
+          console.log('🌐 Access your app at: http://localhost:5000');
+          console.log('⚠️  Remember to change the password after first login!');
+        } else {
+          console.error('❌ Admin password verification failed!');
+        }
+      } else {
+        console.error('❌ Failed to retrieve created admin user!');
+      }
     }
     
   } catch (error) {
