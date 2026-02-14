@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { validateRegistration, validateLogin, JWT_SECRET } = require('../middleware/auth');
+const { validateRegistration, validateLogin, authenticateToken, JWT_SECRET } = require('../middleware/auth');
 const Database = require('../database');
 
 const router = express.Router();
@@ -86,6 +86,17 @@ router.post('/login', validateLogin, (req, res) => {
         user: { userId: user.id, username: user.username, email: user.email }
       });
     });
+  });
+});
+
+// Verify token
+router.get('/verify', authenticateToken, (req, res) => {
+  res.json({
+    user: {
+      userId: req.user.userId,
+      username: req.user.username,
+      email: req.user.email
+    }
   });
 });
 

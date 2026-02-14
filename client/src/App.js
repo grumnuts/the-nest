@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
-import Dashboard from './components/Dashboard';
+import HomeScreen from './components/HomeScreen';
 import ListView from './components/ListView';
 import Navbar from './components/Navbar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -20,7 +20,6 @@ function AppRoutes() {
 
   return (
     <Router>
-      {user && <Navbar />}
       <Routes>
         <Route 
           path="/login" 
@@ -32,11 +31,11 @@ function AppRoutes() {
         />
         <Route 
           path="/dashboard" 
-          element={user ? <Dashboard /> : <Navigate to="/login" />} 
+          element={user ? <HomeScreen /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/list/:id" 
-          element={user ? <ListView /> : <Navigate to="/login" />} 
+          element={user ? <><Navbar /><ListView /></> : <Navigate to="/login" />} 
         />
         <Route 
           path="/" 
@@ -50,7 +49,7 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <AppRoutes />
       </div>
     </AuthProvider>

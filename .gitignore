@@ -149,3 +149,6 @@ venv.bak/
 
 # pyenv
 .python-version
+
+# Exception: Allow manifest.json for PWA functionality
+!client/public/manifest.json

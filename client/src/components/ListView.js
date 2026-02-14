@@ -109,13 +109,13 @@ const ListView = () => {
 
   const getResetPeriodColor = (period) => {
     switch (period) {
-      case 'daily': return 'bg-blue-100 text-blue-800';
-      case 'weekly': return 'bg-green-100 text-green-800';
-      case 'monthly': return 'bg-yellow-100 text-yellow-800';
-      case 'quarterly': return 'bg-orange-100 text-orange-800';
-      case 'annually': return 'bg-purple-100 text-purple-800';
-      case 'static': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'daily': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+      case 'weekly': return 'bg-green-500/20 text-green-300 border border-green-500/30';
+      case 'monthly': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+      case 'quarterly': return 'bg-orange-500/20 text-orange-300 border border-orange-500/30';
+      case 'annually': return 'bg-red-500/20 text-red-300 border border-red-500/30';
+      case 'static': return 'bg-gray-500/20 text-gray-300 border border-gray-500/30';
+      default: return 'bg-gray-500/20 text-gray-300 border border-gray-500/30';
     }
   };
 
@@ -141,28 +141,28 @@ const ListView = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <button
             onClick={() => navigate('/dashboard')}
-            className="btn-ghost flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+            className="btn-ghost flex items-center space-x-2 text-gray-300 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Dashboard</span>
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow mb-6">
+        <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold text-gray-900">{list.name}</h1>
+              <h1 className="text-2xl font-bold text-white">{list.name}</h1>
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResetPeriodColor(list.reset_period)}`}>
                 {list.reset_period}
               </span>
             </div>
             {list.description && (
-              <p className="text-gray-600 mb-4">{list.description}</p>
+              <p className="text-gray-300 mb-4">{list.description}</p>
             )}
             
             <div className="flex flex-wrap gap-2">
@@ -192,7 +192,7 @@ const ListView = () => {
         </div>
 
         {progress && (
-          <div className="bg-white rounded-lg shadow mb-6">
+          <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">Progress Tracking</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -227,7 +227,7 @@ const ListView = () => {
         )}
 
         {showCreateTask && (
-          <div className="bg-white rounded-lg shadow mb-6">
+          <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">Create New Task</h2>
               <form onSubmit={handleCreateTask} className="space-y-4">
@@ -280,7 +280,7 @@ const ListView = () => {
         )}
 
         {showGoalForm && (
-          <div className="bg-white rounded-lg shadow mb-6">
+          <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">Set Goal</h2>
               <form onSubmit={handleSetGoal} className="space-y-4">
@@ -314,7 +314,7 @@ const ListView = () => {
         )}
 
         {showHistory && (
-          <div className="bg-white rounded-lg shadow mb-6">
+          <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">List History</h2>
               {history.length === 0 ? (

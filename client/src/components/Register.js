@@ -38,32 +38,34 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary">
-            <UserPlus className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Join The Nest
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link
-              to="/login"
-              className="font-medium text-primary hover:text-primary/80"
-            >
-              sign in to your existing account
-            </Link>
-          </p>
-        </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
+        <div className="glass rounded-xl p-8 border border-purple-500/20">
+          <div className="flex flex-col items-center">
+            <img 
+              src="/TheNestLogo.png" 
+              alt="The Nest Logo" 
+              className="h-16 w-16 rounded mb-4"
+            />
+            <h2 className="text-center text-3xl font-extrabold text-white">
+              Join The Nest
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-300">
+              Or{' '}
+              <Link
+                to="/login"
+                className="font-medium text-purple-300 hover:text-purple-200"
+              >
+                sign in to your existing account
+              </Link>
+            </p>
+          </div>  
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="bg-red-900/50 border border-red-500/30 text-red-300 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
           
           <div className="space-y-4">
             <div>
@@ -74,6 +76,7 @@ const Register = () => {
                 id="username"
                 name="username"
                 type="text"
+                autoComplete="username"
                 required
                 className="input"
                 value={username}
@@ -101,28 +104,16 @@ const Register = () => {
               <label htmlFor="password" className="label">
                 Password
               </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  className="input pr-10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
-                </button>
-              </div>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
             
             <div>
@@ -145,12 +136,13 @@ const Register = () => {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-3"
+              className="btn-primary w-full"
             >
               {loading ? 'Creating account...' : 'Create account'}
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
