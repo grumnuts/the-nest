@@ -1,4 +1,11 @@
 require('dotenv').config();
+
+// Set timezone from environment variable
+if (process.env.TZ) {
+  process.env.TZ = process.env.TZ;
+  console.log(`🌍 Timezone set to: ${process.env.TZ}`);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -136,6 +143,8 @@ app.listen(PORT, async () => {
   console.log(`🚀 The Nest server running on port ${PORT}`);
   console.log(`📊 Health check available at http://localhost:${PORT}/api/health`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🕐 Current time: ${new Date().toLocaleString()}`);
+  console.log(`🌍 Timezone: ${process.env.TZ || 'UTC'}`);
   
   // Wait a moment for database to be fully ready
   await new Promise(resolve => setTimeout(resolve, 1000));

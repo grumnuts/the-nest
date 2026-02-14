@@ -22,8 +22,8 @@ FROM node:18-alpine AS backend
 
 WORKDIR /app
 
-# Install dependencies for building native modules
-RUN apk add --no-cache python3 make g++
+# Install dependencies for building native modules and timezone support
+RUN apk add --no-cache python3 make g++ tzdata
 
 # Copy backend package files
 COPY server/package*.json ./
