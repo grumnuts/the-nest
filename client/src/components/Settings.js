@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Users, Plus, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, User, Users, Target, Plus, Trash2, Edit } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import Goals from './Goals';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ const Settings = () => {
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'goals', label: 'Goals', icon: Target },
     ...(user?.username === 'admin' ? [{ id: 'users', label: 'Users', icon: Users }] : [])
   ];
 
@@ -267,6 +269,10 @@ const Settings = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'goals' && (
+            <Goals />
           )}
 
           

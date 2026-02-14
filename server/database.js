@@ -349,7 +349,102 @@ class Database {
     stmt.finalize();
   }
 
-  // User goals methods
+  // Goals methods
+  createGoal(userId, name, description, calculationType, targetValue, periodType, listIds, createdBy, callback) {
+    const stmt = this.db.prepare(`
+      INSERT INTO goals (user_id, name, description, calculation_type, target_value, period_type, list_ids, created_by) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run([userId, name, description, calculationType, targetValue, periodType, JSON.stringify(listIds), createdBy], function(err) {
+      callback(err, this ? this.lastID : null);
+    });
+    stmt.finalize();
+  }
+
+  getGoalsByUserId(userId, callback) {
+    this.db.all(`
+      SELECT g.*, u.username as user_username, c.username as created_by_username
+      FROM goals g 
+      LEFT JOIN users u ON g.user_id = u.id 
+      LEFT JOIN users c ON g.created_by = c.id 
+      WHERE g.user_id = ? AND g.is_active = 1
+      ORDER BY g.created_at DESC
+    `, [userId], callback);
+  }
+
+  getAllGoals(callback) {
+    this.db.all(`
+      SELECT g.*, u.username as user_username, c.username as created_by_username
+      FROM goals g 
+      LEFT JOIN users u ON g.user_id = u.id 
+      LEFT JOIN users c ON g.created_by = c.id 
+      WHERE g.is_active = 1
+      ORDER BY g.user_username, g.created_at DESC
+    `, [], callback);
+  }
+
+  getGoalById(goalId, callback) {
+    this.db.get(`
+      SELECT g.*, u.username as user_username, c.username as created_by_username
+      FROM goals g 
+      LEFT JOIN users u ON g.user_id = u.id 
+      LEFT JOIN users c ON g.created_by = c.id 
+      WHERE g.id = ?
+    `, [goalId], callback);
+  }
+
+  updateGoal(goalId, name, description, calculationType, targetValue, periodType, listIds, callback) {
+    const stmt = this.db.prepare(`
+      UPDATE goals 
+      SET name = ?, description = ?, calculation_type = ?, target_value = ?, period_type = ?, list_ids = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run([name, description, calculationType, targetValue, periodType, JSON.stringify(listIds), goalId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  deleteGoal(goalId, callback) {
+    const stmt = this.db.prepare('UPDATE goals SET is_active = 0 WHERE id = ?');
+    stmt.run([goalId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  saveGoalProgress(goalId, periodStart, periodEnd, requiredValue, completedValue, completionPercentage, isAchieved, callback) {
+    const stmt = this.db.prepare(`
+      INSERT INTO goal_progress (goal_id, period_start, period_end, required_value, completed_value, completion_percentage, is_achieved) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run([goalId, periodStart, periodEnd, requiredValue, completedValue, completionPercentage, isAchieved], function(err) {
+      callback(err, this ? this.lastID : null);
+    });
+    stmt.finalize();
+  }
+
+  getGoalProgress(goalId, callback) {
+    this.db.all(`
+      SELECT * FROM goal_progress 
+      WHERE goal_id = ? 
+      ORDER BY period_start DESC
+    `, [goalId], callback);
+  }
+
+  getTaskCompletionsInPeriod(userId, periodStart, periodEnd, callback) {
+    this.db.all(`
+      SELECT tc.*, t.list_id, t.duration_minutes
+      FROM task_completions tc
+      JOIN tasks t ON tc.task_id = t.id
+      WHERE tc.completed_by = ? 
+      AND tc.completed_at >= ? 
+      AND tc.completed_at <= ?
+      ORDER BY tc.completed_at DESC
+    `, [userId, periodStart.toISOString(), periodEnd.toISOString()], callback);
+  }
+
+  // User goals methods (legacy - keep for compatibility)
   setUserGoal(userId, listId, tasksPerPeriod, callback) {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO user_goals (user_id, list_id, tasks_per_period, updated_at) 
