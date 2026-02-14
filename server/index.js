@@ -46,11 +46,40 @@ app.use('/api/users', userRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
+  try {
+    const Database = require('./database');
+    const testDb = new Database();
+    
+    // Test database connection
+    testDb.db.get('SELECT 1 as test', [], (err, row) => {
+      if (err) {
+        console.error('❌ Database health check failed:', err);
+        res.status(500).json({ 
+          status: 'ERROR', 
+          database: 'DISCONNECTED',
+          error: err.message,
+          timestamp: new Date().toISOString(),
+          version: '1.0.0'
+        });
+      } else {
+        res.json({ 
+          status: 'OK', 
+          database: 'CONNECTED',
+          timestamp: new Date().toISOString(),
+          version: '1.0.0'
+        });
+      }
+    });
+  } catch (error) {
+    console.error('❌ Health check error:', error);
+    res.status(500).json({ 
+      status: 'ERROR', 
+      database: 'ERROR',
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      version: '1.0.0'
+    });
+  }
 });
 
 // Serve static files in production

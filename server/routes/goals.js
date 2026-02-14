@@ -170,16 +170,29 @@ router.get('/my-goals', authenticateToken, async (req, res) => {
 
 // Get all goals (admin only)
 router.get('/all-goals', authenticateToken, async (req, res) => {
+  console.log('🎯 Fetching all goals for admin:', req.user.username);
+  
   // Check if user is admin
   if (req.user.username !== 'admin') {
     return res.status(403).json({ error: 'Only admins can view all goals' });
   }
 
+  // Check if database is available
+  if (!db || !db.db) {
+    console.error('❌ Database not available for goals');
+    return res.status(500).json({ error: 'Database not available' });
+  }
+
   try {
     const goals = await new Promise((resolve, reject) => {
       db.getAllGoals((err, goals) => {
-        if (err) reject(err);
-        else resolve(goals);
+        if (err) {
+          console.error('❌ Error fetching all goals:', err);
+          reject(err);
+        } else {
+          console.log(`✅ Successfully fetched ${goals.length} goals`);
+          resolve(goals);
+        }
       });
     });
 

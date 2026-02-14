@@ -1,11 +1,37 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'the_nest.db');
+// Use /app/data directory in Docker, local directory in development
+const dataDir = process.env.NODE_ENV === 'production' ? '/app/data' : __dirname;
+const dbPath = path.join(dataDir, 'the_nest.db');
+
+// Ensure data directory exists
+const fs = require('fs');
+try {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`📁 Created data directory: ${dataDir}`);
+  }
+} catch (error) {
+  console.error(`❌ Failed to create data directory ${dataDir}:`, error.message);
+  // Fallback to current directory for local development
+  if (process.env.NODE_ENV === 'production') {
+    throw error; // In production, this is a real error
+  } else {
+    console.log('⚠️  Falling back to local directory for development');
+  }
+}
 
 class Database {
   constructor() {
-    this.db = new sqlite3.Database(dbPath);
+    console.log(`🗄️  Initializing database at: ${dbPath}`);
+    this.db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('❌ Error opening database:', err.message);
+      } else {
+        console.log('✅ Database connection established');
+      }
+    });
     this.init();
   }
 

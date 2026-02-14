@@ -7,12 +7,22 @@ const db = new Database();
 
 // Get all lists for authenticated users (shared across all users)
 router.get('/', authenticateToken, (req, res) => {
+  console.log('📋 Fetching lists for user:', req.user.username);
+  
+  // Check if database is available
+  if (!db || !db.db) {
+    console.error('❌ Database not available');
+    return res.status(500).json({ error: 'Database not available' });
+  }
+  
   // Get all active lists (shared across all users) ordered by sort_order
   db.db.all('SELECT * FROM lists WHERE is_active = 1 ORDER BY sort_order ASC, created_at ASC', [], (err, lists) => {
     if (err) {
-      return res.status(500).json({ error: 'Error fetching lists' });
+      console.error('❌ Error fetching lists:', err);
+      return res.status(500).json({ error: 'Error fetching lists', details: err.message });
     }
 
+    console.log(`✅ Successfully fetched ${lists.length} lists`);
     res.json({ lists });
   });
 });
