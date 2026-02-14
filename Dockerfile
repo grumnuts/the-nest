@@ -37,12 +37,23 @@ COPY server/ ./
 # Copy built frontend from previous stage
 COPY --from=frontend-build /app/client/build ./public
 
-# Create non-root user
+# Create non-root user first
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nest -u 1001
 
+# Create data directory with proper permissions
+RUN mkdir -p /app/data && \
+    chown -R nest:nodejs /app/data && \
+    chmod 755 /app/data
+
 # Change ownership of the app directory
 RUN chown -R nest:nodejs /app
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Switch to non-root user
 USER nest
 
 # Expose the port
@@ -53,4 +64,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 # Start the application
-CMD ["npm", "start"]
+ENTRYPOINT ["docker-entrypoint.sh"]

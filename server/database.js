@@ -2,18 +2,42 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 // Use /app/data directory in Docker, local directory in development
-const dataDir = process.env.NODE_ENV === 'production' ? '/app/data' : __dirname;
+// Fallback mode if permissions are an issue
+const dataDir = process.env.NODE_ENV === 'production' && process.env.NODE_ENV !== 'fallback' 
+  ? '/app/data' 
+  : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
+
+console.log(`📂 Database directory: ${dataDir}`);
+console.log(`🗄️  Database path: ${dbPath}`);
+console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
 
 // Ensure data directory exists
 const fs = require('fs');
 try {
+  console.log(`🔍 Checking data directory: ${dataDir}`);
+  
   if (!fs.existsSync(dataDir)) {
+    console.log(`📁 Creating data directory: ${dataDir}`);
     fs.mkdirSync(dataDir, { recursive: true });
-    console.log(`📁 Created data directory: ${dataDir}`);
+    console.log(`✅ Data directory created successfully`);
+  } else {
+    console.log(`✅ Data directory exists: ${dataDir}`);
+    
+    // Check if directory is writable
+    try {
+      const testFile = path.join(dataDir, '.test');
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+      console.log(`✅ Data directory is writable`);
+    } catch (writeError) {
+      console.error(`❌ Data directory is not writable:`, writeError.message);
+      throw writeError;
+    }
   }
 } catch (error) {
-  console.error(`❌ Failed to create data directory ${dataDir}:`, error.message);
+  console.error(`❌ Failed to setup data directory ${dataDir}:`, error.message);
+  console.error(`❌ Full error:`, error);
   // Fallback to current directory for local development
   if (process.env.NODE_ENV === 'production') {
     throw error; // In production, this is a real error
@@ -25,13 +49,35 @@ try {
 class Database {
   constructor() {
     console.log(`🗄️  Initializing database at: ${dbPath}`);
+    
+    // Check if database directory is accessible before attempting to open
+    try {
+      const dbDir = path.dirname(dbPath);
+      if (!fs.existsSync(dbDir)) {
+        throw new Error(`Database directory does not exist: ${dbDir}`);
+      }
+    } catch (checkError) {
+      console.error('❌ Database directory check failed:', checkError.message);
+      throw checkError;
+    }
+    
     this.db = new sqlite3.Database(dbPath, (err) => {
       if (err) {
         console.error('❌ Error opening database:', err.message);
+        console.error('❌ Database path:', dbPath);
+        console.error('❌ Error code:', err.code);
+        console.error('❌ Error errno:', err.errno);
+        
+        // In production, this is a critical error
+        if (process.env.NODE_ENV === 'production') {
+          console.error('❌ CRITICAL: Database cannot be opened in production!');
+          process.exit(1);
+        }
       } else {
         console.log('✅ Database connection established');
       }
     });
+    
     this.init();
   }
 
