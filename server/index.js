@@ -17,10 +17,19 @@ const PORT = process.env.PORT || 5000;
 
 // Security middleware - temporarily disabled for debugging
 // app.use(helmet());
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+// CORS configuration - allow same-origin requests in Docker
+const corsOptions = {
   credentials: true
-}));
+};
+
+// In production/Docker, allow same-origin. In development, allow localhost:3000
+if (process.env.NODE_ENV === 'production') {
+  corsOptions.origin = true; // Allow same origin in production
+} else {
+  corsOptions.origin = process.env.CLIENT_URL || 'http://localhost:3000';
+}
+
+app.use(cors(corsOptions));
 
 // Rate limiting - temporarily disabled for debugging
 // const limiter = rateLimit({
