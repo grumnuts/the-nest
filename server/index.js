@@ -78,10 +78,14 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 The Nest server running on port ${PORT}`);
   console.log(`📊 Health check available at http://localhost:${PORT}/api/health`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Initialize admin user on first startup
+  const initializeAdmin = require('./init-admin');
+  await initializeAdmin();
 });
 
 module.exports = app;
