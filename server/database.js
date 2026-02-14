@@ -379,7 +379,7 @@ class Database {
       LEFT JOIN users u ON g.user_id = u.id 
       LEFT JOIN users c ON g.created_by = c.id 
       WHERE g.is_active = 1
-      ORDER BY g.user_username, g.created_at DESC
+      ORDER BY u.username, g.created_at DESC
     `, [], callback);
   }
 

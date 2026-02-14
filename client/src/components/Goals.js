@@ -31,12 +31,14 @@ const Goals = () => {
       fetchUsers();
     }
     fetchLists();
-  }, []);
+  }, [isAdmin]);
 
   const fetchGoals = async () => {
     try {
       const endpoint = isAdmin ? '/api/goals/all-goals' : '/api/goals/my-goals';
+      console.log('Fetching goals - isAdmin:', isAdmin, 'endpoint:', endpoint);
       const response = await axios.get(endpoint);
+      console.log('Goals response:', response.data);
       setGoals(response.data.goals);
     } catch (error) {
       console.error('Error fetching goals:', error);
@@ -48,9 +50,10 @@ const Goals = () => {
   const fetchUsers = async () => {
     try {
       const response = await axios.get('/api/users');
-      setUsers(response.data.users);
+      // The API returns users array directly, not wrapped in { users: ... }
+      setUsers(response.data);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('Error fetching users:', error.response?.data || error.message);
     }
   };
 
@@ -319,7 +322,7 @@ const Goals = () => {
       {/* Create/Edit Goal Modal */}
       {(showCreateGoal || editingGoal) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800/95 backdrop-blur-md rounded-xl p-6 border border-purple-500/30 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-gray-800/95 backdrop-blur-md rounded-xl p-6 border border-purple-500/30 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-white">
                 {editingGoal ? 'Edit Goal' : 'Create New Goal'}
@@ -494,7 +497,7 @@ const Goals = () => {
       {/* Progress History Modal */}
       {selectedGoalProgress && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800/95 backdrop-blur-md rounded-xl p-6 border border-purple-500/30 shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+          <div className="bg-gray-800/95 backdrop-blur-md rounded-xl p-6 border border-purple-500/30 shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-white">Progress History</h3>
               <button
