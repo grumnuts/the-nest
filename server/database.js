@@ -433,6 +433,15 @@ class Database {
   }
 
   getTaskCompletionsInPeriod(userId, periodStart, periodEnd, callback) {
+    // Convert ISO strings to database format (YYYY-MM-DD HH:MM:SS)
+    const formatDate = (isoString) => {
+      const date = new Date(isoString);
+      return date.toISOString().slice(0, 19).replace('T', ' ');
+    };
+    
+    const formattedStart = formatDate(periodStart);
+    const formattedEnd = formatDate(periodEnd);
+    
     this.db.all(`
       SELECT tc.*, t.list_id, t.duration_minutes
       FROM task_completions tc
@@ -441,7 +450,7 @@ class Database {
       AND tc.completed_at >= ? 
       AND tc.completed_at <= ?
       ORDER BY tc.completed_at DESC
-    `, [userId, periodStart.toISOString(), periodEnd.toISOString()], callback);
+    `, [userId, formattedStart, formattedEnd], callback);
   }
 
   // User goals methods (legacy - keep for compatibility)

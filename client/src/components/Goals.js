@@ -36,9 +36,7 @@ const Goals = () => {
   const fetchGoals = async () => {
     try {
       const endpoint = isAdmin ? '/api/goals/all-goals' : '/api/goals/my-goals';
-      console.log('Fetching goals - isAdmin:', isAdmin, 'endpoint:', endpoint);
       const response = await axios.get(endpoint);
-      console.log('Goals response:', response.data);
       setGoals(response.data.goals);
     } catch (error) {
       console.error('Error fetching goals:', error);

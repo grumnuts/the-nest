@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, Settings, LogOut, CheckCircle2, Circle, Clock, Check } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -30,6 +30,7 @@ const HomeScreen = () => {
   const [dragOverList, setDragOverList] = useState(null);
   const [draggedTask, setDraggedTask] = useState(null);
   const [dragOverTask, setDragOverTask] = useState(null);
+  const [goals, setGoals] = useState([]);
   const [newTask, setNewTask] = useState({ 
     title: '', 
     description: '', 
@@ -53,8 +54,16 @@ const HomeScreen = () => {
       }
     } catch (error) {
       console.error('Error fetching lists:', error);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchGoals = async () => {
+    try {
+      const endpoint = isAdmin ? '/api/goals/all-goals' : '/api/goals/my-goals';
+      const response = await axios.get(endpoint);
+      setGoals(response.data.goals);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
     }
   };
 
@@ -93,7 +102,15 @@ const HomeScreen = () => {
   };
 
   useEffect(() => {
-    fetchLists();
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchLists(),
+        fetchGoals()
+      ]);
+      setLoading(false);
+    };
+    loadData();
   }, []);
 
   // Real-time updates - poll for changes every 5 seconds
@@ -104,6 +121,7 @@ const HomeScreen = () => {
         fetchListData(activeListId);
       }
       fetchLists();
+      fetchGoals();
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(interval);
@@ -828,6 +846,47 @@ const HomeScreen = () => {
                 </div>
               ))}
             </div>
+
+            {/* Goals Tracker */}
+            {goals.length > 0 && (
+              <div className="space-y-2 mb-6">
+                {goals.map((goal) => (
+                  <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <Target className="h-4 w-4 text-purple-400" />
+                        <span className="font-medium text-white">{goal.name}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-500 ${
+                              (goal.progress?.percentage || 0) >= 100 ? 'bg-green-500' :
+                              (goal.progress?.percentage || 0) >= 75 ? 'bg-blue-500' :
+                              (goal.progress?.percentage || 0) >= 50 ? 'bg-yellow-500' :
+                              (goal.progress?.percentage || 0) >= 25 ? 'bg-orange-500' :
+                              'bg-red-500'
+                            }`}
+                            style={{ width: `${Math.min(goal.progress?.percentage || 0, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3 flex-shrink-0">
+                        <span className="text-lg font-bold text-white">
+                          {Math.round(goal.progress?.percentage || 0)}%
+                        </span>
+                        <span className="text-sm text-gray-400">
+                          {goal.progress?.completed || 0}/{goal.progress?.required || goal.target_value}
+                          {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' ? '%' : 
+                           goal.calculation_type === 'fixed_time' ? 'min' : 
+                           goal.calculation_type === 'fixed_task_count' ? '' : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Active List Content */}
             {activeList && (
