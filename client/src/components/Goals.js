@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, Clock, CheckCircle, Plus, Edit2, Trash2, Users, Calendar, BarChart3, X } from 'lucide-react';
+import { Target, TrendingUp, Clock, CheckCircle, Plus, Edit2, Trash2, Users, Calendar, BarChart3, X, Star } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -191,51 +191,64 @@ const Goals = () => {
         {isAdmin && (
           <button
             onClick={() => setShowCreateGoal(true)}
-            className="btn bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 flex items-center space-x-2"
+            className="btn-primary flex items-center space-x-2"
           >
             <Plus className="h-4 w-4" />
-            <span>Create Goal</span>
+            <span className="hidden sm:inline">Create Goal</span>
           </button>
         )}
       </div>
 
-      {/* Goals Grid */}
+      {/* Goals List */}
       {!goals || goals.length === 0 ? (
-        <div className="glass rounded-xl p-8 border border-purple-500/20 text-center">
+        <div className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-8 border border-purple-500/30 shadow-xl text-center">
           <Target className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-400">
             {isAdmin ? 'No goals created yet. Create your first goal!' : 'No goals assigned to you yet.'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
           {goals && goals.map((goal) => (
-            <div key={goal.id} className="glass rounded-xl p-6 border border-purple-500/20">
+            <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-6 border border-purple-500/30 shadow-xl">
               {/* Goal Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white mb-1">{goal.name}</h3>
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h3 className="text-xl font-semibold text-white">{goal.name}</h3>
+                    {goal.progress?.isAchieved && (
+                      <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                    )}
+                  </div>
                   {goal.description && (
-                    <p className="text-sm text-gray-400 mb-2">{goal.description}</p>
+                    <p className="text-gray-400 mb-3">{goal.description}</p>
                   )}
-                  <div className="flex items-center space-x-2 text-xs text-gray-500">
-                    <Users className="h-3 w-3" />
-                    <span>{goal.user_username}</span>
-                    <Calendar className="h-3 w-3 ml-2" />
-                    <span>{getPeriodTypeLabel(goal.period_type)}</span>
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <div className="flex items-center space-x-1">
+                      <Users className="h-4 w-4" />
+                      <span>{goal.user_username}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>{getPeriodTypeLabel(goal.period_type)}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Target className="h-4 w-4" />
+                      <span>{getCalculationTypeLabel(goal.calculation_type)}</span>
+                    </div>
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-2">
                     <button
                       onClick={() => handleEditGoal(goal)}
-                      className="p-1 text-gray-400 hover:text-blue-400 transition-colors"
+                      className="p-2 text-gray-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-blue-500/10"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteGoal(goal.id)}
-                      className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -243,42 +256,41 @@ const Goals = () => {
                 )}
               </div>
 
-              {/* Progress */}
+              {/* Progress Section */}
               <div className="mb-4">
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-gray-400">
-                    {getCalculationTypeLabel(goal.calculation_type)}
-                  </span>
-                  <span className={`font-medium ${
-                    goal.progress?.isAchieved ? 'text-green-400' : 'text-gray-300'
-                  }`}>
-                    {Math.round(goal.progress?.percentage || 0)}%
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className="text-2xl font-bold text-white">
+                      {Math.round(goal.progress?.percentage || 0)}%
+                    </span>
+                    <span className="text-gray-400 ml-2">
+                      {goal.progress?.completed || 0} / {goal.progress?.required || goal.target_value}
+                      {goal.calculation_type.includes('time') ? ' min' : ' tasks'}
+                    </span>
+                  </div>
+                  {goal.progress?.isAchieved && (
+                    <div className="flex items-center space-x-1 text-green-400">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="font-medium">Achieved!</span>
+                    </div>
+                  )}
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
+                <div className="w-full bg-gray-700 rounded-full h-3">
                   <div
-                    className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(goal.progress?.percentage || 0)}`}
+                    className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(goal.progress?.percentage || 0)}`}
                     style={{ width: `${Math.min(goal.progress?.percentage || 0, 100)}%` }}
                   ></div>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="text-gray-500">
-                    {goal.progress?.completed || 0} / {goal.progress?.required || goal.target_value}
-                  </span>
-                  {goal.progress?.isAchieved && (
-                    <CheckCircle className="h-3 w-3 text-green-400" />
-                  )}
                 </div>
               </div>
 
               {/* Lists */}
               <div className="mb-4">
-                <p className="text-xs text-gray-500 mb-1">Lists:</p>
-                <div className="flex flex-wrap gap-1">
+                <p className="text-sm text-gray-500 mb-2">Lists:</p>
+                <div className="flex flex-wrap gap-2">
                   {goal.list_ids && goal.list_ids.map((listId) => {
                     const list = lists && lists.find(l => l.id === listId);
                     return list ? (
-                      <span key={listId} className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                      <span key={listId} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
                         {list.name}
                       </span>
                     ) : null;
@@ -286,14 +298,19 @@ const Goals = () => {
                 </div>
               </div>
 
-              {/* View Progress Button */}
-              <button
-                onClick={() => fetchGoalProgress(goal.id)}
-                className="w-full btn bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center space-x-2"
-              >
-                <BarChart3 className="h-4 w-4" />
-                <span>View Progress History</span>
-              </button>
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-4 border-t border-gray-700">
+                <div className="text-xs text-gray-500">
+                  Period: {new Date(goal.progress?.periodStart || Date.now()).toLocaleDateString()} - {new Date(goal.progress?.periodEnd || Date.now()).toLocaleDateString()}
+                </div>
+                <button
+                  onClick={() => fetchGoalProgress(goal.id)}
+                  className="btn-secondary flex items-center space-x-2"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  <span>View History</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -301,88 +318,115 @@ const Goals = () => {
 
       {/* Create/Edit Goal Modal */}
       {(showCreateGoal || editingGoal) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="glass rounded-xl p-6 border border-purple-500/20 w-full max-w-md">
-            <h3 className="text-xl font-semibold text-white mb-4">
-              {editingGoal ? 'Edit Goal' : 'Create New Goal'}
-            </h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800/95 backdrop-blur-md rounded-xl p-6 border border-purple-500/30 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">
+                {editingGoal ? 'Edit Goal' : 'Create New Goal'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateGoal(false);
+                  setEditingGoal(null);
+                  setNewGoal({
+                    userId: '',
+                    name: '',
+                    description: '',
+                    calculationType: 'percentage_task_count',
+                    targetValue: 50,
+                    periodType: 'weekly',
+                    listIds: []
+                  });
+                }}
+                className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             
-            <form onSubmit={editingGoal ? handleUpdateGoal : handleCreateGoal} className="space-y-4">
-              {isAdmin && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">User</label>
-                  <select
-                    value={newGoal.userId}
-                    onChange={(e) => setNewGoal({ ...newGoal, userId: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                  >
-                    <option value="">Select User</option>
-                    {users && users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.username}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+            <form onSubmit={editingGoal ? handleUpdateGoal : handleCreateGoal} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {isAdmin && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">User</label>
+                    <select
+                      value={newGoal.userId}
+                      onChange={(e) => setNewGoal({ ...newGoal, userId: e.target.value })}
+                      className="input w-full"
+                      required
+                    >
+                      <option value="">Select User</option>
+                      {users && users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.username}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Goal Name</label>
-                <input
-                  type="text"
-                  value={newGoal.name}
-                  onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  required
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Goal Name</label>
+                  <input
+                    type="text"
+                    value={newGoal.name}
+                    onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
+                    className="input w-full"
+                    placeholder="Enter goal name..."
+                    required
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
                 <textarea
                   value={newGoal.description}
                   onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  rows="2"
+                  className="input w-full"
+                  rows="3"
+                  placeholder="Enter goal description (optional)..."
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Calculation Type</label>
-                <select
-                  value={newGoal.calculationType}
-                  onChange={(e) => setNewGoal({ ...newGoal, calculationType: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="percentage_task_count">Percentage of Tasks</option>
-                  <option value="percentage_time">Percentage of Time</option>
-                  <option value="fixed_task_count">Fixed Task Count</option>
-                  <option value="fixed_time">Fixed Time</option>
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Calculation Type</label>
+                  <select
+                    value={newGoal.calculationType}
+                    onChange={(e) => setNewGoal({ ...newGoal, calculationType: e.target.value })}
+                    className="input w-full"
+                  >
+                    <option value="percentage_task_count">Percentage of Tasks</option>
+                    <option value="percentage_time">Percentage of Time</option>
+                    <option value="fixed_task_count">Fixed Task Count</option>
+                    <option value="fixed_time">Fixed Time</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Target Value {newGoal.calculationType.includes('percentage') ? '(%)' : newGoal.calculationType.includes('time') ? '(minutes)' : '(tasks)'}
+                  </label>
+                  <input
+                    type="number"
+                    value={newGoal.targetValue}
+                    onChange={(e) => setNewGoal({ ...newGoal, targetValue: parseFloat(e.target.value) })}
+                    className="input w-full"
+                    min="0"
+                    step="0.1"
+                    placeholder="Enter target value..."
+                    required
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Target Value {newGoal.calculationType.includes('percentage') ? '(%)' : newGoal.calculationType.includes('time') ? '(minutes)' : '(tasks)'}
-                </label>
-                <input
-                  type="number"
-                  value={newGoal.targetValue}
-                  onChange={(e) => setNewGoal({ ...newGoal, targetValue: parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  min="0"
-                  step="0.1"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Period</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Period</label>
                 <select
                   value={newGoal.periodType}
                   onChange={(e) => setNewGoal({ ...newGoal, periodType: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="input w-full"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -393,10 +437,10 @@ const Goals = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Lists</label>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Select Lists</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                   {lists && lists.map((list) => (
-                    <label key={list.id} className="flex items-center space-x-2 text-sm">
+                    <label key={list.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-700/50 p-3 rounded-lg transition-colors">
                       <input
                         type="checkbox"
                         checked={newGoal.listIds.includes(list.id)}
@@ -407,7 +451,7 @@ const Goals = () => {
                             setNewGoal({ ...newGoal, listIds: newGoal.listIds.filter(id => id !== list.id) });
                           }
                         }}
-                        className="rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500"
+                        className="rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 w-4 h-4"
                       />
                       <span className="text-gray-300">{list.name}</span>
                     </label>
@@ -415,10 +459,10 @@ const Goals = () => {
                 </div>
               </div>
 
-              <div className="flex space-x-3 pt-4">
+              <div className="flex space-x-4 pt-6 border-t border-gray-700">
                 <button
                   type="submit"
-                  className="flex-1 btn bg-purple-600 text-white hover:bg-purple-700"
+                  className="btn-primary flex-1"
                 >
                   {editingGoal ? 'Update Goal' : 'Create Goal'}
                 </button>
@@ -437,7 +481,7 @@ const Goals = () => {
                       listIds: []
                     });
                   }}
-                  className="flex-1 btn bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>
@@ -449,46 +493,75 @@ const Goals = () => {
 
       {/* Progress History Modal */}
       {selectedGoalProgress && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="glass rounded-xl p-6 border border-purple-500/20 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800/95 backdrop-blur-md rounded-xl p-6 border border-purple-500/30 shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-white">Progress History</h3>
               <button
                 onClick={() => setSelectedGoalProgress(null)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
             {selectedGoalProgress.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">No progress data available yet.</p>
+              <div className="text-center py-12">
+                <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-400">No progress data available yet.</p>
+                <p className="text-gray-500 text-sm mt-2">Progress will appear here as goals are tracked over time.</p>
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {selectedGoalProgress.map((progress, index) => (
-                  <div key={progress.id} className="bg-gray-800/50 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-400">
-                        {new Date(progress.period_start).toLocaleDateString()} - {new Date(progress.period_end).toLocaleDateString()}
-                      </span>
-                      <span className={`text-sm font-medium ${
-                        progress.is_achieved ? 'text-green-400' : 'text-gray-300'
-                      }`}>
-                        {Math.round(progress.completion_percentage)}%
-                      </span>
+                  <div key={progress.id} className="bg-gray-700/80 backdrop-blur-sm rounded-lg p-4 border border-purple-500/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          {new Date(progress.period_start).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(progress.period_end).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg font-bold text-white">
+                          {Math.round(progress.completion_percentage)}%
+                        </span>
+                        {progress.is_achieved && (
+                          <div className="flex items-center space-x-1 text-green-400">
+                            <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                            <span className="text-sm font-medium">Achieved</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${getProgressColor(progress.completion_percentage)}`}
-                        style={{ width: `${Math.min(progress.completion_percentage, 100)}%` }}
-                      ></div>
+                    <div className="mb-3">
+                      <div className="w-full bg-gray-700 rounded-full h-3">
+                        <div
+                          className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(progress.completion_percentage)}`}
+                          style={{ width: `${Math.min(progress.completion_percentage, 100)}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs mt-1">
-                      <span className="text-gray-500">
-                        {progress.completed_value} / {progress.required_value}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">
+                        Completed: {progress.completed_value} / {progress.required_value}
                       </span>
-                      {progress.is_achieved && (
-                        <CheckCircle className="h-3 w-3 text-green-400" />
+                      {!progress.is_achieved && (
+                        <span className="text-gray-500">
+                          {Math.round(progress.required_value - progress.completed_value)} remaining
+                        </span>
                       )}
                     </div>
                   </div>
