@@ -9,7 +9,7 @@ WORKDIR /app/client
 COPY client/package*.json ./
 
 # Install frontend dependencies (need all deps for build)
-RUN npm ci
+RUN npm install --legacy-peer-deps --silent
 
 # Copy frontend source code
 COPY client/ ./
