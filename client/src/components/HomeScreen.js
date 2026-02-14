@@ -852,36 +852,38 @@ const HomeScreen = () => {
               <div className="space-y-2 mb-6">
                 {goals.map((goal) => (
                   <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2 flex-shrink-0">
                         <Target className="h-4 w-4 text-purple-400" />
                         <span className="font-medium text-white">{goal.name}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all duration-500 ${
-                              (goal.progress?.percentage || 0) >= 100 ? 'bg-green-500' :
-                              (goal.progress?.percentage || 0) >= 75 ? 'bg-blue-500' :
-                              (goal.progress?.percentage || 0) >= 50 ? 'bg-yellow-500' :
-                              (goal.progress?.percentage || 0) >= 25 ? 'bg-orange-500' :
-                              'bg-red-500'
-                            }`}
-                            style={{ width: `${Math.min(goal.progress?.percentage || 0, 100)}%` }}
-                          ></div>
-                        </div>
                       </div>
                       <div className="flex items-center space-x-3 flex-shrink-0">
                         <span className="text-lg font-bold text-white">
                           {Math.round(goal.progress?.percentage || 0)}%
                         </span>
                         <span className="text-sm text-gray-400">
-                          {goal.progress?.completed || 0}/{goal.progress?.required || goal.target_value}
-                          {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' ? '%' : 
-                           goal.calculation_type === 'fixed_time' ? 'min' : 
-                           goal.calculation_type === 'fixed_task_count' ? '' : ''}
+                          {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
+                            ? `${Math.round(goal.progress?.completed || 0)}/${goal.progress?.required || goal.target_value}%`
+                            : goal.calculation_type === 'fixed_time' 
+                            ? `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value}min`
+                            : `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value}`
+                          }
                         </span>
                       </div>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          (goal.progress?.percentage || 0) >= 150 ? 'bg-purple-500' :
+                          (goal.progress?.percentage || 0) >= 125 ? 'bg-pink-500' :
+                          (goal.progress?.percentage || 0) >= 100 ? 'bg-green-500' :
+                          (goal.progress?.percentage || 0) >= 75 ? 'bg-blue-500' :
+                          (goal.progress?.percentage || 0) >= 50 ? 'bg-yellow-500' :
+                          (goal.progress?.percentage || 0) >= 25 ? 'bg-orange-500' :
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${Math.min(goal.progress?.percentage || 0, 150)}%` }}
+                      ></div>
                     </div>
                   </div>
                 ))}

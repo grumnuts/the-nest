@@ -77,13 +77,30 @@ const calculateSimpleProgress = async (goal, listIds) => {
           );
         });
         completed = totalTasks > 0 ? (relevantCompletions.length / totalTasks) * 100 : 0;
-        required = 100; // Percentage goals always target 100%
+        required = goal.target_value; // Use the actual target percentage from goal
         break;
       case 'percentage_time':
-        // Sum time from relevant completions
-        completed = relevantCompletions.reduce((sum, completion) => {
+        // For percentage time, we need total possible time from all tasks in lists
+        const totalPossibleTime = await new Promise((resolve, reject) => {
+          if (listIds.length === 0) {
+            resolve(0);
+            return;
+          }
+          const placeholders = listIds.map(() => '?').join(',');
+          db.db.all(
+            `SELECT SUM(duration_minutes) as total_time FROM tasks WHERE list_id IN (${placeholders})`,
+            listIds,
+            (err, result) => {
+              if (err) reject(err);
+              else resolve(result[0].total_time || 0);
+            }
+          );
+        });
+        const completedTime = relevantCompletions.reduce((sum, completion) => {
           return sum + (completion.duration_minutes || 0);
         }, 0);
+        completed = totalPossibleTime > 0 ? (completedTime / totalPossibleTime) * 100 : 0;
+        required = goal.target_value; // Use the actual target percentage from goal
         break;
       case 'fixed_task_count':
         completed = relevantCompletions.length;
@@ -97,7 +114,7 @@ const calculateSimpleProgress = async (goal, listIds) => {
         completed = relevantCompletions.length;
     }
 
-    const percentage = required > 0 ? Math.min((completed / required) * 100, 100) : 0;
+    const percentage = required > 0 ? (completed / required) * 100 : 0;
     const isAchieved = percentage >= 100;
 
     return {
