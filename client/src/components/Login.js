@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import logoImage from '../assets/TheNestLogo.png';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 
 const Login = () => {
@@ -35,7 +37,7 @@ const Login = () => {
         <div className="glass rounded-xl p-8 border border-purple-500/20">
           <div className="flex flex-col items-center">
             <img 
-              src="/TheNestLogo.png" 
+              src={logoImage} 
               alt="The Nest Logo" 
               className="h-16 w-16 rounded mb-4"
             />

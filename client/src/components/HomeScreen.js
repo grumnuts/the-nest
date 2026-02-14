@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import logoImage from '../assets/TheNestLogo.png';
 
 const HomeScreen = () => {
   const { user, logout } = useAuth();
@@ -595,7 +596,7 @@ const HomeScreen = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <img 
-                src="/TheNestLogo.png" 
+                src={logoImage} 
                 alt="The Nest Logo" 
                 className="h-8 w-8 rounded"
               />

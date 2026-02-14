@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Home, List, LogOut, Menu, X } from 'lucide-react';
+import logoImage from '../assets/TheNestLogo.png';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -23,7 +24,7 @@ const Navbar = () => {
           <div className="flex items-center">
             <Link to="/dashboard" className="flex items-center space-x-2">
               <img 
-                src="/TheNestLogo.png" 
+                src={logoImage} 
                 alt="The Nest Logo" 
                 className="h-8 w-8 rounded"
               />
