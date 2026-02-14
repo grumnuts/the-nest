@@ -30,8 +30,8 @@ async function createAdmin() {
     
     await new Promise((resolve, reject) => {
       db.db.run(
-        'INSERT INTO users (username, password, is_admin, created_at) VALUES (?, ?, ?, ?)',
-        [username, hashedPassword, 1, new Date().toISOString()],
+        'INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)',
+        [username, `${username}@localhost`, hashedPassword, new Date().toISOString()],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);
@@ -42,6 +42,7 @@ async function createAdmin() {
     console.log('✅ Admin user created successfully!');
     console.log('📋 Login credentials:');
     console.log(`   Username: ${username}`);
+    console.log(`   Email: ${username}@localhost`);
     console.log(`   Password: ${password}`);
     console.log('');
     console.log('🌐 Access your app at: http://localhost:5000');

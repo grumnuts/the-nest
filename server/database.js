@@ -165,6 +165,10 @@ class Database {
     this.db.get('SELECT * FROM users WHERE email = ?', [email], callback);
   }
 
+  getUserByUsername(username, callback) {
+    this.db.get('SELECT * FROM users WHERE username = ?', [username], callback);
+  }
+
   getUserById(id, callback) {
     this.db.get('SELECT * FROM users WHERE id = ?', [id], callback);
   }

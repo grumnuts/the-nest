@@ -36,7 +36,7 @@ const validateRegistration = [
 ];
 
 const validateLogin = [
-  body('email').isEmail().normalizeEmail(),
+  body('username').isLength({ min: 3, max: 30 }).trim().escape(),
   body('password').notEmpty(),
   (req, res, next) => {
     const errors = validationResult(req);

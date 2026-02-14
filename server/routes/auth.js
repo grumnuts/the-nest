@@ -11,39 +11,50 @@ const db = new Database();
 router.post('/register', validateRegistration, (req, res) => {
   const { username, email, password } = req.body;
 
-  // Check if user already exists
-  db.getUserByEmail(email, (err, existingUser) => {
+  // Check if username already exists
+  db.getUserByUsername(username, (err, existingUser) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
 
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+      return res.status(400).json({ error: 'Username already exists' });
     }
 
-    // Hash password
-    bcrypt.hash(password, 10, (err, hash) => {
+    // Check if email already exists
+    db.getUserByEmail(email, (err, existingEmailUser) => {
       if (err) {
-        return res.status(500).json({ error: 'Error hashing password' });
+        return res.status(500).json({ error: 'Database error' });
       }
 
-      // Create user
-      db.createUser(username, email, hash, (err, userId) => {
+      if (existingEmailUser) {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+
+      // Hash password
+      bcrypt.hash(password, 10, (err, hash) => {
         if (err) {
-          return res.status(500).json({ error: 'Error creating user' });
+          return res.status(500).json({ error: 'Error hashing password' });
         }
 
-        // Generate JWT token
-        const token = jwt.sign(
-          { userId, username, email },
-          JWT_SECRET,
-          { expiresIn: '24h' }
-        );
+        // Create user
+        db.createUser(username, email, hash, (err, userId) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error creating user' });
+          }
 
-        res.status(201).json({
-          message: 'User created successfully',
-          token,
-          user: { userId, username, email }
+          // Generate JWT token
+          const token = jwt.sign(
+            { userId, username, email },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+
+          res.status(201).json({
+            message: 'User created successfully',
+            token,
+            user: { userId, username, email }
+          });
         });
       });
     });
@@ -52,9 +63,9 @@ router.post('/register', validateRegistration, (req, res) => {
 
 // Login user
 router.post('/login', validateLogin, (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  db.getUserByEmail(email, (err, user) => {
+  db.getUserByUsername(username, (err, user) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }

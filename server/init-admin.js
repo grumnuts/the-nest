@@ -22,8 +22,8 @@ async function initializeAdmin() {
       
       await new Promise((resolve, reject) => {
         db.db.run(
-          'INSERT INTO users (username, password, is_admin, created_at) VALUES (?, ?, ?, ?)',
-          ['admin', hashedPassword, 1, new Date().toISOString()],
+          'INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)',
+          ['admin', 'admin@localhost', hashedPassword, new Date().toISOString()],
           function(err) {
             if (err) reject(err);
             else resolve(this.lastID);
@@ -34,6 +34,7 @@ async function initializeAdmin() {
       console.log('✅ Initial admin user created successfully!');
       console.log('📋 Login credentials:');
       console.log('   Username: admin');
+      console.log('   Email: admin@localhost');
       console.log('   Password: admin123');
       console.log('');
       console.log('🌐 Access your app at: http://localhost:5000');
