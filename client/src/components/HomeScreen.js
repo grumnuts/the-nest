@@ -113,16 +113,15 @@ const HomeScreen = () => {
     loadData();
   }, []);
 
-  // Real-time updates - poll for changes every 5 seconds
+  // Real-time updates - poll for changes every 500ms for instant updates
   useEffect(() => {
     const interval = setInterval(() => {
       if (activeListId) {
-        console.log('Polling for updates...');
         fetchListData(activeListId);
       }
       fetchLists();
       fetchGoals();
-    }, 5000); // Poll every 5 seconds
+    }, 500); // Poll every 500ms for instant-feeling updates
 
     return () => clearInterval(interval);
   }, [activeListId]);
@@ -322,6 +321,7 @@ const HomeScreen = () => {
       setLastUpdate(Date.now());
       
       fetchListData(activeListId);
+      fetchGoals(); // Immediate goal progress update
     } catch (error) {
       console.error('Error creating task:', error.response?.data || error.message);
       const errorMsg = error.response?.data?.errors 
@@ -341,6 +341,7 @@ const HomeScreen = () => {
     try {
       await axios.patch(`/api/tasks/${taskId}/status`, { is_completed: isCompleted });
       fetchListData(activeListId);
+      fetchGoals(); // Immediate goal progress update
     } catch (error) {
       console.error('Error updating task:', error);
       alert('Error updating task. Please try again.');
@@ -351,6 +352,7 @@ const HomeScreen = () => {
     try {
       await axios.patch(`/api/tasks/${taskId}/undo`);
       fetchListData(activeListId);
+      fetchGoals(); // Immediate goal progress update
     } catch (error) {
       console.error('Error undoing task:', error);
       alert('Error undoing task. Please try again.');

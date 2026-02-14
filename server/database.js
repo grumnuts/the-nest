@@ -61,6 +61,7 @@ class Database {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           last_reset DATETIME,
           is_active BOOLEAN DEFAULT 1,
+          sort_order INTEGER DEFAULT 0,
           FOREIGN KEY (created_by) REFERENCES users (id)
         )
       `);
@@ -79,6 +80,7 @@ class Database {
           completed_by INTEGER,
           duration_minutes INTEGER DEFAULT 0,
           allow_multiple_completions BOOLEAN DEFAULT 0,
+          sort_order INTEGER DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (list_id) REFERENCES lists (id),
@@ -100,6 +102,26 @@ class Database {
           FOREIGN KEY (user_id) REFERENCES users (id),
           FOREIGN KEY (list_id) REFERENCES lists (id),
           UNIQUE(user_id, list_id)
+        )
+      `);
+
+      // Goals table for the new goal system
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS goals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          calculation_type TEXT NOT NULL CHECK (calculation_type IN ('percentage_task_count', 'percentage_time', 'fixed_task_count', 'fixed_time')),
+          target_value INTEGER NOT NULL,
+          period_type TEXT NOT NULL CHECK (period_type IN ('daily', 'weekly', 'monthly', 'quarterly', 'annually')),
+          list_ids TEXT NOT NULL,
+          is_active BOOLEAN DEFAULT 1,
+          created_by INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id),
+          FOREIGN KEY (created_by) REFERENCES users (id)
         )
       `);
 
@@ -132,6 +154,18 @@ class Database {
       this.db.run(`ALTER TABLE tasks ADD COLUMN completed_by INTEGER`, (err) => {
         if (err && !err.message.includes('duplicate column name')) {
           console.error('Error adding completed_by column:', err);
+        }
+      });
+
+      this.db.run(`ALTER TABLE lists ADD COLUMN sort_order INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding sort_order column:', err);
+        }
+      });
+
+      this.db.run(`ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding sort_order column to tasks:', err);
         }
       });
 
