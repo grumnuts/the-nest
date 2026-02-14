@@ -4,6 +4,7 @@ services:
   # The Nest application - Single container with frontend + backend
   the-nest:
     build: .
+    container_name: the-nest
     ports:
       - "5000:5000"
     environment:
