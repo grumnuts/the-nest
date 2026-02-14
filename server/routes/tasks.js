@@ -350,4 +350,37 @@ router.delete('/:id', authenticateToken, (req, res) => {
   });
 });
 
+// Reorder tasks within a list
+router.post('/reorder/:listId', authenticateToken, (req, res) => {
+  // Check if user is admin
+  if (req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can reorder tasks' });
+  }
+  
+  const { listId } = req.params;
+  const { taskIds } = req.body;
+  
+  if (!Array.isArray(taskIds)) {
+    return res.status(400).json({ error: 'taskIds must be an array' });
+  }
+
+  // Update the sort_order for each task
+  let completedUpdates = 0;
+  const totalUpdates = taskIds.length;
+  
+  taskIds.forEach((taskId, index) => {
+    db.updateTaskSortOrder(taskId, index, (err, changes) => {
+      if (err) {
+        console.error(`Error updating sort order for task ${taskId}:`, err);
+        return res.status(500).json({ error: 'Error updating task order' });
+      }
+      
+      completedUpdates++;
+      if (completedUpdates === totalUpdates) {
+        res.json({ message: 'Task order updated successfully' });
+      }
+    });
+  });
+});
+
 module.exports = router;

@@ -178,13 +178,25 @@ class Database {
     stmt.finalize();
   }
 
-  updateList(listId, name, description, resetPeriod, callback) {
+  updateList(id, name, description, resetPeriod, callback) {
     const stmt = this.db.prepare(`
       UPDATE lists 
       SET name = ?, description = ?, reset_period = ?, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?
     `);
-    stmt.run([name, description, resetPeriod, listId], function(err) {
+    stmt.run([name, description, resetPeriod, id], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateListSortOrder(listId, sortOrder, callback) {
+    const stmt = this.db.prepare(`
+      UPDATE lists 
+      SET sort_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    stmt.run([sortOrder, listId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -242,7 +254,7 @@ class Database {
       LEFT JOIN users cu ON tc.completed_by = cu.id
       WHERE t.list_id = ? 
       GROUP BY t.id
-      ORDER BY t.created_at ASC
+      ORDER BY t.sort_order ASC, t.created_at ASC
     `, [listId], callback);
   }
 
@@ -312,6 +324,18 @@ class Database {
   removeTaskCompletion(completionId, callback) {
     const stmt = this.db.prepare('DELETE FROM task_completions WHERE id = ?');
     stmt.run([completionId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateTaskSortOrder(taskId, sortOrder, callback) {
+    const stmt = this.db.prepare(`
+      UPDATE tasks 
+      SET sort_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    stmt.run([sortOrder, taskId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();

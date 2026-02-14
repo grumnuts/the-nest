@@ -26,6 +26,10 @@ const HomeScreen = () => {
   const [editingList, setEditingList] = useState(null);
   const [showDeleteListConfirm, setShowDeleteListConfirm] = useState(false);
   const [listToDelete, setListToDelete] = useState(null);
+  const [draggedList, setDraggedList] = useState(null);
+  const [dragOverList, setDragOverList] = useState(null);
+  const [draggedTask, setDraggedTask] = useState(null);
+  const [dragOverTask, setDragOverTask] = useState(null);
   const [newTask, setNewTask] = useState({ 
     title: '', 
     description: '', 
@@ -110,6 +114,138 @@ const HomeScreen = () => {
       fetchListData(activeListId);
     }
   }, [activeListId]);
+
+  // Drag and drop functions for list reordering
+  const handleDragStart = (e, list) => {
+    setDraggedList(list);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, list) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Determine if we should insert before or after the target
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midPoint = rect.left + rect.width / 2;
+    const insertBefore = e.clientX < midPoint;
+    
+    setDragOverList({ ...list, insertBefore });
+  };
+
+  const handleDragLeave = (e) => {
+    // Only clear if we're actually leaving the element
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverList(null);
+    }
+  };
+
+  const handleDrop = (e, targetList) => {
+    e.preventDefault();
+    setDragOverList(null);
+    
+    if (!draggedList || draggedList.id === targetList.id) {
+      return;
+    }
+
+    const draggedIndex = lists.findIndex(list => list.id === draggedList.id);
+    const targetIndex = lists.findIndex(list => list.id === targetList.id);
+    
+    const newLists = [...lists];
+    newLists.splice(draggedIndex, 1);
+    
+    // Determine insertion position based on where the user dropped
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midPoint = rect.left + rect.width / 2;
+    const insertBefore = e.clientX < midPoint;
+    
+    const finalIndex = insertBefore ? targetIndex : targetIndex + 1;
+    newLists.splice(finalIndex, 0, draggedList);
+    
+    setLists(newLists);
+    setDraggedList(null);
+    
+    // Save the new order to the backend
+    saveListOrder(newLists);
+  };
+
+  const saveListOrder = async (orderedLists) => {
+    try {
+      const listIds = orderedLists.map(list => list.id);
+      await axios.post('/api/lists/reorder', { listIds });
+      console.log('List order saved successfully');
+    } catch (error) {
+      console.error('Error saving list order:', error);
+      // Optionally revert the order if save fails
+      fetchLists();
+    }
+  };
+
+  // Drag and drop functions for task reordering
+  const handleTaskDragStart = (e, task) => {
+    setDraggedTask(task);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleTaskDragOver = (e, task) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Determine if we should insert before or after the target
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midPoint = rect.top + rect.height / 2;
+    const insertBefore = e.clientY < midPoint;
+    
+    setDragOverTask({ ...task, insertBefore });
+  };
+
+  const handleTaskDragLeave = (e) => {
+    // Only clear if we're actually leaving the element
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverTask(null);
+    }
+  };
+
+  const handleTaskDrop = (e, targetTask) => {
+    e.preventDefault();
+    setDragOverTask(null);
+    
+    if (!draggedTask || draggedTask.id === targetTask.id) {
+      return;
+    }
+
+    const draggedIndex = tasks.findIndex(task => task.id === draggedTask.id);
+    const targetIndex = tasks.findIndex(task => task.id === targetTask.id);
+    
+    const newTasks = [...tasks];
+    newTasks.splice(draggedIndex, 1);
+    
+    // Determine insertion position based on where the user dropped
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midPoint = rect.top + rect.height / 2;
+    const insertBefore = e.clientY < midPoint;
+    
+    const finalIndex = insertBefore ? targetIndex : targetIndex + 1;
+    newTasks.splice(finalIndex, 0, draggedTask);
+    
+    setTasks(newTasks);
+    setDraggedTask(null);
+    
+    // Save the new order to the backend
+    saveTaskOrder(newTasks);
+  };
+
+  const saveTaskOrder = async (orderedTasks) => {
+    try {
+      const taskIds = orderedTasks.map(task => task.id);
+      await axios.post(`/api/tasks/reorder/${activeListId}`, { taskIds });
+      console.log('Task order saved successfully');
+    } catch (error) {
+      console.error('Error saving task order:', error);
+      // Optionally revert the order if save fails
+      fetchListData(activeListId);
+    }
+  };
 
   // Keyboard navigation
   useEffect(() => {
@@ -662,17 +798,34 @@ const HomeScreen = () => {
             {/* List Tabs */}
             <div className="flex space-x-1 mb-6 overflow-x-auto">
               {lists.map((list) => (
-                <button
+                <div
                   key={list.id}
-                  onClick={() => setActiveListId(list.id)}
-                  className={`px-4 py-2 rounded-t-lg font-medium transition-all ${
+                  draggable={isAdmin}
+                  onDragStart={(e) => handleDragStart(e, list)}
+                  onDragOver={(e) => handleDragOver(e, list)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, list)}
+                  className={`px-4 py-2 rounded-t-lg font-medium transition-all cursor-move relative ${
                     activeListId === list.id
                       ? 'bg-purple-600 text-white shadow-lg'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  } ${
+                    draggedList?.id === list.id ? 'opacity-50' : ''
                   }`}
+                  onClick={() => setActiveListId(list.id)}
                 >
+                  {/* Left indicator - insert before */}
+                  {dragOverList?.id === list.id && dragOverList?.insertBefore && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-400 rounded-l-lg"></div>
+                  )}
+                  
+                  {/* Right indicator - insert after */}
+                  {dragOverList?.id === list.id && !dragOverList?.insertBefore && (
+                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-purple-400 rounded-r-lg"></div>
+                  )}
+                  
                   {list.name}
-                </button>
+                </div>
               ))}
             </div>
 
@@ -973,13 +1126,29 @@ const HomeScreen = () => {
                       {tasks.map((task) => (
                         <div
                           key={task.id}
-                          className={`p-4 rounded-lg border transition-all cursor-pointer ${
+                          draggable={isAdmin}
+                          onDragStart={(e) => handleTaskDragStart(e, task)}
+                          onDragOver={(e) => handleTaskDragOver(e, task)}
+                          onDragLeave={handleTaskDragLeave}
+                          onDrop={(e) => handleTaskDrop(e, task)}
+                          className={`p-4 rounded-lg border transition-all cursor-move relative ${
                             task.is_completed
                               ? 'bg-green-900/30 border-green-500/50'
                               : 'bg-gray-800/50 border-gray-700 hover:border-purple-500/50'
+                          } ${
+                            draggedTask?.id === task.id ? 'opacity-50' : ''
                           }`}
                           onClick={() => handleTaskClick(task.id)}
                         >
+                          {/* Top indicator - insert before */}
+                          {dragOverTask?.id === task.id && dragOverTask?.insertBefore && (
+                            <div className="absolute left-0 right-0 top-0 h-1 bg-purple-400 rounded-t-lg"></div>
+                          )}
+                          
+                          {/* Bottom indicator - insert after */}
+                          {dragOverTask?.id === task.id && !dragOverTask?.insertBefore && (
+                            <div className="absolute left-0 right-0 bottom-0 h-1 bg-purple-400 rounded-b-lg"></div>
+                          )}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3 flex-1">
                               <div>

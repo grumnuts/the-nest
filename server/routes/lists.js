@@ -7,8 +7,8 @@ const db = new Database();
 
 // Get all lists for authenticated users (shared across all users)
 router.get('/', authenticateToken, (req, res) => {
-  // Get all active lists (shared across all users)
-  db.db.all('SELECT * FROM lists WHERE is_active = 1 ORDER BY created_at DESC', [], (err, lists) => {
+  // Get all active lists (shared across all users) ordered by sort_order
+  db.db.all('SELECT * FROM lists WHERE is_active = 1 ORDER BY sort_order ASC, created_at ASC', [], (err, lists) => {
     if (err) {
       return res.status(500).json({ error: 'Error fetching lists' });
     }
@@ -198,5 +198,36 @@ router.delete('/:id', authenticateToken, (req, res) => {
   });
 });
 
+// Reorder lists
+router.post('/reorder', authenticateToken, (req, res) => {
+  // Check if user is admin
+  if (req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can reorder lists' });
+  }
+  
+  const { listIds } = req.body;
+  
+  if (!Array.isArray(listIds)) {
+    return res.status(400).json({ error: 'listIds must be an array' });
+  }
+
+  // Update the sort_order for each list
+  let completedUpdates = 0;
+  const totalUpdates = listIds.length;
+  
+  listIds.forEach((listId, index) => {
+    db.updateListSortOrder(listId, index, (err, changes) => {
+      if (err) {
+        console.error(`Error updating sort order for list ${listId}:`, err);
+        return res.status(500).json({ error: 'Error updating list order' });
+      }
+      
+      completedUpdates++;
+      if (completedUpdates === totalUpdates) {
+        res.json({ message: 'List order updated successfully' });
+      }
+    });
+  });
+});
 
 module.exports = router;
