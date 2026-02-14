@@ -50,11 +50,15 @@ class Database {
           created_by INTEGER NOT NULL,
           is_completed BOOLEAN DEFAULT 0,
           completed_at DATETIME,
+          completed_by INTEGER,
+          duration_minutes INTEGER DEFAULT 0,
+          allow_multiple_completions BOOLEAN DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (list_id) REFERENCES lists (id),
           FOREIGN KEY (assigned_to) REFERENCES users (id),
-          FOREIGN KEY (created_by) REFERENCES users (id)
+          FOREIGN KEY (created_by) REFERENCES users (id),
+          FOREIGN KEY (completed_by) REFERENCES users (id)
         )
       `);
 
@@ -86,6 +90,37 @@ class Database {
         )
       `);
 
+      // Add missing columns to existing tasks table
+      this.db.run(`ALTER TABLE tasks ADD COLUMN duration_minutes INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding duration_minutes column:', err);
+        }
+      });
+      
+      this.db.run(`ALTER TABLE tasks ADD COLUMN allow_multiple_completions BOOLEAN DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding allow_multiple_completions column:', err);
+        }
+      });
+
+      this.db.run(`ALTER TABLE tasks ADD COLUMN completed_by INTEGER`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding completed_by column:', err);
+        }
+      });
+
+      // Task completions history
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS task_completions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          task_id INTEGER NOT NULL,
+          completed_by INTEGER NOT NULL,
+          completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES tasks (id),
+          FOREIGN KEY (completed_by) REFERENCES users (id)
+        )
+      `);
+
       // User list permissions
       this.db.run(`
         CREATE TABLE IF NOT EXISTS user_list_permissions (
@@ -95,7 +130,7 @@ class Database {
           permission_level TEXT NOT NULL CHECK (permission_level IN ('owner', 'editor', 'viewer')),
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id),
-          FOREIGN KEY (list_id) REFERENCES lists (id),
+          FOREIGN KEY (list_id) REFERENCES users (id),
           UNIQUE(user_id, list_id)
         )
       `);
@@ -118,6 +153,14 @@ class Database {
     stmt.finalize();
   }
 
+  updateUserPassword(userId, newPasswordHash, callback) {
+    const stmt = this.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+    stmt.run([newPasswordHash, userId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
   getUserByEmail(email, callback) {
     this.db.get('SELECT * FROM users WHERE email = ?', [email], callback);
   }
@@ -131,6 +174,26 @@ class Database {
     const stmt = this.db.prepare('INSERT INTO lists (name, description, reset_period, created_by) VALUES (?, ?, ?, ?)');
     stmt.run([name, description, resetPeriod, createdBy], function(err) {
       callback(err, this ? this.lastID : null);
+    });
+    stmt.finalize();
+  }
+
+  updateList(listId, name, description, resetPeriod, callback) {
+    const stmt = this.db.prepare(`
+      UPDATE lists 
+      SET name = ?, description = ?, reset_period = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    stmt.run([name, description, resetPeriod, listId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  deleteList(listId, callback) {
+    const stmt = this.db.prepare('DELETE FROM lists WHERE id = ?');
+    stmt.run([listId], function(err) {
+      callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
   }
@@ -151,9 +214,9 @@ class Database {
   }
 
   // Task methods
-  createTask(title, description, listId, assignedTo, createdBy, callback) {
-    const stmt = this.db.prepare('INSERT INTO tasks (title, description, list_id, assigned_to, created_by) VALUES (?, ?, ?, ?, ?)');
-    stmt.run([title, description, listId, assignedTo, createdBy], function(err) {
+  createTask(title, description, listId, assignedTo, createdBy, durationMinutes, allowMultipleCompletions, callback) {
+    const stmt = this.db.prepare('INSERT INTO tasks (title, description, list_id, assigned_to, created_by, duration_minutes, allow_multiple_completions) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    stmt.run([title, description, listId, assignedTo, createdBy, durationMinutes || 0, allowMultipleCompletions || 0], function(err) {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();
@@ -161,21 +224,102 @@ class Database {
 
   getTasksByList(listId, callback) {
     this.db.all(`
-      SELECT t.*, u.username as assigned_username 
+      SELECT t.*, 
+             u.username as assigned_username,
+             c.username as completed_by_username,
+             GROUP_CONCAT(
+               json_object(
+                 'id', tc.id,
+                 'completed_by', tc.completed_by,
+                 'username', cu.username,
+                 'completed_at', tc.completed_at
+               )
+             ) as completions
       FROM tasks t 
       LEFT JOIN users u ON t.assigned_to = u.id 
+      LEFT JOIN users c ON t.completed_by = c.id 
+      LEFT JOIN task_completions tc ON t.id = tc.task_id
+      LEFT JOIN users cu ON tc.completed_by = cu.id
       WHERE t.list_id = ? 
+      GROUP BY t.id
       ORDER BY t.created_at ASC
     `, [listId], callback);
   }
 
-  updateTaskStatus(taskId, isCompleted, callback) {
+  getTaskById(taskId, callback) {
+    this.db.get(`
+      SELECT t.*, 
+             u.username as assigned_username,
+             c.username as completed_by_username
+      FROM tasks t 
+      LEFT JOIN users u ON t.assigned_to = u.id 
+      LEFT JOIN users c ON t.completed_by = c.id 
+      WHERE t.id = ?
+    `, [taskId], callback);
+  }
+
+  updateTaskStatus(taskId, isCompleted, completedBy, callback) {
     const stmt = this.db.prepare(`
       UPDATE tasks 
-      SET is_completed = ?, completed_at = ?, updated_at = CURRENT_TIMESTAMP 
+      SET is_completed = ?, completed_at = ?, completed_by = ?, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?
     `);
-    stmt.run([isCompleted, isCompleted ? new Date().toISOString() : null, taskId], function(err) {
+    stmt.run([isCompleted, isCompleted ? new Date().toISOString() : null, isCompleted ? completedBy : null, taskId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateTask(taskId, title, description, durationMinutes, allowMultipleCompletions, callback) {
+    const stmt = this.db.prepare(`
+      UPDATE tasks 
+      SET title = ?, description = ?, duration_minutes = ?, allow_multiple_completions = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    stmt.run([title, description, durationMinutes, allowMultipleCompletions ? 1 : 0, taskId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  // Task completion methods
+  addTaskCompletion(taskId, completedBy, callback) {
+    const stmt = this.db.prepare('INSERT INTO task_completions (task_id, completed_by) VALUES (?, ?)');
+    stmt.run([taskId, completedBy], function(err) {
+      callback(err, this ? this.lastID : null);
+    });
+    stmt.finalize();
+  }
+
+  getTaskCompletions(taskId, callback) {
+    this.db.all(`
+      SELECT tc.*, u.username 
+      FROM task_completions tc 
+      JOIN users u ON tc.completed_by = u.id 
+      WHERE tc.task_id = ? 
+      ORDER BY tc.completed_at DESC
+    `, [taskId], callback);
+  }
+
+  removeLastCompletion(taskId, callback) {
+    const stmt = this.db.prepare('DELETE FROM task_completions WHERE id = (SELECT id FROM task_completions WHERE task_id = ? ORDER BY completed_at DESC LIMIT 1)');
+    stmt.run([taskId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  removeTaskCompletion(completionId, callback) {
+    const stmt = this.db.prepare('DELETE FROM task_completions WHERE id = ?');
+    stmt.run([completionId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  deleteTask(taskId, callback) {
+    const stmt = this.db.prepare('DELETE FROM tasks WHERE id = ?');
+    stmt.run([taskId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -225,6 +369,7 @@ class Database {
     this.db.all('SELECT * FROM list_snapshots WHERE list_id = ? ORDER BY period_start DESC', [listId], callback);
   }
 
+  
   // Close database connection
   close() {
     this.db.close();

@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import HomeScreen from './components/HomeScreen';
 import ListView from './components/ListView';
+import Settings from './components/Settings';
 import Navbar from './components/Navbar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -36,6 +37,14 @@ function AppRoutes() {
         <Route 
           path="/list/:id" 
           element={user ? <><Navbar /><ListView /></> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/settings" 
+          element={user ? <Settings /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/admin/reset-password" 
+          element={user ? <Settings /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/" 

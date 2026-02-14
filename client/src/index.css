@@ -48,6 +48,72 @@
   .glass {
     @apply bg-white/10 backdrop-blur-md border border-white/20;
   }
+
+  .no-pseudo::before,
+  .no-pseudo::after {
+    content: none !important;
+  }
+
+  .btn *::before,
+  .btn *::after {
+    content: none !important;
+  }
+
+  .btn::before,
+  .btn::after {
+    content: none !important;
+  }
+
+  .task-content,
+  .task-content * {
+    list-style: none !important;
+    list-style-type: none !important;
+    counter-reset: none !important;
+    counter-increment: none !important;
+  }
+
+  .task-content::before,
+  .task-content::after,
+  .task-content *::before,
+  .task-content *::after {
+    content: none !important;
+  }
+
+  /* Hide any potential list markers or counters */
+  .task-content li,
+  .task-content * li {
+    list-style: none !important;
+    list-style-type: none !important;
+  }
+
+  .task-content li::before,
+  .task-content * li::before {
+    content: none !important;
+  }
+
+  /* Hide any zero-width characters or hidden content */
+  .task-content [hidden],
+  .task-content * [hidden] {
+    display: none !important;
+  }
+
+  /* Final attempt - hide any numeric content that might be appearing */
+  .task-content::before,
+  .task-content::after,
+  .task-content *::before,
+  .task-content *::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* Hide any potential list item markers */
+  .task-content,
+  .task-content * {
+    list-style: none !important;
+    list-style-type: none !important;
+    list-style-image: none !important;
+    list-style-position: outside !important;
+  }
 }
 
 :root {

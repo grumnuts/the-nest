@@ -5,11 +5,10 @@ const Database = require('../database');
 const router = express.Router();
 const db = new Database();
 
-// Get all lists for the authenticated user
+// Get all lists for authenticated users (shared across all users)
 router.get('/', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
-
-  db.getListsByUser(userId, (err, lists) => {
+  // Get all active lists (shared across all users)
+  db.db.all('SELECT * FROM lists WHERE is_active = 1 ORDER BY created_at DESC', [], (err, lists) => {
     if (err) {
       return res.status(500).json({ error: 'Error fetching lists' });
     }
@@ -20,6 +19,11 @@ router.get('/', authenticateToken, (req, res) => {
 
 // Create a new list
 router.post('/', authenticateToken, validateList, (req, res) => {
+  // Check if user is admin
+  if (req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can create lists' });
+  }
+  
   const { name, description, reset_period } = req.body;
   const createdBy = req.user.userId;
 
@@ -112,5 +116,87 @@ router.get('/:id/history', authenticateToken, (req, res) => {
     });
   });
 });
+
+// Update a list
+router.patch('/:id', authenticateToken, (req, res) => {
+  const listId = req.params.id;
+  const { name, description, reset_period } = req.body;
+  const userId = req.user.userId;
+
+  // First check if user has access to the list
+  db.getListsByUser(userId, (err, userLists) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking permissions' });
+    }
+
+    // Admins can edit any list, other users must be owners or editors
+    if (req.user.username !== 'admin') {
+      const listAccess = userLists.find(list => 
+        list.id === parseInt(listId) && 
+        ['owner', 'editor'].includes(list.permission_level)
+      );
+
+      if (!listAccess) {
+        return res.status(403).json({ error: 'Only list owners and editors can update lists' });
+      }
+    }
+
+    // Update the list
+    db.updateList(listId, name, description, reset_period, (err, changes) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error updating list' });
+      }
+
+      if (changes === 0) {
+        return res.status(404).json({ error: 'List not found' });
+      }
+
+      res.json({
+        message: 'List updated successfully'
+      });
+    });
+  });
+});
+
+// Delete a list
+router.delete('/:id', authenticateToken, (req, res) => {
+  const listId = req.params.id;
+  const userId = req.user.userId;
+
+  // First check if user has access to the list
+  db.getListsByUser(userId, (err, userLists) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking permissions' });
+    }
+
+    // Admins can delete any list, other users must be owners
+    if (req.user.username !== 'admin') {
+      const listAccess = userLists.find(list => 
+        list.id === parseInt(listId) && 
+        ['owner'].includes(list.permission_level)
+      );
+
+      if (!listAccess) {
+        return res.status(403).json({ error: 'Only list owners can delete lists' });
+      }
+    }
+
+    // Delete the list (this will also delete related tasks and completions due to foreign key constraints)
+    db.deleteList(listId, (err, changes) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error deleting list' });
+      }
+
+      if (changes === 0) {
+        return res.status(404).json({ error: 'List not found' });
+      }
+
+      res.json({
+        message: 'List deleted successfully'
+      });
+    });
+  });
+});
+
 
 module.exports = router;

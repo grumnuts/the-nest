@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Target, History, Menu, X, ChevronLeft, ChevronRight, Settings, LogOut, Check, Undo, Clock, User, Trash2 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, Settings, LogOut, CheckCircle2, Circle, Clock, Check } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const HomeScreen = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.username === 'admin';
   
   const [lists, setLists] = useState([]);
   const [activeListId, setActiveListId] = useState(null);
@@ -16,6 +17,15 @@ const HomeScreen = () => {
   const [showCreateList, setShowCreateList] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [listHistory, setListHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const [showEditTask, setShowEditTask] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [showEditList, setShowEditList] = useState(false);
+  const [editingList, setEditingList] = useState(null);
+  const [showDeleteListConfirm, setShowDeleteListConfirm] = useState(false);
+  const [listToDelete, setListToDelete] = useState(null);
   const [newTask, setNewTask] = useState({ 
     title: '', 
     description: '', 
@@ -34,7 +44,7 @@ const HomeScreen = () => {
     try {
       const response = await axios.get('/api/lists');
       setLists(response.data.lists);
-      if (response.data.lists.length > 0) {
+      if (response.data.lists.length > 0 && !activeListId) {
         setActiveListId(response.data.lists[0].id);
       }
     } catch (error) {
@@ -54,9 +64,46 @@ const HomeScreen = () => {
     }
   };
 
+  const fetchListHistory = async (listId) => {
+    if (!listId) return;
+    
+    setHistoryLoading(true);
+    try {
+      const response = await axios.get(`/api/lists/${listId}/history`);
+      setListHistory(response.data.snapshots || []);
+    } catch (error) {
+      console.error('Error fetching list history:', error);
+      setListHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const getActiveList = () => {
+    return lists.find(list => list.id === activeListId);
+  };
+
+  const isDailyList = () => {
+    const activeList = getActiveList();
+    return activeList && activeList.reset_period === 'daily';
+  };
+
   useEffect(() => {
     fetchLists();
   }, []);
+
+  // Real-time updates - poll for changes every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeListId) {
+        console.log('Polling for updates...');
+        fetchListData(activeListId);
+      }
+      fetchLists();
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [activeListId]);
 
   useEffect(() => {
     if (activeListId) {
@@ -116,6 +163,10 @@ const HomeScreen = () => {
         allow_multiple_completions: false 
       });
       setShowCreateTask(false);
+      
+      // Trigger immediate update
+      setLastUpdate(Date.now());
+      
       fetchListData(activeListId);
     } catch (error) {
       console.error('Error creating task:', error.response?.data || error.message);
@@ -178,8 +229,10 @@ const HomeScreen = () => {
   };
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    if (window.confirm('Are you sure you want to log out?')) {
+      logout();
+      navigate('/login');
+    }
   };
 
   const handleDeleteTask = async (taskId) => {
@@ -189,10 +242,104 @@ const HomeScreen = () => {
     
     try {
       await axios.delete(`/api/tasks/${taskId}`);
+      
+      // Trigger immediate update
+      setLastUpdate(Date.now());
+      
       setTasks(tasks.filter(task => task.id !== taskId));
     } catch (error) {
       console.error('Error deleting task:', error);
       alert('Error deleting task. Please try again.');
+    }
+  };
+
+  const handleEditTask = (task) => {
+    setEditingTask({
+      id: task.id,
+      title: task.title,
+      description: task.description || '',
+      duration_minutes: task.duration_minutes || 0,
+      allow_multiple_completions: task.allow_multiple_completions === 1
+    });
+    setShowEditTask(true);
+  };
+
+  const handleUpdateTask = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.patch(`/api/tasks/${editingTask.id}`, {
+        title: editingTask.title,
+        description: editingTask.description,
+        duration_minutes: editingTask.duration_minutes,
+        allow_multiple_completions: editingTask.allow_multiple_completions
+      });
+      console.log('Task updated:', response.data);
+      fetchListData(activeListId);
+      setShowEditTask(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      const errorMsg = error.response?.data?.error || error.message;
+      alert(`Error updating task: ${errorMsg}`);
+    }
+  };
+
+  const handleEditList = (list) => {
+    setEditingList({
+      id: list.id,
+      name: list.name,
+      description: list.description,
+      reset_period: list.reset_period
+    });
+    setShowEditList(true);
+  };
+
+  const handleUpdateList = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.patch(`/api/lists/${editingList.id}`, {
+        name: editingList.name,
+        description: editingList.description,
+        reset_period: editingList.reset_period
+      });
+      console.log('List updated:', response.data);
+      fetchLists();
+      setShowEditList(false);
+      setEditingList(null);
+    } catch (error) {
+      console.error('Error updating list:', error);
+      const errorMsg = error.response?.data?.error || error.message;
+      alert(`Error updating list: ${errorMsg}`);
+    }
+  };
+
+  const handleDeleteList = (list) => {
+    setListToDelete(list);
+    setShowDeleteListConfirm(true);
+  };
+
+  const handleConfirmDeleteList = async () => {
+    try {
+      const response = await axios.delete(`/api/lists/${listToDelete.id}`);
+      console.log('List deleted:', response.data);
+      
+      // If the deleted list was active, switch to another list
+      if (activeListId === listToDelete.id) {
+        const remainingLists = lists.filter(l => l.id !== listToDelete.id);
+        if (remainingLists.length > 0) {
+          setActiveListId(remainingLists[0].id);
+        } else {
+          setActiveListId(null);
+        }
+      }
+      
+      fetchLists();
+      setShowDeleteListConfirm(false);
+      setListToDelete(null);
+    } catch (error) {
+      console.error('Error deleting list:', error);
+      const errorMsg = error.response?.data?.error || error.message;
+      alert(`Error deleting list: ${errorMsg}`);
     }
   };
 
@@ -201,15 +348,48 @@ const HomeScreen = () => {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
       
-      const newStatus = !task.is_completed;
-      await axios.patch(`/api/tasks/${taskId}`, { is_completed: newStatus });
+      console.log('Clicked task:', task);
+      console.log('Task is_completed:', task.is_completed);
+      console.log('Task allow_multiple_completions:', task.allow_multiple_completions);
       
-      setTasks(tasks.map(t => 
-        t.id === taskId ? { ...t, is_completed: newStatus } : t
-      ));
+      // For repeating tasks, always add new completions even if already completed
+      // For regular tasks, do nothing if already completed
+      if (task.is_completed && task.allow_multiple_completions !== 1) {
+        console.log('Regular task already completed, doing nothing');
+        return;
+      }
+      
+      // Mark as done (for regular tasks) or add completion (for repeating tasks)
+      const response = await axios.patch(`/api/tasks/${taskId}/status`, { is_completed: true });
+      console.log('Task marked as done:', response.data);
+      
+      // Trigger immediate update
+      setLastUpdate(Date.now());
+      
+      // Refetch the task data to get updated completion info
+      console.log('Refetching list data...');
+      fetchListData(activeListId);
     } catch (error) {
-      console.error('Error updating task:', error);
-      alert('Error updating task. Please try again.');
+      console.error('Error marking task as done:', error);
+      alert('Error marking task as done. Please try again.');
+    }
+  };
+
+  const handleUndoCompletion = async (taskId) => {
+    try {
+      const response = await axios.patch(`/api/tasks/${taskId}/undo`);
+      console.log('Last completion removed:', response.data);
+      
+      // Trigger immediate update
+      setLastUpdate(Date.now());
+      
+      // Refetch the task data to get updated completion info
+      fetchListData(activeListId);
+    } catch (error) {
+      console.error('Error undoing task:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      alert('Error undoing task. Please try again.');
     }
   };
 
@@ -263,24 +443,24 @@ const HomeScreen = () => {
                 alt="The Nest Logo" 
                 className="h-8 w-8 rounded"
               />
-              <h1 className="text-2xl font-bold text-white">The Nest</h1>
-              <div className="text-sm text-gray-300">
-                Welcome, {user?.username}
+              <div className="flex flex-col justify-center">
+                <h1 className="text-2xl font-bold text-white leading-tight">The Nest</h1>
+                <div className="text-sm text-gray-300">
+                  Welcome, {user?.username}
+                </div>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className="hidden sm:flex items-center space-x-2 text-xs text-gray-400">
-                <span>Tip:</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded">Alt</kbd>
-                <kbd className="px-2 py-1 bg-slate-700 rounded">←</kbd>
-                <span>/</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded">→</kbd>
-                <span>to navigate lists</span>
-              </div>
               
               <button
-                onClick={() => setShowHistory(!showHistory)}
+                onClick={() => {
+                  const newShowHistory = !showHistory;
+                  setShowHistory(newShowHistory);
+                  if (newShowHistory && activeListId) {
+                    fetchListHistory(activeListId);
+                  }
+                }}
                 className={`p-2 rounded-lg transition-colors ${
                   showHistory 
                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
@@ -290,13 +470,15 @@ const HomeScreen = () => {
                 <History className="h-5 w-5" />
               </button>
               
-              <button
-                onClick={() => setShowCreateList(!showCreateList)}
-                className="btn-primary flex items-center space-x-2"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Create List</span>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowCreateList(!showCreateList)}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Create List</span>
+                </button>
+              )}
               
               <button
                 onClick={() => navigate('/admin/reset-password')}
@@ -322,6 +504,80 @@ const HomeScreen = () => {
           </div>
         </div>
       </header>
+
+      {/* History Panel */}
+      {showHistory && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="glass rounded-xl p-6 border border-purple-500/20">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">List History</h3>
+              <div className="flex items-center space-x-2">
+                                <button
+                  onClick={() => setShowHistory(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            
+            {historyLoading ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400">Loading history...</div>
+              </div>
+            ) : listHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400">No history available for this list.</div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {listHistory.map((snapshot, index) => (
+                  <div key={snapshot.id || index} className="border-l-2 border-purple-500/30 pl-4 py-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">
+                        {new Date(snapshot.period_start).toLocaleString()}
+                      </span>
+                      <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                        {JSON.parse(snapshot.snapshot_data || '{}').snapshot_type || 'Snapshot'}
+                      </span>
+                    </div>
+                    
+                    {snapshot.snapshot_data && (() => {
+                      try {
+                        const data = JSON.parse(snapshot.snapshot_data);
+                        return data && (
+                      <div className="text-sm text-gray-300">
+                          <div className="mb-1">
+                            <strong>Tasks:</strong> {data.tasks ? data.tasks.length : 0}
+                          </div>
+                          {data.tasks && data.tasks.length > 0 && (
+                            <div className="ml-4 space-y-1">
+                              {data.tasks.slice(0, 3).map(task => (
+                                <div key={task.id} className="text-xs text-gray-400">
+                                  • {task.title} {task.is_completed ? '(completed)' : ''}
+                                </div>
+                              ))}
+                              {data.tasks.length > 3 && (
+                                <div className="text-xs text-gray-500">
+                                  ... and {data.tasks.length - 3} more
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        );
+                      } catch (e) {
+                        console.error('Error parsing snapshot data:', e);
+                        return null;
+                      }
+                    })()}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Create List Form */}
       {showCreateList && (
@@ -392,12 +648,14 @@ const HomeScreen = () => {
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-white mb-4">No Lists Yet</h2>
             <p className="text-gray-300 mb-6">Create your first list to get started!</p>
-            <button
-              onClick={() => setShowCreateList(true)}
-              className="btn-primary"
-            >
-              Create Your First List
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowCreateList(true)}
+                className="btn-primary"
+              >
+                Create Your First List
+              </button>
+            )}
           </div>
         ) : (
           <div>
@@ -422,27 +680,33 @@ const HomeScreen = () => {
             {activeList && (
               <div className="space-y-6">
                 {/* List Header */}
-                <div className="glass rounded-xl p-6 border border-purple-500/20">
-                  <div className="flex items-start justify-between mb-4">
+                <div className="glass rounded-xl p-4 border border-purple-500/20">
+                  <div className="flex items-start justify-between">
                     <div>
                       <h2 className="text-3xl font-bold text-white mb-2">{activeList.name}</h2>
                       {activeList.description && (
                         <p className="text-gray-300 mb-3">{activeList.description}</p>
                       )}
-                      {activeList.reset_period && (
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResetPeriodColor(activeList.reset_period)}`}>
-                          {activeList.reset_period}
-                        </span>
-                      )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setShowCreateTask(!showCreateTask)}
-                        className="btn-primary flex items-center space-x-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        <span>Add Task</span>
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleEditList(activeList)}
+                          className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
+                        >
+                          <Edit className="h-4 w-4" />
+                          <span>Edit List</span>
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => setShowCreateTask(!showCreateTask)}
+                          className="btn bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 flex items-center space-x-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>Add Task</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -473,30 +737,32 @@ const HomeScreen = () => {
                           rows={3}
                         />
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="label text-gray-200">Duration (minutes)</label>
-                          <input
-                            type="number"
-                            value={newTask.duration_minutes}
-                            onChange={(e) => setNewTask({ ...newTask, duration_minutes: parseInt(e.target.value) || 0 })}
-                            className="input w-full"
-                            placeholder="0"
-                            min="0"
-                          />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="allow_multiple"
-                            checked={newTask.allow_multiple_completions}
-                            onChange={(e) => setNewTask({ ...newTask, allow_multiple_completions: e.target.checked })}
-                            className="rounded"
-                          />
-                          <label htmlFor="allow_multiple" className="text-gray-200">
-                            Allow multiple completions
-                          </label>
-                        </div>
+                      <div>
+                        <label className="label text-gray-200">Duration (minutes)</label>
+                        <input
+                          type="number"
+                          value={newTask.duration_minutes}
+                          onChange={(e) => {
+                          const value = e.target.value;
+                          setNewTask({ ...newTask, duration_minutes: value === '' ? '' : parseInt(value) || 0 });
+                        }}
+                          className="input w-full"
+                          placeholder="0"
+                          min="0"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="allow_multiple"
+                          checked={newTask.allow_multiple_completions}
+                          onChange={(e) => setNewTask({ ...newTask, allow_multiple_completions: e.target.checked })}
+                          className="rounded"
+                        />
+                        <label htmlFor="allow_multiple" className="text-gray-200">
+                          Allow multiple completions
+                        </label>
                       </div>
                       <div className="flex space-x-2">
                         <button type="submit" className="btn-primary">
@@ -511,6 +777,189 @@ const HomeScreen = () => {
                         </button>
                       </div>
                     </form>
+                  </div>
+                )}
+
+                {/* Edit Task Modal */}
+                {showEditTask && (
+                  <div className="glass rounded-xl p-6 border border-purple-500/20">
+                    <h3 className="text-xl font-semibold mb-4 text-white">Edit Task</h3>
+                    <form onSubmit={handleUpdateTask} className="space-y-4">
+                      <div>
+                        <label className="label text-gray-200">Task Title *</label>
+                        <input
+                          type="text"
+                          value={editingTask.title}
+                          onChange={(e) => setEditingTask({...editingTask, title: e.target.value})}
+                          className="input w-full"
+                          placeholder="Enter task title"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="label text-gray-200">Description or instructions (optional)</label>
+                        <textarea
+                          value={editingTask.description}
+                          onChange={(e) => setEditingTask({...editingTask, description: e.target.value})}
+                          className="input w-full"
+                          placeholder="Enter description or instructions (optional)"
+                          rows={3}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label text-gray-200">Duration (minutes)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editingTask.duration_minutes}
+                          onChange={(e) => {
+                          const value = e.target.value;
+                          setEditingTask({...editingTask, duration_minutes: value === '' ? '' : parseInt(value) || 0 });
+                        }}
+                          className="input w-full"
+                          placeholder="0"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="edit_allow_multiple"
+                          checked={editingTask.allow_multiple_completions}
+                          onChange={(e) => setEditingTask({...editingTask, allow_multiple_completions: e.target.checked})}
+                          className="rounded"
+                        />
+                        <label htmlFor="edit_allow_multiple" className="text-gray-200">
+                          Allow multiple completions
+                        </label>
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <button type="submit" className="btn-primary">
+                          Update Task
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowEditTask(false);
+                            setEditingTask(null);
+                          }}
+                          className="btn-secondary"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Edit List Modal */}
+                {showEditList && (
+                  <div className="glass rounded-xl p-6 border border-purple-500/20">
+                    <h3 className="text-xl font-semibold mb-4 text-white">Edit List</h3>
+                    <form onSubmit={handleUpdateList} className="space-y-4">
+                      <div>
+                        <label className="label text-gray-200">List Name *</label>
+                        <input
+                          type="text"
+                          value={editingList.name}
+                          onChange={(e) => setEditingList({...editingList, name: e.target.value})}
+                          className="input w-full"
+                          placeholder="Enter list name"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="label text-gray-200">Description (optional)</label>
+                        <textarea
+                          value={editingList.description}
+                          onChange={(e) => setEditingList({...editingList, description: e.target.value})}
+                          className="input w-full"
+                          placeholder="Enter list description"
+                          rows={3}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label text-gray-200">Reset Period</label>
+                        <select
+                          value={editingList.reset_period}
+                          onChange={(e) => setEditingList({...editingList, reset_period: e.target.value})}
+                          className="input w-full"
+                        >
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="annually">Annually</option>
+                          <option value="static">None - do not reset</option>
+                        </select>
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <button type="submit" className="btn-primary">
+                          Update List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowEditList(false);
+                            setEditingList(null);
+                          }}
+                          className="btn-secondary"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDeleteList(editingList);
+                            setShowEditList(false);
+                            setEditingList(null);
+                          }}
+                          className="btn bg-red-600 text-white hover:bg-red-700 flex items-center space-x-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>Delete List</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Delete List Confirmation Modal */}
+                {showDeleteListConfirm && (
+                  <div className="glass rounded-xl p-6 border border-red-500/20">
+                    <h3 className="text-xl font-semibold mb-4 text-white">Delete List</h3>
+                    <div className="mb-6">
+                      <p className="text-gray-300 mb-2">
+                        Are you sure you want to delete the list "<span className="font-semibold text-white">{listToDelete?.name}</span>"?
+                      </p>
+                      <p className="text-red-400 text-sm">
+                        This action cannot be undone. All tasks in this list will be permanently deleted.
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleConfirmDeleteList}
+                        className="btn bg-red-600 text-white hover:bg-red-700 flex items-center space-x-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Delete List</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowDeleteListConfirm(false);
+                          setListToDelete(null);
+                        }}
+                        className="btn-secondary"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -532,33 +981,114 @@ const HomeScreen = () => {
                           onClick={() => handleTaskClick(task.id)}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <input
-                                type="checkbox"
-                                checked={task.is_completed}
-                                onChange={() => handleTaskClick(task.id)}
-                                className="rounded text-purple-600 focus:ring-purple-500"
-                              />
+                            <div className="flex items-center space-x-3 flex-1">
                               <div>
-                                <h4 className={`font-medium ${
-                                  task.is_completed ? 'text-gray-400 line-through' : 'text-white'
-                                }`}>
-                                  {task.title}
-                                </h4>
-                                {task.description && (
-                                  <p className="text-gray-400 text-sm mt-1">{task.description}</p>
-                                )}
-                                {task.duration_minutes > 0 && (
-                                  <p className="text-gray-500 text-sm mt-1">
-                                    <Clock className="h-3 w-3 inline mr-1" />
-                                    {task.duration_minutes} minutes
-                                  </p>
-                                )}
-                                {task.allow_multiple_completions && (
-                                  <p className="text-blue-400 text-sm mt-1">
-                                    Can be completed multiple times
-                                  </p>
-                                )}
+                                {(() => {
+                                  const elements = [];
+                                  elements.push(
+                                    <h4 key="title" className={`font-medium ${
+                                      task.is_completed ? 'text-gray-400 line-through' : 'text-white'
+                                    }`}>
+                                      {task.title}
+                                    </h4>
+                                  );
+                                  if (task.description) {
+                                    elements.push(
+                                      <p key="desc" className="text-gray-400 text-sm mt-1">{task.description}</p>
+                                    );
+                                  }
+                                  if (task.duration_minutes && task.duration_minutes > 0) {
+                                    elements.push(
+                                      <p key="duration" className="text-gray-500 text-sm mt-1">
+                                        <Clock className="h-3 w-3 inline mr-1" />
+                                        {task.duration_minutes} minutes
+                                      </p>
+                                    );
+                                  }
+                                  if (task.is_completed) {
+                                    // Parse completions if they exist
+                                    let completions = [];
+                                    if (task.completions) {
+                                      console.log('Raw completions data:', task.completions);
+                                      try {
+                                        // Check if it's multiple completions (contains },{) or single completion
+                                        if (task.completions.includes('},{')) {
+                                          // Multiple completions - split and parse each
+                                          const completionStrings = task.completions.split('},{').map((str, index, arr) => {
+                                            if (index === 0) return str + '}';
+                                            if (index === arr.length - 1) return '{' + str;
+                                            return '{' + str + '}';
+                                          });
+                                          console.log('Split completion strings:', completionStrings);
+                                          completions = completionStrings.map(str => JSON.parse(str));
+                                        } else {
+                                          // Single completion - parse directly
+                                          console.log('Parsing single completion');
+                                          completions = [JSON.parse(task.completions)];
+                                        }
+                                        console.log('Parsed completions:', completions);
+                                      } catch (e) {
+                                        console.error('Error parsing completions:', e);
+                                        console.error('Task completions value that failed:', task.completions);
+                                      }
+                                    }
+                                    
+                                    // Check if this is a repeating task with multiple completions
+                                    const hasMultipleCompletions = completions.length > 0 && completions.some(c => c.id !== null);
+                                    console.log('Task allow_multiple_completions:', task.allow_multiple_completions);
+                                    console.log('Completions array:', completions);
+                                    console.log('Has multiple completions:', hasMultipleCompletions);
+                                    
+                                    if (hasMultipleCompletions) {
+                                      // Show multiple completions for repeating tasks
+                                      completions.filter(completion => completion.id !== null).forEach((completion, index) => {
+                                        const completionText = completion.username ? 
+                                          `Completed by ${completion.username}` : 
+                                          'Completed';
+                                        
+                                        let timeText = '';
+                                        if (completion.completed_at) {
+                                          const completedDate = new Date(completion.completed_at);
+                                          if (isDailyList()) {
+                                            timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                          } else {
+                                            timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                          }
+                                        }
+                                        
+                                        elements.push(
+                                          <p key={`completion-${index}`} className="text-green-400 text-sm mt-1">
+                                            {completionText}{timeText}
+                                          </p>
+                                        );
+                                      });
+                                    } else {
+                                      // Show single completion for regular tasks
+                                      if (task.completed_by_username || task.completed_at) {
+                                        const completionText = task.completed_by_username ? 
+                                          `Completed by ${task.completed_by_username}` : 
+                                          'Completed';
+                                        
+                                        let timeText = '';
+                                        if (task.completed_at) {
+                                          const completedDate = new Date(task.completed_at);
+                                          if (isDailyList()) {
+                                            timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                          } else {
+                                            timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                          }
+                                        }
+                                        
+                                        elements.push(
+                                          <p key="completed" className="text-green-400 text-sm mt-1">
+                                            {completionText}{timeText}
+                                          </p>
+                                        );
+                                      }
+                                    }
+                                  }
+                                  return elements;
+                                })()}
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -568,15 +1098,133 @@ const HomeScreen = () => {
                                   {task.assigned_username}
                                 </span>
                               )}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteTask(task.id);
-                                }}
-                                className="text-red-400 hover:text-red-300 transition-colors"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditTask(task);
+                                  }}
+                                  className="text-blue-400 hover:text-blue-300 transition-colors"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTask(task.id);
+                                  }}
+                                  className="text-red-400 hover:text-red-300 transition-colors"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                              {(() => {
+                                const buttons = [];
+                                
+                                if (task.is_completed) {
+                                  // Check if current user can undo this task
+                                  let canUndo = false;
+                                  let completions = [];
+                                  
+                                  console.log(`Checking undo for task ${task.id}:`);
+                                  console.log('- Current user ID:', user.userId);
+                                  console.log('- Current username:', user.username);
+                                  console.log('- Task completions:', task.completions);
+                                  
+                                  if (task.completions) {
+                                    try {
+                                      // Parse completions to get the last completion
+                                      if (task.completions.includes('},{')) {
+                                        // Multiple completions - split and parse each
+                                        const completionStrings = task.completions.split('},{').map((str, index, arr) => {
+                                          if (index === 0) return str + '}';
+                                          if (index === arr.length - 1) return '{' + str;
+                                          return '{' + str + '}';
+                                        });
+                                        completions = completionStrings.map(str => JSON.parse(str));
+                                      } else {
+                                        // Single completion - parse directly
+                                        completions = [JSON.parse(task.completions)];
+                                      }
+                                      console.log('- Parsed completions:', completions);
+                                    } catch (e) {
+                                      console.error('Error parsing completions for undo check:', e);
+                                    }
+                                  }
+                                  
+                                  // Check if the last completion was by the current user
+                                  if (completions.length > 0) {
+                                    const lastCompletion = completions[0];
+                                    console.log('- Last completion:', lastCompletion);
+                                    console.log('- Last completed_by:', lastCompletion.completed_by);
+                                    
+                                    // Allow undo if:
+                                    // 1. The task was completed by the current user (any of their completions), OR
+                                    // 2. The task has null completion data (old system) and the current user is admin
+                                    const userCompletions = completions.filter(c => c.completed_by === user.userId);
+                                    if (userCompletions.length > 0) {
+                                      canUndo = true;
+                                      console.log('- Can undo? true (user has completed this task)');
+                                    } else if (lastCompletion.completed_by === null && user.username === 'admin') {
+                                      // Admin can undo legacy tasks with null completion data
+                                      canUndo = true;
+                                      console.log('- Can undo? true (admin undoing legacy task)');
+                                    } else {
+                                      console.log('- Can undo? false (user has not completed this task)');
+                                    }
+                                  } else {
+                                    console.log('- No completions found');
+                                  }
+                                  
+                                  if (canUndo) {
+                                    buttons.push(
+                                      <button
+                                        key="undo"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleUndoCompletion(task.id);
+                                        }}
+                                        className="btn bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center space-x-1 px-3"
+                                        title="Undo last completion"
+                                      >
+                                        <RotateCcw className="h-3 w-3" />
+                                        <span className="text-xs">Undo</span>
+                                      </button>
+                                    );
+                                  }
+                                }
+                                
+                                buttons.push(
+                                  <button
+                                    key="main"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTaskClick(task.id);
+                                    }}
+                                    className={`btn flex items-center justify-center space-x-2 min-w-[140px] ${
+                                      task.is_completed
+                                        ? 'bg-green-500 text-white hover:bg-green-600'
+                                        : 'bg-gray-500 text-white hover:bg-gray-600'
+                                    }`}
+                                  >
+                                    {task.is_completed ? <Check className="h-4 w-4" /> : null}
+                                    <span>
+                                      {task.is_completed ? 
+                                        (task.allow_multiple_completions === 1 ? 'Done Again?' : 'Done') : 
+                                        'Mark Done'
+                                      }
+                                    </span>
+                                  </button>
+                                );
+                                
+                                return (
+                                  <div key="button-container" className="flex items-center space-x-2">
+                                    {buttons}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
