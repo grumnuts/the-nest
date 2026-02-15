@@ -49,8 +49,6 @@ docker run -d \
 
 ### Docker Compose
 ```yaml
-version: '3.8'
-
 services:
   the-nest:
     image: nchanson93/the-nest:latest
