@@ -1,6 +1,6 @@
 services:
   the-nest:
-    image: grumnuts/the-nest:v1.0.1
+    image: grumnuts/the-nest:v1.0.2
     container_name: the-nest
     ports:
       - "5003:5000"

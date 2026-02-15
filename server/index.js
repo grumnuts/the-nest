@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ override: false });
 
 // Set timezone from environment variable
 if (process.env.TZ) {
