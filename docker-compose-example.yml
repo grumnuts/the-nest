@@ -3,10 +3,11 @@ services:
     image: nchanson93/the-nest:latest
     container_name: the-nest
     ports:
-      - "5000:5000"
+      - "5003:5000"
     environment:
+      - NODE_ENV=production
       - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
-      - CLIENT_URL=https://your-domain.com
+      - CLIENT_URL=http://localhost:5003
       - TZ=UTC
     volumes:
       - nest_data:/app/data

@@ -104,27 +104,27 @@ app.get('/api/health', (req, res) => {
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
   console.log(`🌐 Serving static files (NODE_ENV: ${process.env.NODE_ENV})`);
-  app.use(express.static('public'));
+  app.use(express.static(path.join(__dirname, '..', 'public')));
   
   // Specific routes for assets to ensure they're served correctly
   app.get('/TheNestLogo.png', (req, res) => {
-    const logoPath = path.join(__dirname, 'public', 'TheNestLogo.png');
+    const logoPath = path.join(__dirname, '..', 'public', 'TheNestLogo.png');
     res.sendFile(logoPath);
   });
   
   app.get('/favicon.ico', (req, res) => {
-    const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+    const faviconPath = path.join(__dirname, '..', 'public', 'favicon.ico');
     res.sendFile(faviconPath);
   });
   
   app.get('/logo192.png', (req, res) => {
-    const logoPath = path.join(__dirname, 'public', 'logo192.png');
+    const logoPath = path.join(__dirname, '..', 'public', 'logo192.png');
     res.sendFile(logoPath);
   });
   
   // Serve React app for any non-API routes
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
   });
 } else {
   // 404 handler for development

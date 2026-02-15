@@ -19,6 +19,7 @@ FROM base AS backend
 WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --only=production
+COPY server/ ./
 
 # Final production stage - Multi-architecture
 FROM node:18-alpine AS production
@@ -35,7 +36,7 @@ WORKDIR /app
 
 # Copy backend dependencies and code
 COPY --from=backend /app/server/node_modules ./node_modules
-COPY --from=backend /app/server/ ./
+COPY --from=backend /app/server/ ./server/
 
 # Copy built frontend
 COPY --from=frontend-build /app/client/build ./public
