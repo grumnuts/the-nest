@@ -161,7 +161,7 @@ const Settings = () => {
 
   const handleEditUser = (user) => {
     setEditingUser(user);
-    setNewUser({ username: user.username, email: user.email, password: '', role: 'user' });
+    setNewUser({ username: user.username, email: user.email, password: '', role: user.is_admin ? 'admin' : 'user' });
   };
 
   const handleUpdateUser = async () => {
@@ -420,11 +420,11 @@ const Settings = () => {
                         </div>
                         <div className="mt-2">
                           <span className={`text-xs px-2 py-1 rounded ${
-                            user.username === 'admin' 
+                            user.is_admin 
                               ? 'bg-red-500/20 text-red-300' 
                               : 'bg-blue-500/20 text-blue-300'
                           }`}>
-                            {user.username === 'admin' ? 'admin' : 'user'}
+                            {user.is_admin ? 'admin' : 'user'}
                           </span>
                         </div>
                       </div>

@@ -1018,14 +1018,14 @@ const HomeScreen = () => {
               <div className="space-y-6">
                 {/* List Header */}
                 <div className="glass rounded-xl p-4 border border-purple-500/20">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h2 className="text-3xl font-bold text-white mb-2">{activeList.name}</h2>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="text-3xl font-bold text-white mb-2 truncate">{activeList.name}</h2>
                       {activeList.description && (
                         <p className="text-gray-300 mb-3">{activeList.description}</p>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex gap-2 flex-shrink-0">
                       {isAdmin && (
                         <button
                           onClick={() => handleEditList(activeList)}
@@ -1347,17 +1347,19 @@ const HomeScreen = () => {
                           {dragOverTask?.id === task.id && !dragOverTask?.insertBefore && (
                             <div className="absolute left-0 right-0 bottom-0 h-1 bg-purple-400 rounded-b-lg"></div>
                           )}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3 flex-1">
-                              <div>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <div className="min-w-0">
                                 <div className="flex items-center space-x-2">
                                   <h4 className={`font-medium ${
                                     (task.is_completed === true || task.is_completed === 1) ? 'text-gray-400 line-through' : 'text-white'
                                   }`}>
                                     {task.title}
                                   </h4>
-                                  {task.allow_multiple_completions === true && (
-                                    <Repeat className="h-3 w-3 text-purple-400" title="Repeating task" />
+                                  {(task.allow_multiple_completions === true || task.allow_multiple_completions === 1) && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30" title="Repeating task">
+                                      <Repeat className="h-3.5 w-3.5 text-purple-400" />
+                                    </span>
                                   )}
                                 </div>
                                 {task.description && (
@@ -1372,7 +1374,7 @@ const HomeScreen = () => {
                                 {(task.is_completed === true || task.is_completed === 1) && <TaskCompletionInfo task={task} isDailyList={isDailyList} />}
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 flex-shrink-0 self-end sm:self-auto">
                               {task.assigned_username && (
                                 <span className="text-sm text-gray-400">
                                   <User className="h-3 w-3 inline mr-1" />

@@ -22,7 +22,7 @@ router.get('/', authenticateToken, (req, res) => {
     }
     
     // Get all users
-    db.db.all('SELECT id, username, email, created_at FROM users', [], (err, users) => {
+    db.db.all('SELECT id, username, email, is_admin, created_at FROM users', [], (err, users) => {
       if (err) {
         return res.status(500).json({ error: 'Error fetching users' });
       }
@@ -69,15 +69,28 @@ router.post('/', authenticateToken, (req, res) => {
         }
         
         // Create user with hashed password
-        db.createUser(username, email, hash, (err, userId) => {
+        db.createUser(username, email, hash, (err, newUserId) => {
           if (err) {
             return res.status(500).json({ error: 'Error creating user' });
           }
           
-          res.status(201).json({
-            message: 'User created successfully',
-            userId: userId
-          });
+          // Set admin status if role is 'admin'
+          if (role === 'admin') {
+            db.db.run('UPDATE users SET is_admin = 1 WHERE id = ?', [newUserId], (err) => {
+              if (err) {
+                console.error('Error setting admin status:', err);
+              }
+              res.status(201).json({
+                message: 'User created successfully',
+                userId: newUserId
+              });
+            });
+          } else {
+            res.status(201).json({
+              message: 'User created successfully',
+              userId: newUserId
+            });
+          }
         });
       });
     });
@@ -87,7 +100,7 @@ router.post('/', authenticateToken, (req, res) => {
 // Update user (admin only)
 router.put('/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
-  const { username, email, password } = req.body;
+  const { username, email, password, role } = req.body;
   const adminUserId = req.user.userId;
   
   // Check if user is admin
@@ -121,8 +134,9 @@ router.put('/:id', authenticateToken, (req, res) => {
       }
       
       // Update user
-      let query = 'UPDATE users SET username = ?, email = ?';
-      let params = [username, email];
+      const isAdmin = role === 'admin' ? 1 : 0;
+      let query = 'UPDATE users SET username = ?, email = ?, is_admin = ?';
+      let params = [username, email, isAdmin];
       
       if (password) {
         // Hash new password
