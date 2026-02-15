@@ -1,67 +1,69 @@
-# Multi-stage build for The Nest application
+# Multi-Stage Multi-Architecture Dockerfile
+# Supports linux/amd64 and linux/arm64
 
-# Stage 1: Build the React frontend
-FROM node:18-alpine AS frontend-build
+# Use official Node.js images with multi-arch support
+FROM node:18-alpine AS base
+# Install build dependencies for all architectures
+RUN apk add --no-cache python3 make g++
 
+# Frontend build stage
+FROM base AS frontend-build
 WORKDIR /app/client
-
-# Copy frontend package files
 COPY client/package*.json ./
-
-# Install frontend dependencies (need all deps for build)
-RUN npm install --legacy-peer-deps --silent
-
-# Copy frontend source code
+RUN npm ci --legacy-peer-deps
 COPY client/ ./
-
-# Build the frontend
 RUN npm run build
 
-# Stage 2: Build the backend
-FROM node:18-alpine AS backend
-
-WORKDIR /app
-
-# Install dependencies for building native modules and timezone support
-RUN apk add --no-cache python3 make g++ tzdata
-
-# Copy backend package files
+# Backend stage
+FROM base AS backend
+WORKDIR /app/server
 COPY server/package*.json ./
-
-# Install backend dependencies
 RUN npm ci --only=production
-
-# Copy backend source code
 COPY server/ ./
 
-# Copy built frontend from previous stage
-COPY --from=frontend-build /app/client/build ./public
+# Final production stage - Multi-architecture
+FROM node:18-alpine AS production
 
-# Create non-root user first
+# Install runtime dependencies for all architectures
+RUN apk add --no-cache tzdata su-exec
+
+# Create non-root user (works across architectures)
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nest -u 1001
+
+# Set working directory
+WORKDIR /app
+
+# Copy backend dependencies and code
+COPY --from=backend /app/server/node_modules ./node_modules
+COPY --from=backend /app/server/ ./server/
+
+# Copy built frontend
+COPY --from=frontend-build /app/client/build ./public
 
 # Create data directory with proper permissions
 RUN mkdir -p /app/data && \
     chown -R nest:nodejs /app/data && \
     chmod 755 /app/data
 
-# Change ownership of the app directory
-RUN chown -R nest:nodejs /app
-
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Don't switch to non-root user here - let entrypoint handle it
-# This allows us to fix permissions on mounted volumes
+# Set ownership of app directory
+RUN chown -R nest:nodejs /app
 
-# Expose the port
+# Expose port
 EXPOSE 5000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=5000
 
 # Start the application
 ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["npm", "start"]

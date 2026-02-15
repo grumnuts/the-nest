@@ -19,7 +19,7 @@ docker buildx inspect --bootstrap
 # Build and push multi-architecture image
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  --file Dockerfile.multi \
+  --file Dockerfile \
   --tag "$DOCKER_HUB_USERNAME/$IMAGE_NAME:$VERSION" \
   --tag "$DOCKER_HUB_USERNAME/$IMAGE_NAME:$(date +%Y%m%d)" \
   --push \
