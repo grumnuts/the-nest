@@ -3,10 +3,9 @@
 # Multi-Architecture Docker Build Script
 # Builds for linux/amd64 and linux/arm64
 
-set -e
-
+# Set image name and version
 IMAGE_NAME="the-nest"
-DOCKER_HUB_USERNAME="${DOCKER_HUB_USERNAME:-yourusername}"  # Replace with your username
+DOCKER_HUB_USERNAME="${DOCKER_HUB_USERNAME:-grumnuts}"  # Replace with your username
 VERSION="${VERSION:-latest}"
 
 echo "🏗️  Building multi-architecture Docker image..."

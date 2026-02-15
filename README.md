@@ -1,6 +1,6 @@
 # The Nest - Chore & Task Tracking Platform
 
-A comprehensive task tracking platform designed for teams and families to manage chores and tasks with customizable reset periods, goal tracking, and progress visualization.
+A comprehensive task tracking platform designed for housemantes and families to manage chores and tasks with customizable reset periods, goal tracking, and progress visualization.
 
 ## 🌟 Key Features
 
@@ -44,14 +44,14 @@ docker run -d \
   -e CLIENT_URL="https://your-domain.com" \
   -e TZ="UTC" \
   --restart unless-stopped \
-  nchanson93/the-nest:latest
+  grumnuts/the-nest:latest
 ```
 
 ### Docker Compose
 ```yaml
 services:
   the-nest:
-    image: nchanson93/the-nest:latest
+    image: grumnuts/the-nest:latest
     container_name: the-nest
     ports:
       - "5000:5000"
@@ -72,4 +72,4 @@ volumes:
 
 **Built with ❤️ for families and teams who want to stay organized and productive.**
 
-**Docker Image**: `nchanson93/the-nest` - Available on Docker Hub
+**Docker Image**: `grumnuts/the-nest` - Available on Docker Hub
