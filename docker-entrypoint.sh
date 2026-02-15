@@ -1,46 +1,47 @@
 #!/bin/sh
 
-# Ensure the data directory has correct permissions
-if [ -d "/app/data" ]; then
-    echo "🔍 Checking /app/data directory permissions..."
-    
-    # Check if we can write to the data directory as current user (root)
-    if ! touch /app/data/.test 2>/dev/null; then
-        echo "❌ Cannot write to /app/data directory even as root!"
-        export NODE_ENV=fallback
-    else
-        echo "✅ Root can write to /app/data directory"
-        rm -f /app/data/.test
-        
-        # Fix ownership for the nest user
-        echo "🔧 Setting ownership to nest:nodejs for /app/data..."
-        chown -R nest:nodejs /app/data
-        chmod 755 /app/data
-        
-        # Test if the nest user can write to it
-        if su nest -c "touch /app/data/.test" 2>/dev/null; then
-            echo "✅ nest user can write to /app/data directory"
-            rm -f /app/data/.test
-        else
-            echo "❌ nest user cannot write to /app/data directory"
-        fi
-    fi
-else
-    echo "📁 Creating /app/data directory..."
-    mkdir -p /app/data
-    chown -R nest:nodejs /app/data
-    chmod 755 /app/data
-    
-    # Test if the nest user can write to it
-    if su nest -c "touch /app/data/.test" 2>/dev/null; then
-        echo "✅ nest user can write to /app/data directory"
-        rm -f /app/data/.test
-    else
-        echo "❌ nest user cannot write to /app/data directory"
-    fi
+# Support PUID/PGID like LinuxServer.io images
+PUID=${PUID:-1001}
+PGID=${PGID:-1001}
+
+echo "───────────────────────────────────"
+echo "  Setting up The Nest container"
+echo "  PUID=${PUID} PGID=${PGID}"
+echo "───────────────────────────────────"
+
+# Update nest user/group to match PUID/PGID if different
+CURRENT_UID=$(id -u nest 2>/dev/null || echo "0")
+CURRENT_GID=$(id -g nest 2>/dev/null || echo "0")
+
+if [ "${CURRENT_UID}" != "${PUID}" ] || [ "${CURRENT_GID}" != "${PGID}" ]; then
+    echo "🔧 Updating nest user to UID=${PUID} GID=${PGID}"
+    deluser nest 2>/dev/null || true
+    delgroup nodejs 2>/dev/null || true
+    addgroup -g "${PGID}" -S nodejs 2>/dev/null || true
+    adduser -S -u "${PUID}" -G nodejs -h /app -s /bin/sh -D nest 2>/dev/null || true
 fi
 
-# Start the application as root (user account issue workaround)
+# Ensure data directory exists
+mkdir -p /app/data
+
+# Fix permissions on data directory
+echo "🔧 Setting /app/data ownership to ${PUID}:${PGID}..."
+chown -R "${PUID}:${PGID}" /app/data 2>/dev/null || true
+chmod 755 /app/data 2>/dev/null || true
+
+# Verify write access
+if touch /app/data/.perm_test 2>/dev/null; then
+    echo "✅ /app/data is writable"
+    rm -f /app/data/.perm_test
+else
+    echo "⚠️  /app/data may not be writable"
+    echo "   Run on host: chown -R ${PUID}:${PGID} <your-data-directory>"
+fi
+
+# Fix ownership of app files for the nest user
+chown -R "${PUID}:${PGID}" /app/server /app/public /app/node_modules 2>/dev/null || true
+
+# Start the application as the nest user
 echo "🚀 Starting The Nest application..."
 cd /app/server
-exec npm start
+exec su-exec nest npm start

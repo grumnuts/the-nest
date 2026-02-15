@@ -25,7 +25,7 @@ COPY server/ ./
 FROM node:18-alpine AS production
 
 # Install runtime dependencies for all architectures
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata su-exec
 
 # Create non-root user (works across architectures)
 RUN addgroup -g 1001 -S nodejs && \
@@ -52,9 +52,6 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Set ownership of app directory
 RUN chown -R nest:nodejs /app
-
-# Switch to non-root user
-USER nest
 
 # Expose port
 EXPOSE 5000
