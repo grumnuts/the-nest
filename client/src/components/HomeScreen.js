@@ -1,12 +1,97 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import ToggleSwitch from './ToggleSwitch';
 import logoImage from '../assets/TheNestLogo.png';
 
+const TaskCompletionInfo = ({ task, isDailyList }) => {
+  if (task.is_completed !== true && task.is_completed !== 1) {
+    return null;
+  }
+  
+  // Parse completions if they exist
+  let completions = [];
+  if (task.completions) {
+    try {
+      // Check if it's multiple completions (contains },{) or single completion
+      if (task.completions.includes('},{')) {
+        // Multiple completions - split and parse each
+        const completionStrings = task.completions.split('},{').map((str, index, arr) => {
+          if (index === 0) return str + '}';
+          if (index === arr.length - 1) return '{' + str;
+          return '{' + str + '}';
+        });
+        completions = completionStrings.map(str => JSON.parse(str));
+      } else {
+        // Single completion - parse directly
+        completions = [JSON.parse(task.completions)];
+      }
+    } catch (e) {
+      console.error('Error parsing completions:', e);
+    }
+  }
+  
+  // Check if this is a repeating task with multiple completions
+  const hasMultipleCompletions = completions.length > 0 && completions.some(c => c.id !== null);
+  
+  if (hasMultipleCompletions) {
+    // Show all completions for repeating tasks
+    return (
+      <>
+        {completions.map((completion, index) => {
+          const completionText = completion.username ? 
+            `Completed by ${completion.username}` : 
+            'Completed';
+          
+          let timeText = '';
+          if (completion.completed_at) {
+            const completedDate = new Date(completion.completed_at);
+            if (isDailyList()) {
+              timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            } else {
+              timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
+            }
+          }
+          
+          return (
+            <p key={`completion-${index}`} className="text-green-400 text-sm mt-1">
+              {completionText}{timeText}
+            </p>
+          );
+        })}
+      </>
+    );
+  } else {
+    // Show single completion for regular tasks
+    if (task.completed_by_username || task.completed_at) {
+      const completionText = task.completed_by_username ? 
+        `Completed by ${task.completed_by_username}` : 
+        'Completed';
+      
+      let timeText = '';
+      if (task.completed_at) {
+        const completedDate = new Date(task.completed_at);
+        if (isDailyList()) {
+          timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        } else {
+          timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
+        }
+      }
+      
+      return (
+        <p key="completed" className="text-green-400 text-sm mt-1">
+          {completionText}{timeText}
+        </p>
+      );
+    }
+  }
+  return null;
+};
+
 const HomeScreen = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.username === 'admin';
   
@@ -257,8 +342,7 @@ const HomeScreen = () => {
     try {
       const taskIds = orderedTasks.map(task => task.id);
       await axios.post(`/api/tasks/reorder/${activeListId}`, { taskIds });
-      console.log('Task order saved successfully');
-    } catch (error) {
+          } catch (error) {
       console.error('Error saving task order:', error);
       // Optionally revert the order if save fails
       fetchListData(activeListId);
@@ -430,8 +514,7 @@ const HomeScreen = () => {
         duration_minutes: editingTask.duration_minutes,
         allow_multiple_completions: editingTask.allow_multiple_completions
       });
-      console.log('Task updated:', response.data);
-      fetchListData(activeListId);
+            fetchListData(activeListId);
       setShowEditTask(false);
       setEditingTask(null);
     } catch (error) {
@@ -505,27 +588,21 @@ const HomeScreen = () => {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
       
-      console.log('Clicked task:', task);
-      console.log('Task is_completed:', task.is_completed);
-      console.log('Task allow_multiple_completions:', task.allow_multiple_completions);
-      
+            
       // For repeating tasks, always add new completions even if already completed
       // For regular tasks, do nothing if already completed
       if (task.is_completed && task.allow_multiple_completions !== 1) {
-        console.log('Regular task already completed, doing nothing');
-        return;
+                return;
       }
       
       // Mark as done (for regular tasks) or add completion (for repeating tasks)
       const response = await axios.patch(`/api/tasks/${taskId}/status`, { is_completed: true });
-      console.log('Task marked as done:', response.data);
-      
+            
       // Trigger immediate update
       setLastUpdate(Date.now());
       
       // Refetch the task data to get updated completion info
-      console.log('Refetching list data...');
-      fetchListData(activeListId);
+            fetchListData(activeListId);
     } catch (error) {
       console.error('Error marking task as done:', error);
       alert('Error marking task as done. Please try again.');
@@ -535,8 +612,7 @@ const HomeScreen = () => {
   const handleUndoCompletion = async (taskId) => {
     try {
       const response = await axios.patch(`/api/tasks/${taskId}/undo`);
-      console.log('Last completion removed:', response.data);
-      
+            
       // Trigger immediate update
       setLastUpdate(Date.now());
       
@@ -544,9 +620,37 @@ const HomeScreen = () => {
       fetchListData(activeListId);
     } catch (error) {
       console.error('Error undoing task:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
       alert('Error undoing task. Please try again.');
+    }
+  };
+
+  const toggleHideGoals = async () => {
+    try {
+      const newHideGoals = !user?.hide_goals;
+      const response = await axios.patch('/api/users/hide-goals', { hide_goals: newHideGoals });
+      
+      // Update the user context with the new preference
+      if (response.data) {
+        updateUser({ hide_goals: newHideGoals });
+      }
+    } catch (error) {
+      console.error('Error updating hide goals preference:', error);
+      alert('Error updating preference. Please try again.');
+    }
+  };
+
+  const toggleHideCompletedTasks = async () => {
+    try {
+      const newHideCompletedTasks = !user?.hide_completed_tasks;
+      const response = await axios.patch('/api/users/hide-completed-tasks', { hide_completed_tasks: newHideCompletedTasks });
+      
+      // Update the user context with the new preference
+      if (response.data) {
+        updateUser({ hide_completed_tasks: newHideCompletedTasks });
+      }
+    } catch (error) {
+      console.error('Error updating hide completed tasks preference:', error);
+      alert('Error updating preference. Please try again.');
     }
   };
 
@@ -592,23 +696,23 @@ const HomeScreen = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
       <header className="glass border-b border-purple-500/20 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <img 
                 src={logoImage} 
                 alt="The Nest Logo" 
-                className="h-8 w-8 rounded"
+                className="h-6 w-6 sm:h-8 sm:w-8 rounded"
               />
               <div className="flex flex-col justify-center">
-                <h1 className="text-2xl font-bold text-white leading-tight">The Nest</h1>
-                <div className="text-sm text-gray-300">
+                <h1 className="text-lg sm:text-2xl font-bold text-white leading-tight">The Nest</h1>
+                <div className="text-xs sm:text-sm text-gray-300 hidden sm:block">
                   Welcome, {user?.username}
                 </div>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               
               <button
                 onClick={() => {
@@ -618,13 +722,13 @@ const HomeScreen = () => {
                     fetchListHistory(activeListId);
                   }
                 }}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
                   showHistory 
                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
                     : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-200'
                 }`}
               >
-                <History className="h-5 w-5" />
+                <History className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
               
               {isAdmin && (
@@ -800,15 +904,15 @@ const HomeScreen = () => {
       )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
         {lists.length === 0 ? (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-white mb-4">No Lists Yet</h2>
-            <p className="text-gray-300 mb-6">Create your first list to get started!</p>
+          <div className="text-center py-8 sm:py-12">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">No Lists Yet</h2>
+            <p className="text-sm sm:text-base text-gray-300 mb-4 sm:mb-6">Create your first list to get started!</p>
             {isAdmin && (
               <button
                 onClick={() => setShowCreateList(true)}
-                className="btn-primary"
+                className="btn-primary text-sm sm:text-base px-4 sm:px-6 py-2"
               >
                 Create Your First List
               </button>
@@ -817,7 +921,7 @@ const HomeScreen = () => {
         ) : (
           <div>
             {/* List Tabs */}
-            <div className="flex space-x-1 mb-6 overflow-x-auto">
+            <div className="flex space-x-1 mb-4 sm:mb-6 overflow-x-auto">
               {lists.map((list) => (
                 <div
                   key={list.id}
@@ -826,7 +930,7 @@ const HomeScreen = () => {
                   onDragOver={(e) => handleDragOver(e, list)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, list)}
-                  className={`px-4 py-2 rounded-t-lg font-medium transition-all cursor-move relative ${
+                  className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-t-lg text-xs sm:text-sm font-medium transition-all cursor-move relative whitespace-nowrap ${
                     activeListId === list.id
                       ? 'bg-purple-600 text-white shadow-lg'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -850,47 +954,63 @@ const HomeScreen = () => {
               ))}
             </div>
 
-            {/* Goals Tracker */}
+            {/* Goals Tracker - Show header if goals exist, content only if not hidden */}
             {goals.length > 0 && (
-              <div className="space-y-2 mb-6">
-                {goals.map((goal) => (
-                  <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-purple-500/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2 flex-shrink-0">
-                        <Target className="h-4 w-4 text-purple-400" />
-                        <span className="font-medium text-white">{goal.name}</span>
+              <>
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">Goals Progress</h3>
+                  <ToggleSwitch
+                    isOn={!user?.hide_goals}
+                    onToggle={toggleHideGoals}
+                    icon={Settings}
+                    labelText="Show Goals"
+                    mobileText={!user?.hide_goals ? 'Hide' : 'Show'}
+                    size="small"
+                  />
+                </div>
+                
+                {!user?.hide_goals && (
+                  <div className="space-y-2 mb-4 sm:mb-6">
+                    {goals.map((goal) => (
+                    <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-2 sm:p-3 border border-purple-500/30">
+                      <div className="flex items-center justify-between mb-1 sm:mb-2">
+                        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                          <Target className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
+                          <span className="text-xs sm:text-sm font-medium text-white">{goal.name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                          <span className="text-sm sm:text-lg font-bold text-white">
+                            {Math.round(goal.progress?.percentage || 0)}%
+                          </span>
+                          <span className="text-xs sm:text-sm text-gray-400">
+                            {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
+                              ? `${Math.round(goal.progress?.percentage || 0)}%`
+                              : goal.calculation_type === 'fixed_time' 
+                              ? `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value}min`
+                              : `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value} tasks`
+                            }
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-3 flex-shrink-0">
-                        <span className="text-lg font-bold text-white">
-                          {Math.round(goal.progress?.percentage || 0)}%
-                        </span>
-                        <span className="text-sm text-gray-400">
-                          {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
-                            ? `${Math.round(goal.progress?.completed || 0)}/${goal.progress?.required || goal.target_value}%`
-                            : goal.calculation_type === 'fixed_time' 
-                            ? `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value}min`
-                            : `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value}`
-                          }
-                        </span>
+                      <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ${
+                            (goal.progress?.percentage || 0) >= 150 ? 'bg-purple-500' :
+                            (goal.progress?.percentage || 0) >= 125 ? 'bg-pink-500' :
+                            (goal.progress?.percentage || 0) >= 100 ? 'bg-green-500' :
+                            (goal.progress?.percentage || 0) >= 75 ? 'bg-blue-500' :
+                            (goal.progress?.percentage || 0) >= 50 ? 'bg-yellow-500' :
+                            (goal.progress?.percentage || 0) >= 25 ? 'bg-orange-500' :
+                            'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(goal.progress?.percentage || 0, 150)}%` }}
+                        ></div>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-500 ${
-                          (goal.progress?.percentage || 0) >= 150 ? 'bg-purple-500' :
-                          (goal.progress?.percentage || 0) >= 125 ? 'bg-pink-500' :
-                          (goal.progress?.percentage || 0) >= 100 ? 'bg-green-500' :
-                          (goal.progress?.percentage || 0) >= 75 ? 'bg-blue-500' :
-                          (goal.progress?.percentage || 0) >= 50 ? 'bg-yellow-500' :
-                          (goal.progress?.percentage || 0) >= 25 ? 'bg-orange-500' :
-                          'bg-red-500'
-                        }`}
-                        style={{ width: `${Math.min(goal.progress?.percentage || 0, 150)}%` }}
-                      ></div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
 
             {/* Active List Content */}
@@ -1181,13 +1301,27 @@ const HomeScreen = () => {
                 )}
 
                 {/* Tasks List */}
-                <div className="glass rounded-xl p-6 border border-purple-500/20">
-                  <h3 className="text-xl font-semibold mb-4 text-white">Tasks</h3>
+                <div className="glass rounded-xl p-4 sm:p-6 border border-purple-500/20">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <h3 className="text-lg sm:text-xl font-semibold text-white">Tasks</h3>
+                    <ToggleSwitch
+                      isOn={!user?.hide_completed_tasks}
+                      onToggle={toggleHideCompletedTasks}
+                      icon={CheckCircle2}
+                      labelText="Show Complete"
+                      mobileText={!user?.hide_completed_tasks ? 'Hide' : 'Show'}
+                      size="small"
+                    />
+                  </div>
                   {tasks.length === 0 ? (
-                    <p className="text-gray-400 text-center py-8">No tasks yet. Create your first task above!</p>
+                    <p className="text-gray-400 text-center py-6 text-sm">No tasks yet. Create your first task above!</p>
+                  ) : user?.hide_completed_tasks && tasks.every(task => task.is_completed) ? (
+                    <p className="text-gray-400 text-center py-6 text-sm">All tasks are completed. Toggle to show completed tasks.</p>
                   ) : (
-                    <div className="space-y-3">
-                      {tasks.map((task) => (
+                    <div className="space-y-2 sm:space-y-3">
+                      {tasks
+                        .filter(task => !user?.hide_completed_tasks || !task.is_completed)
+                        .map((task) => (
                         <div
                           key={task.id}
                           draggable={isAdmin}
@@ -1195,7 +1329,7 @@ const HomeScreen = () => {
                           onDragOver={(e) => handleTaskDragOver(e, task)}
                           onDragLeave={handleTaskDragLeave}
                           onDrop={(e) => handleTaskDrop(e, task)}
-                          className={`p-4 rounded-lg border transition-all cursor-move relative ${
+                          className={`p-3 sm:p-4 rounded-lg border transition-all cursor-move relative ${
                             task.is_completed
                               ? 'bg-green-900/30 border-green-500/50'
                               : 'bg-gray-800/50 border-gray-700 hover:border-purple-500/50'
@@ -1216,112 +1350,26 @@ const HomeScreen = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3 flex-1">
                               <div>
-                                {(() => {
-                                  const elements = [];
-                                  elements.push(
-                                    <h4 key="title" className={`font-medium ${
-                                      task.is_completed ? 'text-gray-400 line-through' : 'text-white'
-                                    }`}>
-                                      {task.title}
-                                    </h4>
-                                  );
-                                  if (task.description) {
-                                    elements.push(
-                                      <p key="desc" className="text-gray-400 text-sm mt-1">{task.description}</p>
-                                    );
-                                  }
-                                  if (task.duration_minutes && task.duration_minutes > 0) {
-                                    elements.push(
-                                      <p key="duration" className="text-gray-500 text-sm mt-1">
-                                        <Clock className="h-3 w-3 inline mr-1" />
-                                        {task.duration_minutes} minutes
-                                      </p>
-                                    );
-                                  }
-                                  if (task.is_completed) {
-                                    // Parse completions if they exist
-                                    let completions = [];
-                                    if (task.completions) {
-                                      console.log('Raw completions data:', task.completions);
-                                      try {
-                                        // Check if it's multiple completions (contains },{) or single completion
-                                        if (task.completions.includes('},{')) {
-                                          // Multiple completions - split and parse each
-                                          const completionStrings = task.completions.split('},{').map((str, index, arr) => {
-                                            if (index === 0) return str + '}';
-                                            if (index === arr.length - 1) return '{' + str;
-                                            return '{' + str + '}';
-                                          });
-                                          console.log('Split completion strings:', completionStrings);
-                                          completions = completionStrings.map(str => JSON.parse(str));
-                                        } else {
-                                          // Single completion - parse directly
-                                          console.log('Parsing single completion');
-                                          completions = [JSON.parse(task.completions)];
-                                        }
-                                        console.log('Parsed completions:', completions);
-                                      } catch (e) {
-                                        console.error('Error parsing completions:', e);
-                                        console.error('Task completions value that failed:', task.completions);
-                                      }
-                                    }
-                                    
-                                    // Check if this is a repeating task with multiple completions
-                                    const hasMultipleCompletions = completions.length > 0 && completions.some(c => c.id !== null);
-                                    console.log('Task allow_multiple_completions:', task.allow_multiple_completions);
-                                    console.log('Completions array:', completions);
-                                    console.log('Has multiple completions:', hasMultipleCompletions);
-                                    
-                                    if (hasMultipleCompletions) {
-                                      // Show multiple completions for repeating tasks
-                                      completions.filter(completion => completion.id !== null).forEach((completion, index) => {
-                                        const completionText = completion.username ? 
-                                          `Completed by ${completion.username}` : 
-                                          'Completed';
-                                        
-                                        let timeText = '';
-                                        if (completion.completed_at) {
-                                          const completedDate = new Date(completion.completed_at);
-                                          if (isDailyList()) {
-                                            timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                          } else {
-                                            timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                          }
-                                        }
-                                        
-                                        elements.push(
-                                          <p key={`completion-${index}`} className="text-green-400 text-sm mt-1">
-                                            {completionText}{timeText}
-                                          </p>
-                                        );
-                                      });
-                                    } else {
-                                      // Show single completion for regular tasks
-                                      if (task.completed_by_username || task.completed_at) {
-                                        const completionText = task.completed_by_username ? 
-                                          `Completed by ${task.completed_by_username}` : 
-                                          'Completed';
-                                        
-                                        let timeText = '';
-                                        if (task.completed_at) {
-                                          const completedDate = new Date(task.completed_at);
-                                          if (isDailyList()) {
-                                            timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                          } else {
-                                            timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                          }
-                                        }
-                                        
-                                        elements.push(
-                                          <p key="completed" className="text-green-400 text-sm mt-1">
-                                            {completionText}{timeText}
-                                          </p>
-                                        );
-                                      }
-                                    }
-                                  }
-                                  return elements;
-                                })()}
+                                <div className="flex items-center space-x-2">
+                                  <h4 className={`font-medium ${
+                                    (task.is_completed === true || task.is_completed === 1) ? 'text-gray-400 line-through' : 'text-white'
+                                  }`}>
+                                    {task.title}
+                                  </h4>
+                                  {task.allow_multiple_completions === true && (
+                                    <Repeat className="h-3 w-3 text-purple-400" title="Repeating task" />
+                                  )}
+                                </div>
+                                {task.description && (
+                                  <p className="text-gray-400 text-sm mt-1">{task.description}</p>
+                                )}
+                                {task.duration_minutes !== null && task.duration_minutes !== undefined && Number(task.duration_minutes) > 0 && (
+                                  <p className="text-gray-500 text-sm mt-1">
+                                    <Clock className="h-3 w-3 inline mr-1" />
+                                    {task.duration_minutes} minutes
+                                  </p>
+                                )}
+                                {(task.is_completed === true || task.is_completed === 1) && <TaskCompletionInfo task={task} isDailyList={isDailyList} />}
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -1361,11 +1409,6 @@ const HomeScreen = () => {
                                   let canUndo = false;
                                   let completions = [];
                                   
-                                  console.log(`Checking undo for task ${task.id}:`);
-                                  console.log('- Current user ID:', user.userId);
-                                  console.log('- Current username:', user.username);
-                                  console.log('- Task completions:', task.completions);
-                                  
                                   if (task.completions) {
                                     try {
                                       // Parse completions to get the last completion
@@ -1381,34 +1424,24 @@ const HomeScreen = () => {
                                         // Single completion - parse directly
                                         completions = [JSON.parse(task.completions)];
                                       }
-                                      console.log('- Parsed completions:', completions);
                                     } catch (e) {
                                       console.error('Error parsing completions for undo check:', e);
                                     }
                                   }
                                   
-                                  // Check if the last completion was by the current user
                                   if (completions.length > 0) {
-                                    const lastCompletion = completions[0];
-                                    console.log('- Last completion:', lastCompletion);
-                                    console.log('- Last completed_by:', lastCompletion.completed_by);
+                                    const lastCompletion = completions[completions.length - 1];
                                     
-                                    // Allow undo if:
+                                    // User can undo if:
                                     // 1. The task was completed by the current user (any of their completions), OR
-                                    // 2. The task has null completion data (old system) and the current user is admin
+                                    // 2. The task was completed by null (legacy system) and user is admin
                                     const userCompletions = completions.filter(c => c.completed_by === user.userId);
+                                    
                                     if (userCompletions.length > 0) {
                                       canUndo = true;
-                                      console.log('- Can undo? true (user has completed this task)');
                                     } else if (lastCompletion.completed_by === null && user.username === 'admin') {
-                                      // Admin can undo legacy tasks with null completion data
                                       canUndo = true;
-                                      console.log('- Can undo? true (admin undoing legacy task)');
-                                    } else {
-                                      console.log('- Can undo? false (user has not completed this task)');
                                     }
-                                  } else {
-                                    console.log('- No completions found');
                                   }
                                   
                                   if (canUndo) {
@@ -1467,7 +1500,8 @@ const HomeScreen = () => {
                 </div>
               </div>
             )}
-          </div>
+
+                  </div>
         )}
       </div>
     </div>

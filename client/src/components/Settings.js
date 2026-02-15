@@ -7,7 +7,7 @@ import Goals from './Goals';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   
   // Password reset state
@@ -18,6 +18,14 @@ const Settings = () => {
   });
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState('');
+
+  // Username change state
+  const [usernameData, setUsernameData] = useState({
+    newUsername: '',
+    password: ''
+  });
+  const [usernameLoading, setUsernameLoading] = useState(false);
+  const [usernameMessage, setUsernameMessage] = useState('');
   
   // User management state
   const [users, setUsers] = useState([]);
@@ -89,6 +97,50 @@ const Settings = () => {
       setPasswordMessage(error.response?.data?.error || 'Error updating password');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  // Username change function
+  const handleUsernameChange = async () => {
+    if (!usernameData.newUsername || !usernameData.password) {
+      setUsernameMessage('New username and current password are required');
+      return;
+    }
+    
+    if (usernameData.newUsername.length < 3) {
+      setUsernameMessage('Username must be at least 3 characters long');
+      return;
+    }
+    
+    setUsernameLoading(true);
+    setUsernameMessage('');
+    
+    try {
+      const response = await axios.post('/api/auth/change-username', {
+        newUsername: usernameData.newUsername,
+        password: usernameData.password
+      });
+      
+      // Update the user context with new username and token
+      updateUser(response.data.user);
+      
+      // Update localStorage token
+      localStorage.setItem('token', response.data.token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      
+      setUsernameMessage('Username updated successfully!');
+      setUsernameData({
+        newUsername: '',
+        password: ''
+      });
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setUsernameMessage(''), 3000);
+      
+    } catch (error) {
+      setUsernameMessage(error.response?.data?.error || 'Error updating username');
+    } finally {
+      setUsernameLoading(false);
     }
   };
 
@@ -188,12 +240,12 @@ const Settings = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Username
+                    Current Username
                   </label>
                   <input
                     type="text"
                     className="input w-full"
-                    defaultValue="admin"
+                    value={user?.username || ''}
                     disabled
                   />
                 </div>
@@ -204,8 +256,62 @@ const Settings = () => {
                   <input
                     type="email"
                     className="input w-full"
-                    placeholder="admin@example.com"
+                    value={user?.email || ''}
+                    disabled
                   />
+                </div>
+                <div className="border-t border-gray-700 pt-6">
+                  <h3 className="text-md font-medium text-white mb-4">Change Username</h3>
+                  <form onSubmit={(e) => { e.preventDefault(); handleUsernameChange(); }} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        New Username
+                      </label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        placeholder="Enter new username"
+                        value={usernameData.newUsername}
+                        onChange={(e) => setUsernameData({...usernameData, newUsername: e.target.value})}
+                        required
+                        minLength={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Current Password
+                      </label>
+                      <input
+                        type="password"
+                        className="input w-full"
+                        placeholder="Enter current password"
+                        value={usernameData.password}
+                        onChange={(e) => setUsernameData({...usernameData, password: e.target.value})}
+                        required
+                      />
+                    </div>
+                    {usernameMessage && (
+                      <div className={`text-sm ${usernameMessage.includes('successfully') ? 'text-green-400' : 'text-red-400'}`}>
+                        {usernameMessage}
+                      </div>
+                    )}
+                    <div className="flex space-x-3">
+                      <button
+                        type="submit"
+                        disabled={usernameLoading}
+                        className="btn-primary"
+                      >
+                        {usernameLoading ? 'Updating...' : 'Update Username'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUsernameData({ newUsername: '', password: '' })}
+                        className="btn-secondary"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
                 </div>
                 <div className="border-t border-gray-700 pt-6">
                   <h3 className="text-md font-medium text-white mb-4">Change Password</h3>

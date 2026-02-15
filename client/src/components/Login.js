@@ -44,15 +44,6 @@ const Login = () => {
             <h2 className="text-center text-3xl font-extrabold text-white">
               Sign in to The Nest
             </h2>
-            <p className="mt-2 text-center text-sm text-gray-300">
-              Or{' '}
-              <Link
-                to="/register"
-                className="font-medium text-purple-300 hover:text-purple-200"
-              >
-                create a new account
-              </Link>
-            </p>
           </div>  
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {error && (

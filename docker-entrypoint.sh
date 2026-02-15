@@ -4,34 +4,43 @@
 if [ -d "/app/data" ]; then
     echo "🔍 Checking /app/data directory permissions..."
     
-    # Check if we can write to the data directory
+    # Check if we can write to the data directory as current user (root)
     if ! touch /app/data/.test 2>/dev/null; then
-        echo "⚠️  Fixing permissions for /app/data directory..."
+        echo "❌ Cannot write to /app/data directory even as root!"
+        export NODE_ENV=fallback
+    else
+        echo "✅ Root can write to /app/data directory"
+        rm -f /app/data/.test
         
-        # Try to fix permissions (this might fail if not root, but that's ok)
-        chown -R nest:nodejs /app/data 2>/dev/null || true
-        chmod 755 /app/data 2>/dev/null || true
+        # Fix ownership for the nest user
+        echo "🔧 Setting ownership to nest:nodejs for /app/data..."
+        chown -R nest:nodejs /app/data
+        chmod 755 /app/data
         
-        # Test again
-        if touch /app/data/.test 2>/dev/null; then
-            echo "✅ Permissions fixed successfully"
+        # Test if the nest user can write to it
+        if su nest -c "touch /app/data/.test" 2>/dev/null; then
+            echo "✅ nest user can write to /app/data directory"
             rm -f /app/data/.test
         else
-            echo "❌ Cannot fix permissions. Running with current user..."
-            # Fallback: try to create database in current directory
-            export NODE_ENV=fallback
+            echo "❌ nest user cannot write to /app/data directory"
         fi
-    else
-        echo "✅ /app/data directory is writable"
-        rm -f /app/data/.test
     fi
 else
     echo "📁 Creating /app/data directory..."
     mkdir -p /app/data
-    chown -R nest:nodejs /app/data 2>/dev/null || true
-    chmod 755 /app/data 2>/dev/null || true
+    chown -R nest:nodejs /app/data
+    chmod 755 /app/data
+    
+    # Test if the nest user can write to it
+    if su nest -c "touch /app/data/.test" 2>/dev/null; then
+        echo "✅ nest user can write to /app/data directory"
+        rm -f /app/data/.test
+    else
+        echo "❌ nest user cannot write to /app/data directory"
+    fi
 fi
 
-# Start the application
+# Start the application as root (user account issue workaround)
 echo "🚀 Starting The Nest application..."
+cd /app/server
 exec npm start

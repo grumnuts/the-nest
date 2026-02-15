@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
-import Register from './components/Register';
 import HomeScreen from './components/HomeScreen';
 import ListView from './components/ListView';
 import Settings from './components/Settings';
@@ -25,10 +24,6 @@ function AppRoutes() {
         <Route 
           path="/login" 
           element={!user ? <Login /> : <Navigate to="/dashboard" />} 
-        />
-        <Route 
-          path="/register" 
-          element={!user ? <Register /> : <Navigate to="/dashboard" />} 
         />
         <Route 
           path="/dashboard" 

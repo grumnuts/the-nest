@@ -15,7 +15,18 @@ async function initializeAdmin() {
     });
     
     if (existingAdmin) {
-      console.log('✅ Admin user already exists. Verifying password...');
+      console.log('✅ Admin user already exists. Verifying password and admin status...');
+      
+      // Ensure admin flag is set for existing admin user
+      if (!existingAdmin.is_admin) {
+        await new Promise((resolve, reject) => {
+          db.db.run('UPDATE users SET is_admin = 1 WHERE username = ?', ['admin'], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+        console.log('✅ Admin flag set for existing admin user');
+      }
       
       // Test if password works
       const isValid = await bcrypt.compare('admin123', existingAdmin.password_hash);
@@ -25,7 +36,7 @@ async function initializeAdmin() {
         console.log('⚠️  Admin password incorrect, resetting...');
         const newHash = await bcrypt.hash('admin123', 10);
         await new Promise((resolve, reject) => {
-          db.db.run('UPDATE users SET password_hash = ? WHERE username = ?', [newHash, 'admin'], (err) => {
+          db.db.run('UPDATE users SET password_hash = ?, is_admin = 1 WHERE username = ?', [newHash, 'admin'], (err) => {
             if (err) reject(err);
             else resolve();
           });
@@ -41,8 +52,8 @@ async function initializeAdmin() {
       
       const userId = await new Promise((resolve, reject) => {
         db.db.run(
-          'INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)',
-          ['admin', 'admin@localhost', hashedPassword, new Date().toISOString()],
+          'INSERT INTO users (username, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)',
+          ['admin', 'admin@localhost', hashedPassword, 1, new Date().toISOString()],
           function(err) {
             if (err) reject(err);
             else resolve(this.lastID);

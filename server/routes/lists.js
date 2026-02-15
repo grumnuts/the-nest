@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateToken, validateList } = require('../middleware/auth');
+const { checkAdmin } = require('../middleware/admin');
 const Database = require('../database');
 
 const router = express.Router();
@@ -28,11 +29,7 @@ router.get('/', authenticateToken, (req, res) => {
 });
 
 // Create a new list
-router.post('/', authenticateToken, validateList, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can create lists' });
-  }
+router.post('/', authenticateToken, checkAdmin, validateList, (req, res) => {
   
   const { name, description, reset_period } = req.body;
   const createdBy = req.user.userId;
@@ -140,7 +137,7 @@ router.patch('/:id', authenticateToken, (req, res) => {
     }
 
     // Admins can edit any list, other users must be owners or editors
-    if (req.user.username !== 'admin') {
+    if (!req.user.is_admin) {
       const listAccess = userLists.find(list => 
         list.id === parseInt(listId) && 
         ['owner', 'editor'].includes(list.permission_level)
@@ -180,7 +177,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
     }
 
     // Admins can delete any list, other users must be owners
-    if (req.user.username !== 'admin') {
+    if (!req.user.is_admin) {
       const listAccess = userLists.find(list => 
         list.id === parseInt(listId) && 
         ['owner'].includes(list.permission_level)
@@ -209,11 +206,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
 });
 
 // Reorder lists
-router.post('/reorder', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can reorder lists' });
-  }
+router.post('/reorder', authenticateToken, checkAdmin, (req, res) => {
   
   const { listIds } = req.body;
   

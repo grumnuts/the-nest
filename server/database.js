@@ -2,10 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 // Use /app/data directory in Docker, local directory in development
-// Fallback mode if permissions are an issue
-const dataDir = process.env.NODE_ENV === 'production' && process.env.NODE_ENV !== 'fallback' 
-  ? '/app/data' 
-  : __dirname;
+const dataDir = process.env.NODE_ENV === 'production' ? '/app/data' : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
 
 console.log(`📂 Database directory: ${dataDir}`);
@@ -38,9 +35,10 @@ try {
 } catch (error) {
   console.error(`❌ Failed to setup data directory ${dataDir}:`, error.message);
   console.error(`❌ Full error:`, error);
-  // Fallback to current directory for local development
+  // In production, this is a critical error
   if (process.env.NODE_ENV === 'production') {
-    throw error; // In production, this is a real error
+    console.error('❌ CRITICAL: Cannot setup database directory in production!');
+    process.exit(1);
   } else {
     console.log('⚠️  Falling back to local directory for development');
   }
@@ -90,6 +88,9 @@ class Database {
           username TEXT UNIQUE NOT NULL,
           email TEXT UNIQUE NOT NULL,
           password_hash TEXT NOT NULL,
+          is_admin BOOLEAN DEFAULT 0,
+          hide_goals BOOLEAN DEFAULT 0,
+          hide_completed_tasks BOOLEAN DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -215,6 +216,27 @@ class Database {
         }
       });
 
+      // Add is_admin column to users table for multiple admin support
+      this.db.run(`ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding is_admin column to users:', err);
+        }
+      });
+
+      // Add hide_goals column to users table for per-user goal visibility
+      this.db.run(`ALTER TABLE users ADD COLUMN hide_goals BOOLEAN DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding hide_goals column to users:', err);
+        }
+      });
+
+      // Add hide_completed_tasks column to users table for per-user task visibility
+      this.db.run(`ALTER TABLE users ADD COLUMN hide_completed_tasks BOOLEAN DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding hide_completed_tasks column to users:', err);
+        }
+      });
+
       // Task completions history
       this.db.run(`
         CREATE TABLE IF NOT EXISTS task_completions (
@@ -260,8 +282,16 @@ class Database {
   }
 
   updateUserPassword(userId, newPasswordHash, callback) {
-    const stmt = this.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+    const stmt = this.db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
     stmt.run([newPasswordHash, userId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateUserUsername(userId, newUsername, callback) {
+    const stmt = this.db.prepare('UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run([newUsername, userId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -279,12 +309,34 @@ class Database {
     this.db.get('SELECT * FROM users WHERE id = ?', [id], callback);
   }
 
+  updateUserHideGoals(userId, hideGoals, callback) {
+    const stmt = this.db.prepare('UPDATE users SET hide_goals = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run([hideGoals, userId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateUserHideCompletedTasks(userId, hideCompletedTasks, callback) {
+    const stmt = this.db.prepare('UPDATE users SET hide_completed_tasks = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run([hideCompletedTasks, userId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
   // List methods
   createList(name, description, resetPeriod, createdBy, callback) {
     const stmt = this.db.prepare('INSERT INTO lists (name, description, reset_period, created_by) VALUES (?, ?, ?, ?)');
     stmt.run([name, description, resetPeriod, createdBy], function(err) {
       callback(err, this ? this.lastID : null);
     });
+    stmt.finalize();
+  }
+
+  getListsByResetPeriod(resetPeriod, callback) {
+    const stmt = this.db.prepare('SELECT * FROM lists WHERE reset_period = ? ORDER BY created_at');
+    stmt.all([resetPeriod], callback);
     stmt.finalize();
   }
 

@@ -1,16 +1,13 @@
 const express = require('express');
 const { authenticateToken, validateTask } = require('../middleware/auth');
+const { checkAdmin } = require('../middleware/admin');
 const Database = require('../database');
 
 const router = express.Router();
 const db = new Database();
 
 // Create a new task
-router.post('/', authenticateToken, validateTask, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can create tasks' });
-  }
+router.post('/', authenticateToken, checkAdmin, validateTask, (req, res) => {
   
   const { title, description, list_id, assigned_to, duration_minutes, allow_multiple_completions } = req.body;
   const createdBy = req.user.userId;
@@ -224,11 +221,7 @@ router.patch('/:id/undo', authenticateToken, (req, res) => {
 });
 
 // Update task details
-router.patch('/:id', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can edit tasks' });
-  }
+router.patch('/:id', authenticateToken, checkAdmin, (req, res) => {
   
   const taskId = req.params.id;
   const { title, description, duration_minutes, allow_multiple_completions } = req.body;
@@ -295,11 +288,7 @@ router.get('/list/:listId', authenticateToken, (req, res) => {
 });
 
 // Delete a task
-router.delete('/:id', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can delete tasks' });
-  }
+router.delete('/:id', authenticateToken, checkAdmin, (req, res) => {
   
   const taskId = req.params.id;
   const userId = req.user.userId;
@@ -351,11 +340,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
 });
 
 // Reorder tasks within a list
-router.post('/reorder/:listId', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can reorder tasks' });
-  }
+router.post('/reorder/:listId', authenticateToken, checkAdmin, (req, res) => {
   
   const { listId } = req.params;
   const { taskIds } = req.body;

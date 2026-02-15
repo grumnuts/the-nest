@@ -15,6 +15,11 @@ const Goals = () => {
   const [editingGoal, setEditingGoal] = useState(null);
   const [selectedGoalProgress, setSelectedGoalProgress] = useState(null);
   
+  // New state for period tabs
+  const [availablePeriods, setAvailablePeriods] = useState([]);
+  const [selectedPeriod, setSelectedPeriod] = useState(null);
+  const [periodLoading, setPeriodLoading] = useState(false);
+  
   const [newGoal, setNewGoal] = useState({
     userId: '',
     name: '',
@@ -37,7 +42,16 @@ const Goals = () => {
     try {
       const endpoint = isAdmin ? '/api/goals/all-goals' : '/api/goals/my-goals';
       const response = await axios.get(endpoint);
-      setGoals(response.data.goals);
+      const goalsData = response.data.goals;
+      setGoals(goalsData);
+      
+      // Auto-fetch periods for the first non-static goal
+      if (goalsData && goalsData.length > 0) {
+        const firstNonStaticGoal = goalsData.find(g => g.period_type !== 'static');
+        if (firstNonStaticGoal) {
+          fetchPeriods(firstNonStaticGoal.period_type);
+        }
+      }
     } catch (error) {
       console.error('Error fetching goals:', error);
     } finally {
@@ -58,10 +72,42 @@ const Goals = () => {
   const fetchLists = async () => {
     try {
       const response = await axios.get('/api/lists');
-      setLists(response.data.lists);
+      // Handle the response structure: { lists: [...] }
+      const listsData = response.data.lists || response.data;
+      // Ensure we set lists to an array
+      setLists(Array.isArray(listsData) ? listsData : []);
     } catch (error) {
       console.error('Error fetching lists:', error);
+      setLists([]); // Ensure lists is always an array
     }
+  };
+
+  const fetchPeriods = async (periodType) => {
+    if (!periodType || periodType === 'static') return;
+    
+    setPeriodLoading(true);
+    try {
+      const response = await axios.get(`/api/goals/periods/${periodType}?limit=10`);
+      setAvailablePeriods(response.data.periods);
+      
+      // Set selected period to current period if not already selected
+      if (!selectedPeriod) {
+        const currentPeriod = response.data.periods.find(p => p.isCurrent);
+        if (currentPeriod) {
+          setSelectedPeriod(currentPeriod.date);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching periods:', error);
+    } finally {
+      setPeriodLoading(false);
+    }
+  };
+
+  const handlePeriodChange = (periodDate) => {
+    setSelectedPeriod(periodDate);
+    // Refetch goals with new period
+    fetchGoals();
   };
 
   const handleCreateGoal = async (e) => {
@@ -200,6 +246,36 @@ const Goals = () => {
         )}
       </div>
 
+      {/* Period Tabs */}
+      {availablePeriods.length > 0 && (
+        <div className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-4 border border-purple-500/30 shadow-xl">
+          <div className="flex items-center space-x-4 mb-3">
+            <Calendar className="h-5 w-5 text-purple-400" />
+            <h3 className="text-lg font-semibold text-white">Period</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {availablePeriods.map((period) => (
+              <button
+                key={period.date}
+                onClick={() => handlePeriodChange(period.date)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  selectedPeriod === period.date
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                } ${period.isCurrent ? 'ring-2 ring-purple-400 ring-opacity-50' : ''}`}
+              >
+                <div className="flex items-center space-x-2">
+                  <span>{period.label}</span>
+                  {period.isCurrent && (
+                    <span className="text-xs bg-purple-500 px-2 py-0.5 rounded-full">Current</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Goals List */}
       {!goals || goals.length === 0 ? (
         <div className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-8 border border-purple-500/30 shadow-xl text-center">
@@ -209,89 +285,91 @@ const Goals = () => {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2">
           {goals && goals.map((goal) => (
-            <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-6 border border-purple-500/30 shadow-xl">
+            <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-3 border border-purple-500/30 shadow-xl">
               {/* Goal Header */}
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-xl font-semibold text-white">{goal.name}</h3>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <h3 className="text-sm font-semibold text-white">{goal.name}</h3>
                     {goal.progress?.isAchieved && (
-                      <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                      <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
                     )}
                   </div>
                   {goal.description && (
-                    <p className="text-gray-400 mb-3">{goal.description}</p>
+                    <p className="text-gray-400 text-xs mb-1 line-clamp-1">{goal.description}</p>
                   )}
-                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  <div className="flex items-center space-x-3 text-xs text-gray-500">
                     <div className="flex items-center space-x-1">
-                      <Users className="h-4 w-4" />
+                      <Users className="h-3 w-3" />
                       <span>{goal.user_username}</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Calendar className="h-4 w-4" />
+                      <Calendar className="h-3 w-3" />
                       <span>{getPeriodTypeLabel(goal.period_type)}</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Target className="h-4 w-4" />
+                      <Target className="h-3 w-3" />
                       <span>{getCalculationTypeLabel(goal.calculation_type)}</span>
                     </div>
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-1">
                     <button
                       onClick={() => handleEditGoal(goal)}
-                      className="p-2 text-gray-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-blue-500/10"
+                      className="p-1 text-gray-400 hover:text-blue-400 transition-colors rounded hover:bg-blue-500/10"
                     >
-                      <Edit2 className="h-4 w-4" />
+                      <Edit2 className="h-3 w-3" />
                     </button>
                     <button
                       onClick={() => handleDeleteGoal(goal.id)}
-                      className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
+                      className="p-1 text-gray-400 hover:text-red-400 transition-colors rounded hover:bg-red-500/10"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 )}
               </div>
 
               {/* Progress Section */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-3">
+              <div className="mb-2">
+                <div className="flex items-center justify-between mb-1">
                   <div>
-                    <span className="text-2xl font-bold text-white">
+                    <span className="text-lg font-bold text-white">
                       {Math.round(goal.progress?.percentage || 0)}%
                     </span>
-                    <span className="text-gray-400 ml-2">
-                      {goal.progress?.completed || 0} / {goal.progress?.required || goal.target_value}
-                      {goal.calculation_type.includes('time') ? ' min' : ' tasks'}
+                    <span className="text-gray-400 ml-1 text-xs">
+                      {goal.calculation_type.includes('percentage') 
+                        ? `${Math.round(goal.progress?.percentage || 0)}%`
+                        : `${goal.progress?.completed || 0} / ${goal.progress?.required || goal.target_value}${goal.calculation_type.includes('time') ? ' min' : ' tasks'}`
+                      }
                     </span>
                   </div>
                   {goal.progress?.isAchieved && (
                     <div className="flex items-center space-x-1 text-green-400">
-                      <CheckCircle className="h-5 w-5" />
-                      <span className="font-medium">Achieved!</span>
+                      <CheckCircle className="h-3 w-3" />
+                      <span className="font-medium text-xs">Achieved!</span>
                     </div>
                   )}
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-3">
+                <div className="w-full bg-gray-700 rounded-full h-2">
                   <div
-                    className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(goal.progress?.percentage || 0)}`}
+                    className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(goal.progress?.percentage || 0)}`}
                     style={{ width: `${Math.min(goal.progress?.percentage || 0, 100)}%` }}
                   ></div>
                 </div>
               </div>
 
               {/* Lists */}
-              <div className="mb-4">
-                <p className="text-sm text-gray-500 mb-2">Lists:</p>
-                <div className="flex flex-wrap gap-2">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Lists:</p>
+                <div className="flex flex-wrap gap-1">
                   {goal.list_ids && goal.list_ids.map((listId) => {
                     const list = lists && lists.find(l => l.id === listId);
                     return list ? (
-                      <span key={listId} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      <span key={listId} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
                         {list.name}
                       </span>
                     ) : null;
@@ -440,7 +518,7 @@ const Goals = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Select Lists</label>
                 <div className="space-y-2 max-h-48 overflow-y-auto p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                  {lists && lists.map((list) => (
+                  {Array.isArray(lists) && lists.map((list) => (
                     <label key={list.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-700/50 p-3 rounded-lg transition-colors">
                       <input
                         type="checkbox"

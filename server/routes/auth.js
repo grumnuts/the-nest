@@ -1,65 +1,11 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { validateRegistration, validateLogin, authenticateToken, JWT_SECRET } = require('../middleware/auth');
+const { validateLogin, authenticateToken, JWT_SECRET } = require('../middleware/auth');
 const Database = require('../database');
 
 const router = express.Router();
 const db = new Database();
-
-// Register new user
-router.post('/register', validateRegistration, (req, res) => {
-  const { username, email, password } = req.body;
-
-  // Check if username already exists
-  db.getUserByUsername(username, (err, existingUser) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'Username already exists' });
-    }
-
-    // Check if email already exists
-    db.getUserByEmail(email, (err, existingEmailUser) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-
-      if (existingEmailUser) {
-        return res.status(400).json({ error: 'Email already exists' });
-      }
-
-      // Hash password
-      bcrypt.hash(password, 10, (err, hash) => {
-        if (err) {
-          return res.status(500).json({ error: 'Error hashing password' });
-        }
-
-        // Create user
-        db.createUser(username, email, hash, (err, userId) => {
-          if (err) {
-            return res.status(500).json({ error: 'Error creating user' });
-          }
-
-          // Generate JWT token
-          const token = jwt.sign(
-            { userId, username, email },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-          );
-
-          res.status(201).json({
-            message: 'User created successfully',
-            token,
-            user: { userId, username, email }
-          });
-        });
-      });
-    });
-  });
-});
 
 // Login user
 router.post('/login', validateLogin, (req, res) => {
@@ -87,7 +33,7 @@ router.post('/login', validateLogin, (req, res) => {
 
       // Generate JWT token
       const token = jwt.sign(
-        { userId: user.id, username: user.username, email: user.email },
+        { userId: user.id, username: user.username, email: user.email, is_admin: user.is_admin, hide_goals: user.hide_goals, hide_completed_tasks: user.hide_completed_tasks },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -95,7 +41,7 @@ router.post('/login', validateLogin, (req, res) => {
       res.json({
         message: 'Login successful',
         token,
-        user: { userId: user.id, username: user.username, email: user.email }
+        user: { userId: user.id, username: user.username, email: user.email, is_admin: user.is_admin, hide_goals: user.hide_goals, hide_completed_tasks: user.hide_completed_tasks }
       });
     });
   });
@@ -108,9 +54,108 @@ router.get('/verify', authenticateToken, (req, res) => {
     user: {
       userId: req.user.userId,
       username: req.user.username,
-      email: req.user.email
+      email: req.user.email,
+      is_admin: req.user.is_admin,
+      hide_goals: req.user.hide_goals,
+      hide_completed_tasks: req.user.hide_completed_tasks
     }
   });
+});
+
+// Change username
+router.post('/change-username', authenticateToken, async (req, res) => {
+  try {
+    const { newUsername, password } = req.body;
+    const userId = req.user.userId;
+
+    // Validate input
+    if (!newUsername || !password) {
+      return res.status(400).json({ error: 'New username and current password are required' });
+    }
+
+    if (newUsername.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters long' });
+    }
+
+    // Get current user to verify password
+    db.getUserById(userId, async (err, user) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching user data' });
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Verify current password
+      const bcrypt = require('bcrypt');
+      const isValid = await bcrypt.compare(password, user.password_hash);
+
+      if (!isValid) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+
+      // Check if new username is already taken
+      db.getUserByUsername(newUsername, (err, existingUser) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error checking username availability' });
+        }
+
+        if (existingUser) {
+          return res.status(400).json({ error: 'Username is already taken' });
+        }
+
+        // Update username
+        db.updateUserUsername(userId, newUsername, (err, changes) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error updating username' });
+          }
+
+          if (changes === 0) {
+            return res.status(404).json({ error: 'User not found' });
+          }
+
+          // Get updated user data
+          db.getUserById(userId, (err, updatedUser) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error fetching updated user data' });
+            }
+
+            // Generate new JWT token with updated username
+            const jwt = require('jsonwebtoken');
+            const token = jwt.sign(
+              { 
+                userId: updatedUser.id, 
+                username: updatedUser.username, 
+                email: updatedUser.email, 
+                is_admin: updatedUser.is_admin, 
+                hide_goals: updatedUser.hide_goals,
+                hide_completed_tasks: updatedUser.hide_completed_tasks
+              },
+              process.env.JWT_SECRET,
+              { expiresIn: '24h' }
+            );
+
+            res.json({
+              message: 'Username updated successfully',
+              token,
+              user: { 
+                userId: updatedUser.id, 
+                username: updatedUser.username, 
+                email: updatedUser.email, 
+                is_admin: updatedUser.is_admin,
+                hide_goals: updatedUser.hide_goals,
+                hide_completed_tasks: updatedUser.hide_completed_tasks
+              }
+            });
+          });
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Error changing username:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Change password

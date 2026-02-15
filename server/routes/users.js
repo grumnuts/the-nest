@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
+const { checkAdmin } = require('../middleware/admin');
 const Database = require('../database');
 
 const db = new Database();
@@ -16,7 +17,7 @@ router.get('/', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Error checking user permissions' });
     }
     
-    if (!user || user.username !== 'admin') {
+    if (!user || !user.is_admin) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -42,7 +43,7 @@ router.post('/', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Error checking user permissions' });
     }
     
-    if (!user || user.username !== 'admin') {
+    if (!user || !user.is_admin) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -95,7 +96,7 @@ router.put('/:id', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Error checking user permissions' });
     }
     
-    if (!adminUser || adminUser.username !== 'admin') {
+    if (!adminUser || !adminUser.is_admin) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -168,7 +169,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Error checking user permissions' });
     }
     
-    if (!adminUser || adminUser.username !== 'admin') {
+    if (!adminUser || !adminUser.is_admin) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -184,6 +185,58 @@ router.delete('/:id', authenticateToken, (req, res) => {
       }
       
       res.json({ message: 'User deleted successfully' });
+    });
+  });
+});
+
+// Update user's hide_goals preference
+router.patch('/hide-goals', authenticateToken, (req, res) => {
+  const { hide_goals } = req.body;
+  const userId = req.user.userId;
+  
+  // Validate input
+  if (typeof hide_goals !== 'boolean') {
+    return res.status(400).json({ error: 'hide_goals must be a boolean value' });
+  }
+  
+  db.updateUserHideGoals(userId, hide_goals, (err, changes) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error updating hide_goals preference' });
+    }
+    
+    if (changes === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      message: 'Hide goals preference updated successfully',
+      hide_goals: hide_goals
+    });
+  });
+});
+
+// Update user's hide_completed_tasks preference
+router.patch('/hide-completed-tasks', authenticateToken, (req, res) => {
+  const { hide_completed_tasks } = req.body;
+  const userId = req.user.userId;
+  
+  // Validate input
+  if (typeof hide_completed_tasks !== 'boolean') {
+    return res.status(400).json({ error: 'hide_completed_tasks must be a boolean value' });
+  }
+  
+  db.updateUserHideCompletedTasks(userId, hide_completed_tasks, (err, changes) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error updating hide_completed_tasks preference' });
+    }
+    
+    if (changes === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      message: 'Hide completed tasks preference updated successfully',
+      hide_completed_tasks: hide_completed_tasks
     });
   });
 });

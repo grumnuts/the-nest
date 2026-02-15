@@ -1,11 +1,210 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
+const { checkAdmin } = require('../middleware/admin');
 const Database = require('../database');
 
 const router = express.Router();
 const db = new Database();
 
-// Simplified progress calculation function
+// Enhanced progress calculation function that accounts for all periods within a list type
+const calculateMultiPeriodProgress = async (goal, listIds, selectedPeriod = null) => {
+  try {
+    // If no list IDs provided, get all lists of the same reset period type
+    if (listIds.length === 0 && goal.period_type !== 'static') {
+      const allLists = await new Promise((resolve, reject) => {
+        db.getListsByResetPeriod(goal.period_type, (err, lists) => {
+          if (err) reject(err);
+          else resolve(lists || []);
+        });
+      });
+      listIds = allLists.map(list => list.id);
+    }
+
+    // Calculate period dates based on goal's period_type
+    const now = new Date();
+    let periods = [];
+    
+    if (selectedPeriod) {
+      // Calculate specific period
+      periods = [calculatePeriodDates(goal.period_type, selectedPeriod)];
+    } else {
+      // Calculate current period
+      periods = [calculatePeriodDates(goal.period_type, now)];
+    }
+
+    let totalCompleted = 0;
+    let totalRequired = 0;
+
+    // Calculate progress for each period
+    for (const period of periods) {
+      const periodProgress = await calculatePeriodProgress(goal, listIds, period.start, period.end);
+      totalCompleted += periodProgress.completed;
+      totalRequired += periodProgress.required;
+    }
+
+    const percentage = totalRequired > 0 ? (totalCompleted / totalRequired) * 100 : 0;
+    const isAchieved = percentage >= 100;
+
+    return {
+      required: totalRequired,
+      completed: totalCompleted,
+      percentage: percentage,
+      isAchieved: isAchieved,
+      periodStart: periods[0].start.toISOString(),
+      periodEnd: periods[periods.length - 1].end.toISOString(),
+      periods: periods.map(p => ({
+        start: p.start.toISOString(),
+        end: p.end.toISOString(),
+        label: p.label
+      }))
+    };
+  } catch (error) {
+    console.error('Error calculating multi-period progress:', error);
+    return {
+      required: goal.target_value,
+      completed: 0,
+      percentage: 0,
+      isAchieved: false,
+      periodStart: new Date().toISOString(),
+      periodEnd: new Date().toISOString()
+    };
+  }
+};
+
+// Helper function to calculate period dates
+const calculatePeriodDates = (periodType, date) => {
+  const start = new Date(date);
+  const end = new Date(date);
+  let label = '';
+
+  switch (periodType) {
+    case 'daily':
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      label = start.toLocaleDateString();
+      break;
+    case 'weekly':
+      const dayOfWeek = start.getDay();
+      start.setDate(start.getDate() - dayOfWeek);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      label = `Week of ${start.toLocaleDateString()}`;
+      break;
+    case 'monthly':
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(end.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+      label = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      break;
+    case 'quarterly':
+      const quarter = Math.floor(start.getMonth() / 3);
+      start.setMonth(quarter * 3, 1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth((quarter + 1) * 3, 0);
+      end.setHours(23, 59, 59, 999);
+      label = `Q${quarter + 1} ${start.getFullYear()}`;
+      break;
+    case 'annually':
+      start.setMonth(0, 1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(11, 31);
+      end.setHours(23, 59, 59, 999);
+      label = `${start.getFullYear()}`;
+      break;
+    default:
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      label = start.toLocaleDateString();
+  }
+
+  return { start, end, label };
+};
+
+// Helper function to calculate progress for a single period
+const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd) => {
+  // Get task completions for the period
+  const completions = await new Promise((resolve, reject) => {
+    db.getTaskCompletionsInPeriod(goal.user_id, periodStart.toISOString(), periodEnd.toISOString(), (err, completions) => {
+      if (err) reject(err);
+      else resolve(completions || []);
+    });
+  });
+
+  // Filter completions by goal's lists
+  const relevantCompletions = completions.filter(completion => {
+    return listIds.length === 0 || listIds.includes(completion.list_id);
+  });
+
+  let completed = 0;
+  let required = goal.target_value;
+
+  // Calculate completed value based on calculation type
+  switch (goal.calculation_type) {
+    case 'percentage_task_count':
+      // For percentage, we need total tasks in lists
+      const totalTasks = await new Promise((resolve, reject) => {
+        if (listIds.length === 0) {
+          resolve(0);
+          return;
+        }
+        const placeholders = listIds.map(() => '?').join(',');
+        db.db.all(
+          `SELECT COUNT(*) as count FROM tasks WHERE list_id IN (${placeholders})`,
+          listIds,
+          (err, result) => {
+            if (err) reject(err);
+            else resolve(result[0].count);
+          }
+        );
+      });
+      completed = totalTasks > 0 ? (relevantCompletions.length / totalTasks) * 100 : 0;
+      required = goal.target_value; // Use the actual target percentage from goal
+      break;
+    case 'percentage_time':
+      // For percentage time, we need total possible time from all tasks in lists
+      const totalPossibleTime = await new Promise((resolve, reject) => {
+        if (listIds.length === 0) {
+          resolve(0);
+          return;
+        }
+        const placeholders = listIds.map(() => '?').join(',');
+        db.db.all(
+          `SELECT SUM(duration_minutes) as total_time FROM tasks WHERE list_id IN (${placeholders})`,
+          listIds,
+          (err, result) => {
+            if (err) reject(err);
+            else resolve(result[0].total_time || 0);
+          }
+        );
+      });
+      const completedTime = relevantCompletions.reduce((sum, completion) => {
+        return sum + (completion.duration_minutes || 0);
+      }, 0);
+      completed = totalPossibleTime > 0 ? (completedTime / totalPossibleTime) * 100 : 0;
+      required = goal.target_value; // Use the actual target percentage from goal
+      break;
+    case 'fixed_task_count':
+      completed = relevantCompletions.length;
+      break;
+    case 'fixed_time':
+      completed = relevantCompletions.reduce((sum, completion) => {
+        return sum + (completion.duration_minutes || 0);
+      }, 0);
+      break;
+    default:
+      completed = relevantCompletions.length;
+  }
+
+  return {
+    required: required,
+    completed: completed,
+    percentage: required > 0 ? (completed / required) * 100 : 0
+  };
+};
+
+// Simplified progress calculation function (legacy)
 const calculateSimpleProgress = async (goal, listIds) => {
   try {
     // Get current date for period calculation
@@ -169,13 +368,8 @@ router.get('/my-goals', authenticateToken, async (req, res) => {
 });
 
 // Get all goals (admin only)
-router.get('/all-goals', authenticateToken, async (req, res) => {
+router.get('/all-goals', authenticateToken, checkAdmin, async (req, res) => {
   console.log('🎯 Fetching all goals for admin:', req.user.username);
-  
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can view all goals' });
-  }
 
   // Check if database is available
   if (!db || !db.db) {
@@ -215,11 +409,7 @@ router.get('/all-goals', authenticateToken, async (req, res) => {
 });
 
 // Create a new goal (admin only)
-router.post('/', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can create goals' });
-  }
+router.post('/', authenticateToken, checkAdmin, (req, res) => {
 
   const { 
     userId, 
@@ -261,11 +451,7 @@ router.post('/', authenticateToken, (req, res) => {
 });
 
 // Update a goal (admin only)
-router.patch('/:id', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can update goals' });
-  }
+router.patch('/:id', authenticateToken, checkAdmin, (req, res) => {
 
   const goalId = req.params.id;
   const { 
@@ -298,11 +484,7 @@ router.patch('/:id', authenticateToken, (req, res) => {
 });
 
 // Delete a goal (admin only)
-router.delete('/:id', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can delete goals' });
-  }
+router.delete('/:id', authenticateToken, checkAdmin, (req, res) => {
 
   const goalId = req.params.id;
 
@@ -337,7 +519,7 @@ router.get('/:id/progress', authenticateToken, (req, res) => {
     }
 
     // Check if user is admin or the goal owner
-    if (req.user.username !== 'admin' && goal.user_id !== userId) {
+    if (!req.user.is_admin && goal.user_id !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -536,5 +718,122 @@ function calculateFixedTime(goal, tasks, completions) {
     isAchieved: completedTime >= requiredTime
   };
 }
+
+// Get available periods for a goal type
+router.get('/periods/:periodType', authenticateToken, async (req, res) => {
+  const { periodType } = req.params;
+  const { limit = 10 } = req.query;
+  
+  try {
+    const periods = [];
+    const now = new Date();
+    
+    // Generate periods (past, current, and future)
+    for (let i = Math.floor(limit / 2); i >= 0; i--) {
+      const date = new Date(now);
+      
+      switch (periodType) {
+        case 'daily':
+          date.setDate(date.getDate() - i);
+          break;
+        case 'weekly':
+          date.setDate(date.getDate() - (i * 7));
+          break;
+        case 'monthly':
+          date.setMonth(date.getMonth() - i);
+          break;
+        case 'quarterly':
+          date.setMonth(date.getMonth() - (i * 3));
+          break;
+        case 'annually':
+          date.setFullYear(date.getFullYear() - i);
+          break;
+      }
+      
+      const period = calculatePeriodDates(periodType, date);
+      periods.push({
+        date: date.toISOString(),
+        label: period.label,
+        start: period.start.toISOString(),
+        end: period.end.toISOString(),
+        isCurrent: i === 0
+      });
+    }
+    
+    // Add future periods
+    for (let i = 1; i <= Math.floor(limit / 2); i++) {
+      const date = new Date(now);
+      
+      switch (periodType) {
+        case 'daily':
+          date.setDate(date.getDate() + i);
+          break;
+        case 'weekly':
+          date.setDate(date.getDate() + (i * 7));
+          break;
+        case 'monthly':
+          date.setMonth(date.getMonth() + i);
+          break;
+        case 'quarterly':
+          date.setMonth(date.getMonth() + (i * 3));
+          break;
+        case 'annually':
+          date.setFullYear(date.getFullYear() + i);
+          break;
+      }
+      
+      const period = calculatePeriodDates(periodType, date);
+      periods.push({
+        date: date.toISOString(),
+        label: period.label,
+        start: period.start.toISOString(),
+        end: period.end.toISOString(),
+        isCurrent: false
+      });
+    }
+    
+    // Sort periods by date
+    periods.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    res.json({ periods });
+  } catch (error) {
+    console.error('Error fetching periods:', error);
+    res.status(500).json({ error: 'Error fetching periods' });
+  }
+});
+
+// Get goal progress for specific period
+router.get('/:goalId/progress', authenticateToken, async (req, res) => {
+  const { goalId } = req.params;
+  const { period } = req.query;
+  
+  try {
+    const goal = await new Promise((resolve, reject) => {
+      db.getGoalById(goalId, (err, goal) => {
+        if (err) reject(err);
+        else resolve(goal);
+      });
+    });
+    
+    if (!goal) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+    
+    // Check if user has access to this goal
+    if (req.user.userId !== goal.user_id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const listIds = goal.list_ids ? JSON.parse(goal.list_ids) : [];
+    const selectedPeriod = period ? new Date(period) : null;
+    
+    const progress = await calculateMultiPeriodProgress(goal, listIds, selectedPeriod);
+    
+    res.json({ progress });
+  } catch (error) {
+    console.error('Error fetching goal progress:', error);
+    res.status(500).json({ error: 'Error fetching goal progress' });
+  }
+});
 
 module.exports = router;

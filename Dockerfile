@@ -53,8 +53,8 @@ RUN chown -R nest:nodejs /app
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Switch to non-root user
-USER nest
+# Don't switch to non-root user here - let entrypoint handle it
+# This allows us to fix permissions on mounted volumes
 
 # Expose the port
 EXPOSE 5000

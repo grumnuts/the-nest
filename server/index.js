@@ -29,11 +29,14 @@ const corsOptions = {
   credentials: true
 };
 
-// In production/Docker, allow same-origin. In development, allow localhost:3000
+// Use CLIENT_URL for CORS configuration, with sensible defaults
+const clientUrl = process.env.CLIENT_URL;
 if (process.env.NODE_ENV === 'production') {
-  corsOptions.origin = true; // Allow same origin in production
+  // In production, allow the configured client URL or same-origin
+  corsOptions.origin = clientUrl ? [clientUrl] : true;
 } else {
-  corsOptions.origin = process.env.CLIENT_URL || 'http://localhost:3000';
+  // In development, allow the configured client URL or localhost:3000
+  corsOptions.origin = clientUrl ? [clientUrl] : ['http://localhost:3000', 'http://localhost:5001'];
 }
 
 app.use(cors(corsOptions));
@@ -100,6 +103,7 @@ app.get('/api/health', (req, res) => {
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
+  console.log(`🌐 Serving static files (NODE_ENV: ${process.env.NODE_ENV})`);
   app.use(express.static('public'));
   
   // Specific routes for assets to ensure they're served correctly

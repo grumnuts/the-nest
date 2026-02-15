@@ -1,0 +1,71 @@
+# Multi-Stage Multi-Architecture Dockerfile
+# Supports linux/amd64 and linux/arm64
+
+# Use official Node.js images with multi-arch support
+FROM node:18-alpine AS base
+# Install build dependencies for all architectures
+RUN apk add --no-cache python3 make g++
+
+# Frontend build stage
+FROM base AS frontend-build
+WORKDIR /app/client
+COPY client/package*.json ./
+RUN npm ci --legacy-peer-deps
+COPY client/ ./
+RUN npm run build
+
+# Backend stage
+FROM base AS backend
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm ci --only=production
+
+# Final production stage - Multi-architecture
+FROM node:18-alpine AS production
+
+# Install runtime dependencies for all architectures
+RUN apk add --no-cache tzdata
+
+# Create non-root user (works across architectures)
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nest -u 1001
+
+# Set working directory
+WORKDIR /app
+
+# Copy backend dependencies and code
+COPY --from=backend /app/server/node_modules ./node_modules
+COPY --from=backend /app/server/ ./
+
+# Copy built frontend
+COPY --from=frontend-build /app/client/build ./public
+
+# Create data directory with proper permissions
+RUN mkdir -p /app/data && \
+    chown -R nest:nodejs /app/data && \
+    chmod 755 /app/data
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Set ownership of app directory
+RUN chown -R nest:nodejs /app
+
+# Switch to non-root user
+USER nest
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=5000
+
+# Start the application
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["npm", "start"]
