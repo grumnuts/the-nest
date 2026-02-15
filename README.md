@@ -32,125 +32,43 @@ A comprehensive task tracking platform designed for teams and families to manage
 - **Smooth Animations**: Polished transitions and micro-interactions
 - **Intuitive Navigation**: Easy to use for all family members
 
-## � Quick Deployment
+## 🚀 Deployment
 
-### Prerequisites
-- Docker and Docker Compose installed
-- About 10 minutes of setup time
-
-### Step 1: Create Environment File
+### Docker Run
 ```bash
-# Create a copy of the environment template
-cp .env.production .env
+docker run -d \
+  --name the-nest \
+  -p 5000:5000 \
+  -v nest_data:/app/data \
+  -e JWT_SECRET="your-random-jwt-secret-key-here-min-32-characters" \
+  -e CLIENT_URL="https://your-domain.com" \
+  -e TZ="UTC" \
+  --restart unless-stopped \
+  nchanson93/the-nest:latest
 ```
 
-### Step 2: Configure Your Settings
-Edit the `.env` file with your information:
+### Docker Compose
+```yaml
+version: '3.8'
 
-```bash
-# Required: Generate a secure secret (32+ characters)
-JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
+services:
+  the-nest:
+    image: nchanson93/the-nest:latest
+    container_name: the-nest
+    ports:
+      - "5000:5000"
+    environment:
+      - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
+      - CLIENT_URL=https://your-domain.com
+      - TZ=UTC
+    volumes:
+      - nest_data:/app/data
+    restart: unless-stopped
 
-# Required: Set your domain or tunnel URL
-CLIENT_URL=https://your-domain.com
-
-# Optional: Set your timezone
-TZ=UTC
+volumes:
+  nest_data:
+    driver: local
 ```
-
-**Security Tip**: Generate a strong JWT secret with:
-```bash
-openssl rand -base64 32
-```
-
-### Step 3: Deploy with Docker Compose
-```bash
-# Deploy the application
-docker-compose --env-file .env up -d
-
-# Check if it's running
-docker-compose logs -f
-```
-
-### Step 4: Access Your Application
-- Open your browser to your configured URL
-- **Default Admin Login**:
-  - Username: `admin`
-  - Password: `admin123`
-
-**Important**: Change the default password after first login!
-
-## 🌐 Deployment Options
-
-### Standard Server
-```bash
-# Standard deployment on port 5000
-CLIENT_URL=https://yourdomain.com
-```
-
-### Cloudflare Tunnel (Recommended for Home Use)
-```bash
-# Use with Cloudflare Tunnel
-CLIENT_URL=https://your-app.pages.dev
-```
-
-### Local Development
-```bash
-# For testing on your local machine
-CLIENT_URL=http://localhost:5001
-```
-
-## 📊 Goal Tracking Examples
-
-### Family Chores
-- **Goal**: Complete 80% of weekly chores
-- **Period**: Weekly
-- **Lists**: Kitchen Duties, Bathroom Cleaning, Yard Work
-
-### Personal Productivity
-- **Goal**: Work 20 hours per week on side projects
-- **Period**: Weekly  
-- **Lists**: Development, Learning, Planning
-
-### Fitness Tracking
-- **Goal**: Complete 5 workouts per week
-- **Period**: Weekly
-- **Lists**: Cardio, Strength Training, Stretching
-
-## 🔧 Basic Administration
-
-### Create Additional Users
-1. Login as admin
-2. Go to Settings → Users
-3. Add new family/team members
-
-### Manage Goals
-1. Go to Settings → Goals
-2. Create goals for yourself or others
-3. Choose calculation types and periods
-4. Track progress on the home screen
-
-### Backup Your Data
-```bash
-# Backup your task database
-docker cp the-nest:/app/data/the_nest.db ./backup-$(date +%Y%m%d).db
-```
-
-## 🆘 Need Help?
-
-### Common Issues
-- **Can't access the app**: Check your CLIENT_URL matches exactly what you type in browser
-- **Login not working**: Ensure JWT_SECRET is set in your environment file
-- **Tasks not saving**: Check that Docker has permission to write to the data volume
-
-### Getting Support
-- Check the deployment environment variables
-- Review the Docker logs: `docker-compose logs the-nest`
-- Ensure your CLIENT_URL includes https:// for production use
-
-## 📱 Mobile Access
-
-The Nest works great on mobile devices! Simply access your configured URL from any phone or tablet. The responsive design ensures a smooth experience on any screen size.
 
 ---
 
