@@ -8,9 +8,6 @@ services:
       - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
       - CLIENT_URL=http://localhost:5000
       - TZ=UTC
-      # Optional: Set PUID/PGID to match your host user for volume permissions
-      # - PUID=1000
-      # - PGID=1000
     volumes:
       - nest_data:/app/data
     restart: unless-stopped
