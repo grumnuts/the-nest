@@ -1,6 +1,19 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
+// Generate a local timestamp string respecting the TZ environment variable
+// SQLite's CURRENT_TIMESTAMP always returns UTC regardless of TZ
+function localNow() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 // Use /app/data directory in Docker, local directory in development
 const dataDir = process.env.NODE_ENV === 'production' ? '/app/data' : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
@@ -274,24 +287,25 @@ class Database {
 
   // User methods
   createUser(username, email, passwordHash, callback) {
-    const stmt = this.db.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
-    stmt.run([username, email, passwordHash], function(err) {
+    const now = localNow();
+    const stmt = this.db.prepare('INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
+    stmt.run([username, email, passwordHash, now, now], function(err) {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();
   }
 
   updateUserPassword(userId, newPasswordHash, callback) {
-    const stmt = this.db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-    stmt.run([newPasswordHash, userId], function(err) {
+    const stmt = this.db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?');
+    stmt.run([newPasswordHash, localNow(), userId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
   }
 
   updateUserUsername(userId, newUsername, callback) {
-    const stmt = this.db.prepare('UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-    stmt.run([newUsername, userId], function(err) {
+    const stmt = this.db.prepare('UPDATE users SET username = ?, updated_at = ? WHERE id = ?');
+    stmt.run([newUsername, localNow(), userId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -310,16 +324,16 @@ class Database {
   }
 
   updateUserHideGoals(userId, hideGoals, callback) {
-    const stmt = this.db.prepare('UPDATE users SET hide_goals = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-    stmt.run([hideGoals, userId], function(err) {
+    const stmt = this.db.prepare('UPDATE users SET hide_goals = ?, updated_at = ? WHERE id = ?');
+    stmt.run([hideGoals, localNow(), userId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
   }
 
   updateUserHideCompletedTasks(userId, hideCompletedTasks, callback) {
-    const stmt = this.db.prepare('UPDATE users SET hide_completed_tasks = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-    stmt.run([hideCompletedTasks, userId], function(err) {
+    const stmt = this.db.prepare('UPDATE users SET hide_completed_tasks = ?, updated_at = ? WHERE id = ?');
+    stmt.run([hideCompletedTasks, localNow(), userId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -327,8 +341,9 @@ class Database {
 
   // List methods
   createList(name, description, resetPeriod, createdBy, callback) {
-    const stmt = this.db.prepare('INSERT INTO lists (name, description, reset_period, created_by) VALUES (?, ?, ?, ?)');
-    stmt.run([name, description, resetPeriod, createdBy], function(err) {
+    const now = localNow();
+    const stmt = this.db.prepare('INSERT INTO lists (name, description, reset_period, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+    stmt.run([name, description, resetPeriod, createdBy, now, now], function(err) {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();
@@ -343,10 +358,10 @@ class Database {
   updateList(id, name, description, resetPeriod, callback) {
     const stmt = this.db.prepare(`
       UPDATE lists 
-      SET name = ?, description = ?, reset_period = ?, updated_at = CURRENT_TIMESTAMP 
+      SET name = ?, description = ?, reset_period = ?, updated_at = ? 
       WHERE id = ?
     `);
-    stmt.run([name, description, resetPeriod, id], function(err) {
+    stmt.run([name, description, resetPeriod, localNow(), id], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -355,10 +370,10 @@ class Database {
   updateListSortOrder(listId, sortOrder, callback) {
     const stmt = this.db.prepare(`
       UPDATE lists 
-      SET sort_order = ?, updated_at = CURRENT_TIMESTAMP 
+      SET sort_order = ?, updated_at = ? 
       WHERE id = ?
     `);
-    stmt.run([sortOrder, listId], function(err) {
+    stmt.run([sortOrder, localNow(), listId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -435,10 +450,11 @@ class Database {
   updateTaskStatus(taskId, isCompleted, completedBy, callback) {
     const stmt = this.db.prepare(`
       UPDATE tasks 
-      SET is_completed = ?, completed_at = ?, completed_by = ?, updated_at = CURRENT_TIMESTAMP 
+      SET is_completed = ?, completed_at = ?, completed_by = ?, updated_at = ? 
       WHERE id = ?
     `);
-    stmt.run([isCompleted, isCompleted ? new Date().toISOString() : null, isCompleted ? completedBy : null, taskId], function(err) {
+    const now = localNow();
+    stmt.run([isCompleted, isCompleted ? now : null, isCompleted ? completedBy : null, now, taskId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -447,10 +463,10 @@ class Database {
   updateTask(taskId, title, description, durationMinutes, allowMultipleCompletions, callback) {
     const stmt = this.db.prepare(`
       UPDATE tasks 
-      SET title = ?, description = ?, duration_minutes = ?, allow_multiple_completions = ?, updated_at = CURRENT_TIMESTAMP 
+      SET title = ?, description = ?, duration_minutes = ?, allow_multiple_completions = ?, updated_at = ? 
       WHERE id = ?
     `);
-    stmt.run([title, description, durationMinutes, allowMultipleCompletions ? 1 : 0, taskId], function(err) {
+    stmt.run([title, description, durationMinutes, allowMultipleCompletions ? 1 : 0, localNow(), taskId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -458,8 +474,8 @@ class Database {
 
   // Task completion methods
   addTaskCompletion(taskId, completedBy, callback) {
-    const stmt = this.db.prepare('INSERT INTO task_completions (task_id, completed_by) VALUES (?, ?)');
-    stmt.run([taskId, completedBy], function(err) {
+    const stmt = this.db.prepare('INSERT INTO task_completions (task_id, completed_by, completed_at) VALUES (?, ?, ?)');
+    stmt.run([taskId, completedBy, localNow()], function(err) {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();
@@ -494,10 +510,10 @@ class Database {
   updateTaskSortOrder(taskId, sortOrder, callback) {
     const stmt = this.db.prepare(`
       UPDATE tasks 
-      SET sort_order = ?, updated_at = CURRENT_TIMESTAMP 
+      SET sort_order = ?, updated_at = ? 
       WHERE id = ?
     `);
-    stmt.run([sortOrder, taskId], function(err) {
+    stmt.run([sortOrder, localNow(), taskId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -558,10 +574,10 @@ class Database {
   updateGoal(goalId, name, description, calculationType, targetValue, periodType, listIds, callback) {
     const stmt = this.db.prepare(`
       UPDATE goals 
-      SET name = ?, description = ?, calculation_type = ?, target_value = ?, period_type = ?, list_ids = ?, updated_at = CURRENT_TIMESTAMP
+      SET name = ?, description = ?, calculation_type = ?, target_value = ?, period_type = ?, list_ids = ?, updated_at = ?
       WHERE id = ?
     `);
-    stmt.run([name, description, calculationType, targetValue, periodType, JSON.stringify(listIds), goalId], function(err) {
+    stmt.run([name, description, calculationType, targetValue, periodType, JSON.stringify(listIds), localNow(), goalId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -595,10 +611,16 @@ class Database {
   }
 
   getTaskCompletionsInPeriod(userId, periodStart, periodEnd, callback) {
-    // Convert ISO strings to database format (YYYY-MM-DD HH:MM:SS)
-    const formatDate = (isoString) => {
-      const date = new Date(isoString);
-      return date.toISOString().slice(0, 19).replace('T', ' ');
+    // Convert Date/ISO strings to local database format (YYYY-MM-DD HH:MM:SS)
+    const formatDate = (input) => {
+      const date = new Date(input);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     };
     
     const formattedStart = formatDate(periodStart);
@@ -619,9 +641,9 @@ class Database {
   setUserGoal(userId, listId, tasksPerPeriod, callback) {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO user_goals (user_id, list_id, tasks_per_period, updated_at) 
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?)
     `);
-    stmt.run([userId, listId, tasksPerPeriod], function(err) {
+    stmt.run([userId, listId, tasksPerPeriod, localNow()], function(err) {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();

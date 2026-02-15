@@ -2,6 +2,17 @@ const Database = require('./database');
 const bcrypt = require('bcryptjs');
 const db = new Database();
 
+function localNow() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 async function initializeAdmin() {
   try {
     console.log('🔧 Checking for initial admin setup...');
@@ -53,7 +64,7 @@ async function initializeAdmin() {
       const userId = await new Promise((resolve, reject) => {
         db.db.run(
           'INSERT INTO users (username, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)',
-          ['admin', 'admin@localhost', hashedPassword, 1, new Date().toISOString()],
+          ['admin', 'admin@localhost', hashedPassword, 1, localNow()],
           function(err) {
             if (err) reject(err);
             else resolve(this.lastID);
