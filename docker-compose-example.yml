@@ -1,0 +1,17 @@
+services:
+  the-nest:
+    image: nchanson93/the-nest:latest
+    container_name: the-nest
+    ports:
+      - "5000:5000"
+    environment:
+      - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
+      - CLIENT_URL=https://your-domain.com
+      - TZ=UTC
+    volumes:
+      - nest_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  nest_data:
+    driver: local
