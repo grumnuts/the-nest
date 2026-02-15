@@ -435,6 +435,65 @@ class Database {
     `, [listId], callback);
   }
 
+  getTasksByListForDate(listId, dateStart, dateEnd, callback) {
+    this.db.all(`
+      SELECT t.*, 
+             u.username as assigned_username,
+             GROUP_CONCAT(
+               json_object(
+                 'id', tc.id,
+                 'completed_by', tc.completed_by,
+                 'username', cu.username,
+                 'completed_at', tc.completed_at
+               )
+             ) as completions
+      FROM tasks t 
+      LEFT JOIN users u ON t.assigned_to = u.id 
+      LEFT JOIN task_completions tc ON t.id = tc.task_id 
+        AND tc.completed_at >= ? AND tc.completed_at <= ?
+      LEFT JOIN users cu ON tc.completed_by = cu.id
+      WHERE t.list_id = ? 
+      GROUP BY t.id
+      ORDER BY t.sort_order ASC, t.created_at ASC
+    `, [dateStart, dateEnd, listId], (err, tasks) => {
+      if (err) return callback(err);
+      // Derive is_completed and completed_by from the date-scoped completions
+      const result = tasks.map(t => {
+        let hasCompletions = false;
+        let lastCompletedBy = null;
+        let lastCompletedByUsername = null;
+        let lastCompletedAt = null;
+        if (t.completions) {
+          try {
+            const parts = t.completions.includes('},{') 
+              ? t.completions.split('},{').map((s, i, a) => {
+                  if (i === 0) return s + '}';
+                  if (i === a.length - 1) return '{' + s;
+                  return '{' + s + '}';
+                })
+              : [t.completions];
+            const parsed = parts.map(s => JSON.parse(s)).filter(c => c.id !== null);
+            if (parsed.length > 0) {
+              hasCompletions = true;
+              const last = parsed[parsed.length - 1];
+              lastCompletedBy = last.completed_by;
+              lastCompletedByUsername = last.username;
+              lastCompletedAt = last.completed_at;
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+        return {
+          ...t,
+          is_completed: hasCompletions ? 1 : 0,
+          completed_by: lastCompletedBy,
+          completed_by_username: lastCompletedByUsername,
+          completed_at: lastCompletedAt
+        };
+      });
+      callback(null, result);
+    });
+  }
+
   getTaskById(taskId, callback) {
     this.db.get(`
       SELECT t.*, 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import ToggleSwitch from './ToggleSwitch';
@@ -117,6 +117,7 @@ const HomeScreen = () => {
   const [draggedTask, setDraggedTask] = useState(null);
   const [dragOverTask, setDragOverTask] = useState(null);
   const [goals, setGoals] = useState([]);
+  const [listDates, setListDates] = useState({}); // { listId: 'YYYY-MM-DD' }
   const [newTask, setNewTask] = useState({ 
     title: '', 
     description: '', 
@@ -130,6 +131,123 @@ const HomeScreen = () => {
   });
   
   const activeList = lists.find(list => list.id === activeListId) || null;
+
+  // Date helpers
+  const formatDateKey = (date) => {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const todayKey = formatDateKey(new Date());
+
+  const getSelectedDate = (listId) => {
+    return listDates[listId] || todayKey;
+  };
+
+  const isToday = (dateStr) => dateStr === todayKey;
+
+  const isFutureDate = (dateStr) => dateStr > todayKey;
+
+  const navigateDate = (listId, direction) => {
+    const current = getSelectedDate(listId);
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
+    const d = new Date(current + 'T12:00:00');
+    
+    switch (list.reset_period) {
+      case 'daily':
+        d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
+        break;
+      case 'weekly':
+        d.setDate(d.getDate() + (direction === 'next' ? 7 : -7));
+        break;
+      case 'monthly':
+        d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1));
+        break;
+      case 'quarterly':
+        d.setMonth(d.getMonth() + (direction === 'next' ? 3 : -3));
+        break;
+      case 'annually':
+        d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1));
+        break;
+      default:
+        return; // static lists don't navigate
+    }
+    const newDate = formatDateKey(d);
+    if (!isFutureDate(newDate)) {
+      setListDates(prev => ({ ...prev, [listId]: newDate }));
+    }
+  };
+
+  const goToToday = (listId) => {
+    setListDates(prev => ({ ...prev, [listId]: todayKey }));
+  };
+
+  const getPeriodLabel = (list, dateStr) => {
+    if (!list || list.reset_period === 'static') return '';
+    const d = new Date(dateStr + 'T12:00:00');
+    const options = { weekday: 'long' };
+    
+    switch (list.reset_period) {
+      case 'daily':
+        if (isToday(dateStr)) return 'Today';
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (dateStr === formatDateKey(yesterday)) return 'Yesterday';
+        return d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+      case 'weekly': {
+        const weekStart = new Date(d);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        return `${weekStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} - ${weekEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      }
+      case 'monthly':
+        return d.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+      case 'quarterly': {
+        const q = Math.floor(d.getMonth() / 3) + 1;
+        return `Q${q} ${d.getFullYear()}`;
+      }
+      case 'annually':
+        return `${d.getFullYear()}`;
+      default:
+        return '';
+    }
+  };
+
+  const getPeriodDateRange = (list, dateStr) => {
+    if (!list) return { start: dateStr, end: dateStr };
+    const d = new Date(dateStr + 'T12:00:00');
+    let start, end;
+    
+    switch (list.reset_period) {
+      case 'daily':
+        return { start: dateStr, end: dateStr };
+      case 'weekly': {
+        const ws = new Date(d);
+        ws.setDate(ws.getDate() - ws.getDay() + 1);
+        const we = new Date(ws);
+        we.setDate(we.getDate() + 6);
+        return { start: formatDateKey(ws), end: formatDateKey(we) };
+      }
+      case 'monthly': {
+        const ms = new Date(d.getFullYear(), d.getMonth(), 1);
+        const me = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        return { start: formatDateKey(ms), end: formatDateKey(me) };
+      }
+      case 'quarterly': {
+        const q = Math.floor(d.getMonth() / 3);
+        const qs = new Date(d.getFullYear(), q * 3, 1);
+        const qe = new Date(d.getFullYear(), (q + 1) * 3, 0);
+        return { start: formatDateKey(qs), end: formatDateKey(qe) };
+      }
+      case 'annually': {
+        return { start: `${d.getFullYear()}-01-01`, end: `${d.getFullYear()}-12-31` };
+      }
+      default:
+        return { start: dateStr, end: dateStr };
+    }
+  };
 
   const fetchLists = async () => {
     try {
@@ -153,11 +271,26 @@ const HomeScreen = () => {
     }
   };
 
-  const fetchListData = async (listId) => {
+  const fetchListData = async (listId, dateOverride) => {
     try {
-      const tasksResponse = await axios.get(`/api/tasks/list/${listId}`);
+      const list = lists.find(l => l.id === listId);
+      const dateStr = dateOverride || getSelectedDate(listId);
       
-      setTasks(tasksResponse.data.tasks || []);
+      if (list && list.reset_period !== 'static') {
+        const range = getPeriodDateRange(list, dateStr);
+        if (range.start === range.end) {
+          // Single day (daily)
+          const tasksResponse = await axios.get(`/api/tasks/list/${listId}?date=${range.start}`);
+          setTasks(tasksResponse.data.tasks || []);
+        } else {
+          // Date range (weekly/monthly/quarterly/annually)
+          const tasksResponse = await axios.get(`/api/tasks/list/${listId}?dateStart=${range.start}&dateEnd=${range.end}`);
+          setTasks(tasksResponse.data.tasks || []);
+        }
+      } else {
+        const tasksResponse = await axios.get(`/api/tasks/list/${listId}`);
+        setTasks(tasksResponse.data.tasks || []);
+      }
     } catch (error) {
       console.error('Error fetching list data:', error);
     }
@@ -199,7 +332,7 @@ const HomeScreen = () => {
     loadData();
   }, []);
 
-  // Real-time updates - poll for changes every 500ms for instant updates
+  // Real-time updates - poll for changes every 2s
   useEffect(() => {
     const interval = setInterval(() => {
       if (activeListId) {
@@ -207,16 +340,16 @@ const HomeScreen = () => {
       }
       fetchLists();
       fetchGoals();
-    }, 500); // Poll every 500ms for instant-feeling updates
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [activeListId]);
+  }, [activeListId, listDates]);
 
   useEffect(() => {
     if (activeListId) {
       fetchListData(activeListId);
     }
-  }, [activeListId]);
+  }, [activeListId, listDates]);
 
   // Drag and drop functions for list reordering
   const handleDragStart = (e, list) => {
@@ -1020,12 +1153,50 @@ const HomeScreen = () => {
                 <div className="glass rounded-xl p-4 border border-purple-500/20">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="text-3xl font-bold text-white mb-2 truncate">{activeList.name}</h2>
+                      <h2 className="text-3xl font-bold text-white mb-1 truncate">{activeList.name}</h2>
+                      {activeList.reset_period !== 'static' && (
+                        <p className="text-sm text-gray-400">
+                          {new Date(getSelectedDate(activeListId) + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                      )}
                       {activeList.description && (
-                        <p className="text-gray-300 mb-3">{activeList.description}</p>
+                        <p className="text-gray-300 mt-2">{activeList.description}</p>
                       )}
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {activeList.reset_period !== 'static' && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => navigateDate(activeListId, 'prev')}
+                            className="p-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                            title="Previous period"
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => goToToday(activeListId)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors w-[200px] text-center ${
+                              isToday(getSelectedDate(activeListId))
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                            }`}
+                          >
+                            {getPeriodLabel(activeList, getSelectedDate(activeListId))}
+                          </button>
+                          <button
+                            onClick={() => navigateDate(activeListId, 'next')}
+                            disabled={isToday(getSelectedDate(activeListId))}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isToday(getSelectedDate(activeListId))
+                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                            }`}
+                            title="Next period"
+                          >
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+                        </div>
+                      )}
                       {isAdmin && (
                         <button
                           onClick={() => handleEditList(activeList)}
@@ -1043,6 +1214,11 @@ const HomeScreen = () => {
                           <Plus className="h-4 w-4" />
                           <span>Add Task</span>
                         </button>
+                      )}
+                      {tasks.length > 0 && (
+                        <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-700 text-gray-300">
+                          {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
+                        </span>
                       )}
                     </div>
                   </div>

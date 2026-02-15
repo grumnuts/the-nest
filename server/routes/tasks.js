@@ -274,17 +274,42 @@ router.patch('/:id', authenticateToken, checkAdmin, (req, res) => {
 });
 
 // Get tasks for a specific list (shared across all users)
+// Optional query params: ?date=YYYY-MM-DD or ?dateStart=YYYY-MM-DD&dateEnd=YYYY-MM-DD
 router.get('/list/:listId', authenticateToken, (req, res) => {
   const listId = req.params.listId;
+  const { date, dateStart, dateEnd } = req.query;
 
-  // Get tasks for this list (no permission check - lists are shared)
-  db.getTasksByList(listId, (err, tasks) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error fetching tasks' });
-    }
-
-    res.json({ tasks });
-  });
+  if (dateStart && dateEnd) {
+    // Range-scoped: return tasks with completions within the date range
+    const start = `${dateStart} 00:00:00`;
+    const end = `${dateEnd} 23:59:59`;
+    
+    db.getTasksByListForDate(listId, start, end, (err, tasks) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching tasks' });
+      }
+      res.json({ tasks });
+    });
+  } else if (date) {
+    // Single date-scoped: return tasks with completions for that day
+    const start = `${date} 00:00:00`;
+    const end = `${date} 23:59:59`;
+    
+    db.getTasksByListForDate(listId, start, end, (err, tasks) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching tasks' });
+      }
+      res.json({ tasks });
+    });
+  } else {
+    // No date filter - return all completions (legacy/static lists)
+    db.getTasksByList(listId, (err, tasks) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching tasks' });
+      }
+      res.json({ tasks });
+    });
+  }
 });
 
 // Delete a task
