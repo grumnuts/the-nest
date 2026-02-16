@@ -37,7 +37,12 @@ const calculateMultiPeriodProgress = async (goal, listIds, selectedPeriod = null
 
     // Calculate progress for each period
     for (const period of periods) {
-      const periodProgress = await calculatePeriodProgress(goal, listIds, period.start, period.end);
+      // Determine if this is the current period
+      const now = new Date();
+      const isCurrentPeriod = selectedPeriod === null && 
+        period.start <= now && period.end >= now;
+      
+      const periodProgress = await calculatePeriodProgress(goal, listIds, period.start, period.end, isCurrentPeriod);
       totalCompleted += periodProgress.completed;
       totalRequired += periodProgress.required;
     }
@@ -125,17 +130,21 @@ const calculatePeriodDates = (periodType, date) => {
 
 // Calculate how many times a list's tasks repeat within a goal period
 // For the current (in-progress) period, cap at today so we don't count future days
-const getRepetitionsInPeriod = (listResetPeriod, goalPeriodType, periodStart, periodEnd) => {
+const getRepetitionsInPeriod = (listResetPeriod, goalPeriodType, periodStart, periodEnd, isCurrentPeriod = true) => {
   if (listResetPeriod === 'static') return 1;
   
   // Normalize to local midnight dates to avoid UTC/local mismatch in day counting
   const startDay = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
   const endDay = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
-  // Cap at today if the period extends into the future
-  const effectiveEndDay = endDay > today ? today : endDay;
+  let effectiveEndDay = endDay;
+  
+  // Only cap at today if this is the current period
+  if (isCurrentPeriod) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    effectiveEndDay = endDay > today ? today : endDay;
+  }
   
   const periodDays = Math.max(1, Math.round((effectiveEndDay - startDay) / (1000 * 60 * 60 * 24)) + 1);
   
@@ -158,7 +167,7 @@ const getRepetitionsInPeriod = (listResetPeriod, goalPeriodType, periodStart, pe
 };
 
 // Helper function to calculate progress for a single period
-const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd) => {
+const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, isCurrentPeriod = true) => {
   // Get task completions for the period
   const completions = await new Promise((resolve, reject) => {
     db.getTaskCompletionsInPeriod(goal.user_id, periodStart.toISOString(), periodEnd.toISOString(), (err, completions) => {
@@ -198,7 +207,7 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd) =>
       // Total expected task completions = tasks per list × repetitions in period
       let totalExpectedTasks = 0;
       for (const list of lists) {
-        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd);
+        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd, isCurrentPeriod);
         const taskCount = await new Promise((resolve, reject) => {
           db.db.get(
             `SELECT COUNT(*) as count FROM tasks WHERE list_id = ?`,
@@ -219,7 +228,7 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd) =>
       // Total possible time = task durations per list × repetitions in period
       let totalPossibleTime = 0;
       for (const list of lists) {
-        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd);
+        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd, isCurrentPeriod);
         const listTime = await new Promise((resolve, reject) => {
           db.db.get(
             `SELECT COALESCE(SUM(duration_minutes), 0) as total_time FROM tasks WHERE list_id = ?`,
@@ -786,7 +795,7 @@ router.get('/periods/:periodType', authenticateToken, async (req, res) => {
 // Get goal progress for specific period
 router.get('/:goalId/progress', authenticateToken, async (req, res) => {
   const { goalId } = req.params;
-  const { period } = req.query;
+  const { period, date } = req.query;
   
   try {
     const goal = await new Promise((resolve, reject) => {
@@ -806,7 +815,7 @@ router.get('/:goalId/progress', authenticateToken, async (req, res) => {
     }
     
     const listIds = goal.list_ids ? JSON.parse(goal.list_ids) : [];
-    const selectedPeriod = period ? new Date(period) : null;
+    const selectedPeriod = (period || date) ? new Date(period || date) : null;
     
     const progress = await calculateMultiPeriodProgress(goal, listIds, selectedPeriod);
     
