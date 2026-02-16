@@ -36,6 +36,9 @@ coverage/
 *.swo
 *~
 
+# Windsurf workspace configuration
+.windsurft/
+
 # OS generated files
 .DS_Store
 Thumbs.db
