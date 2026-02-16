@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/static/css/main.9613b3d2.css",
+    "main.js": "/static/js/main.d87b8649.js",
+    "static/media/TheNestLogo.png": "/static/media/TheNestLogo.dd96cc5f9dcb942f2d73.png",
+    "index.html": "/index.html",
+    "main.9613b3d2.css.map": "/static/css/main.9613b3d2.css.map",
+    "main.d87b8649.js.map": "/static/js/main.d87b8649.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.9613b3d2.css",
+    "static/js/main.d87b8649.js"
+  ]
+}

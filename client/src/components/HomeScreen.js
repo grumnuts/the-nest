@@ -1081,12 +1081,12 @@ const HomeScreen = () => {
             {goals.length > 0 && (
               <>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">Goals Progress</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-white">Goals</h3>
                   <ToggleSwitch
                     isOn={!user?.hide_goals}
                     onToggle={toggleHideGoals}
-                    labelText="Show Goals"
-                    mobileText={!user?.hide_goals ? 'Hide' : 'Show'}
+                    labelText={!user?.hide_goals ? 'Hide Goals' : 'Show Goals'}
+                    mobileText={!user?.hide_goals ? 'Hide Goals' : 'Show Goals'}
                     size="small"
                   />
                 </div>
@@ -1537,8 +1537,8 @@ const HomeScreen = () => {
                     <ToggleSwitch
                       isOn={!user?.hide_completed_tasks}
                       onToggle={toggleHideCompletedTasks}
-                      labelText="Show Complete"
-                      mobileText={!user?.hide_completed_tasks ? 'Hide' : 'Show'}
+                      labelText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
+                      mobileText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
                       size="small"
                     />
                   </div>
