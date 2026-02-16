@@ -42,12 +42,16 @@ router.post('/', authenticateToken, checkAdmin, validateTask, (req, res) => {
 });
 
 // Update task status (complete/incomplete) - shared across all users
+// Optional body param: date (YYYY-MM-DD) to record completion on a specific date
 router.patch('/:id/status', authenticateToken, (req, res) => {
   const taskId = req.params.id;
-  const { is_completed } = req.body;
+  const { is_completed, date } = req.body;
   const userId = req.user.userId;
   
-  console.log(`Task ${taskId} status update to ${is_completed} by user ${userId}`);
+  // If a date is provided, record the completion at noon on that date
+  const completedAt = date ? `${date} 12:00:00` : null;
+  
+  console.log(`Task ${taskId} status update to ${is_completed} by user ${userId}${date ? ` for date ${date}` : ''}`);
 
   // Get the task (no permission check - tasks are shared)
   db.getTaskById(taskId, (err, task) => {
@@ -61,7 +65,7 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
 
     // For repeating tasks, always add a new completion when marked as done
     if (is_completed && task.allow_multiple_completions === 1) {
-      db.addTaskCompletion(taskId, userId, (err) => {
+      db.addTaskCompletion(taskId, userId, completedAt, (err) => {
         if (err) {
           return res.status(500).json({ error: 'Error adding task completion' });
         }
@@ -80,7 +84,7 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
       });
     } else if (is_completed) {
       // For regular tasks being completed, add completion record and update status
-      db.addTaskCompletion(taskId, userId, (err) => {
+      db.addTaskCompletion(taskId, userId, completedAt, (err) => {
         if (err) {
           return res.status(500).json({ error: 'Error adding task completion' });
         }
@@ -122,9 +126,11 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
 });
 
 // Undo last completion - only allow users to undo their own completions
+// Optional body param: date (YYYY-MM-DD) to undo completion within that date
 router.patch('/:id/undo', authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const userId = req.user.userId;
+  const { date } = req.body || {};
 
   // First get the task to check if it exists
   db.getTaskById(taskId, (err, task) => {
@@ -136,42 +142,47 @@ router.patch('/:id/undo', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Get the last completion to check who completed it
-    db.getTaskCompletions(taskId, (err, completions) => {
+    // Get completions - optionally filtered by date
+    const getCompletions = (cb) => {
+      if (date) {
+        const dateStart = `${date} 00:00:00`;
+        const dateEnd = `${date} 23:59:59`;
+        db.db.all(`
+          SELECT tc.*, u.username 
+          FROM task_completions tc 
+          JOIN users u ON tc.completed_by = u.id 
+          WHERE tc.task_id = ? AND tc.completed_at >= ? AND tc.completed_at <= ?
+          ORDER BY tc.completed_at DESC
+        `, [taskId, dateStart, dateEnd], cb);
+      } else {
+        db.getTaskCompletions(taskId, cb);
+      }
+    };
+
+    getCompletions((err, completions) => {
       if (err) {
         return res.status(500).json({ error: 'Error fetching completions' });
       }
 
       if (!completions || completions.length === 0) {
         // No completion records found - check if this is a legacy completed task
-        db.getTaskById(taskId, (err, task) => {
+        if (task.allow_multiple_completions === 1) {
+          return res.status(400).json({ error: 'No completions to undo for repeating task' });
+        }
+
+        // For regular legacy tasks, just mark as incomplete
+        db.updateTaskStatus(taskId, false, null, (err, changes) => {
           if (err) {
-            return res.status(500).json({ error: 'Error fetching task' });
+            return res.status(500).json({ error: 'Error updating task status' });
           }
 
-          if (!task) {
+          if (changes === 0) {
             return res.status(404).json({ error: 'Task not found' });
           }
 
-          // For legacy tasks (no completion records), only allow undo for regular tasks
-          if (task.allow_multiple_completions === 1) {
-            return res.status(400).json({ error: 'No completions to undo for repeating task' });
-          }
-
-          // For regular legacy tasks, just mark as incomplete
-          db.updateTaskStatus(taskId, false, null, (err, changes) => {
-            if (err) {
-              return res.status(500).json({ error: 'Error updating task status' });
-            }
-
-            if (changes === 0) {
-              return res.status(404).json({ error: 'Task not found' });
-            }
-
-            res.json({
-              message: 'Task undone successfully',
-              is_completed: false
-            });
+          res.json({
+            message: 'Task undone successfully',
+            is_completed: false
           });
         });
         return;
@@ -190,14 +201,14 @@ router.patch('/:id/undo', authenticateToken, (req, res) => {
           return res.status(500).json({ error: 'Error removing completion' });
         }
 
-        // Check if there are any completions left
-        db.getTaskCompletions(taskId, (err, completions) => {
+        // Check if there are any completions left (globally, not date-scoped)
+        db.getTaskCompletions(taskId, (err, allCompletions) => {
           if (err) {
             return res.status(500).json({ error: 'Error checking completions' });
           }
 
-          // If no completions left, mark task as incomplete
-          if (completions.length === 0) {
+          // If no completions left at all, mark task as incomplete
+          if (!allCompletions || allCompletions.length === 0) {
             db.updateTaskStatus(taskId, false, null, (err) => {
               if (err) {
                 return res.status(500).json({ error: 'Error updating task status' });
@@ -208,7 +219,6 @@ router.patch('/:id/undo', authenticateToken, (req, res) => {
               });
             });
           } else {
-            // Task still has completions, keep it marked as completed
             res.json({
               message: 'Last completion removed',
               is_completed: true

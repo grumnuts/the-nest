@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, History, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import ToggleSwitch from './ToggleSwitch';
@@ -102,9 +102,6 @@ const HomeScreen = () => {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [listHistory, setListHistory] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [showEditTask, setShowEditTask] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -117,6 +114,7 @@ const HomeScreen = () => {
   const [draggedTask, setDraggedTask] = useState(null);
   const [dragOverTask, setDragOverTask] = useState(null);
   const [goals, setGoals] = useState([]);
+  const [goalDates, setGoalDates] = useState({}); // { goalId: 'YYYY-MM-DD' }
   const [listDates, setListDates] = useState({}); // { listId: 'YYYY-MM-DD' }
   const [newTask, setNewTask] = useState({ 
     title: '', 
@@ -197,7 +195,8 @@ const HomeScreen = () => {
         return d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
       case 'weekly': {
         const weekStart = new Date(d);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+        const dow = weekStart.getDay();
+        weekStart.setDate(weekStart.getDate() - (dow === 0 ? 6 : dow - 1)); // Monday
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
         return `${weekStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} - ${weekEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`;
@@ -225,7 +224,8 @@ const HomeScreen = () => {
         return { start: dateStr, end: dateStr };
       case 'weekly': {
         const ws = new Date(d);
-        ws.setDate(ws.getDate() - ws.getDay() + 1);
+        const wdow = ws.getDay();
+        ws.setDate(ws.getDate() - (wdow === 0 ? 6 : wdow - 1)); // Monday
         const we = new Date(ws);
         we.setDate(we.getDate() + 6);
         return { start: formatDateKey(ws), end: formatDateKey(we) };
@@ -265,10 +265,86 @@ const HomeScreen = () => {
     try {
       const endpoint = isAdmin ? '/api/goals/all-goals' : '/api/goals/my-goals';
       const response = await axios.get(endpoint);
-      setGoals(response.data.goals);
+      setGoals(prev => {
+        const newGoals = response.data.goals;
+        // Preserve per-goal overridden progress from goalDates navigation
+        return newGoals.map(g => {
+          const existing = prev.find(p => p.id === g.id);
+          if (existing && goalDates[g.id]) {
+            return { ...g, progress: existing.progress };
+          }
+          return g;
+        });
+      });
     } catch (error) {
       console.error('Error fetching goals:', error);
     }
+  };
+
+  const fetchGoalProgress = async (goalId, date) => {
+    try {
+      const url = date ? `/api/goals/${goalId}/progress?date=${date}` : `/api/goals/${goalId}/progress`;
+      const response = await axios.get(url);
+      setGoals(prev => prev.map(g => 
+        g.id === goalId ? { ...g, progress: response.data.progress } : g
+      ));
+    } catch (error) {
+      console.error('Error fetching goal progress:', error);
+    }
+  };
+
+  const getGoalPeriodLabel = (goal) => {
+    const dateStr = goalDates[goal.id];
+    if (!dateStr) return 'Current';
+    return goal.progress?.periodLabel || dateStr;
+  };
+
+  const navigateGoalDate = (goal, direction) => {
+    const current = goalDates[goal.id] || todayKey;
+    const d = new Date(current + 'T12:00:00');
+    
+    switch (goal.period_type) {
+      case 'daily':
+        d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
+        break;
+      case 'weekly':
+        d.setDate(d.getDate() + (direction === 'next' ? 7 : -7));
+        break;
+      case 'monthly':
+        d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1));
+        break;
+      case 'quarterly':
+        d.setMonth(d.getMonth() + (direction === 'next' ? 3 : -3));
+        break;
+      case 'annually':
+        d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1));
+        break;
+      default:
+        return;
+    }
+    const newDate = formatDateKey(d);
+    if (!isFutureDate(newDate)) {
+      // If navigating lands on today or future (current period), reset to current
+      if (newDate >= todayKey) {
+        goToCurrentGoalPeriod(goal);
+      } else {
+        setGoalDates(prev => ({ ...prev, [goal.id]: newDate }));
+        fetchGoalProgress(goal.id, newDate);
+      }
+    }
+  };
+
+  const goToCurrentGoalPeriod = (goal) => {
+    setGoalDates(prev => {
+      const next = { ...prev };
+      delete next[goal.id];
+      return next;
+    });
+    fetchGoalProgress(goal.id, null);
+  };
+
+  const isCurrentGoalPeriod = (goal) => {
+    return !goalDates[goal.id];
   };
 
   const fetchListData = async (listId, dateOverride) => {
@@ -296,20 +372,6 @@ const HomeScreen = () => {
     }
   };
 
-  const fetchListHistory = async (listId) => {
-    if (!listId) return;
-    
-    setHistoryLoading(true);
-    try {
-      const response = await axios.get(`/api/lists/${listId}/history`);
-      setListHistory(response.data.snapshots || []);
-    } catch (error) {
-      console.error('Error fetching list history:', error);
-      setListHistory([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
 
   const getActiveList = () => {
     return lists.find(list => list.id === activeListId);
@@ -557,7 +619,10 @@ const HomeScreen = () => {
 
   const handleToggleTask = async (taskId, isCompleted) => {
     try {
-      await axios.patch(`/api/tasks/${taskId}/status`, { is_completed: isCompleted });
+      const selectedDate = getSelectedDate(activeListId);
+      const payload = { is_completed: isCompleted };
+      if (!isToday(selectedDate)) payload.date = selectedDate;
+      await axios.patch(`/api/tasks/${taskId}/status`, payload);
       fetchListData(activeListId);
       fetchGoals(); // Immediate goal progress update
     } catch (error) {
@@ -729,7 +794,10 @@ const HomeScreen = () => {
       }
       
       // Mark as done (for regular tasks) or add completion (for repeating tasks)
-      const response = await axios.patch(`/api/tasks/${taskId}/status`, { is_completed: true });
+      const selectedDate = getSelectedDate(activeListId);
+      const payload = { is_completed: true };
+      if (!isToday(selectedDate)) payload.date = selectedDate;
+      const response = await axios.patch(`/api/tasks/${taskId}/status`, payload);
             
       // Trigger immediate update
       setLastUpdate(Date.now());
@@ -744,7 +812,10 @@ const HomeScreen = () => {
 
   const handleUndoCompletion = async (taskId) => {
     try {
-      const response = await axios.patch(`/api/tasks/${taskId}/undo`);
+      const selectedDate = getSelectedDate(activeListId);
+      const payload = {};
+      if (!isToday(selectedDate)) payload.date = selectedDate;
+      const response = await axios.patch(`/api/tasks/${taskId}/undo`, payload);
             
       // Trigger immediate update
       setLastUpdate(Date.now());
@@ -846,24 +917,6 @@ const HomeScreen = () => {
             </div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
-              
-              <button
-                onClick={() => {
-                  const newShowHistory = !showHistory;
-                  setShowHistory(newShowHistory);
-                  if (newShowHistory && activeListId) {
-                    fetchListHistory(activeListId);
-                  }
-                }}
-                className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
-                  showHistory 
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
-                    : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-200'
-                }`}
-              >
-                <History className="h-4 w-4 sm:h-5 sm:w-5" />
-              </button>
-              
               {isAdmin && (
                 <button
                   onClick={() => setShowCreateList(!showCreateList)}
@@ -888,90 +941,10 @@ const HomeScreen = () => {
                 <LogOut className="h-5 w-5" />
               </button>
               
-              <button
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="md:hidden p-2 text-gray-300 hover:bg-purple-500/10 hover:text-purple-200 rounded-lg transition-colors"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
             </div>
           </div>
         </div>
       </header>
-
-      {/* History Panel */}
-      {showHistory && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-          <div className="glass rounded-xl p-6 border border-purple-500/20">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">List History</h3>
-              <div className="flex items-center space-x-2">
-                                <button
-                  onClick={() => setShowHistory(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-            
-            {historyLoading ? (
-              <div className="text-center py-8">
-                <div className="text-gray-400">Loading history...</div>
-              </div>
-            ) : listHistory.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-gray-400">No history available for this list.</div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {listHistory.map((snapshot, index) => (
-                  <div key={snapshot.id || index} className="border-l-2 border-purple-500/30 pl-4 py-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-400">
-                        {new Date(snapshot.period_start).toLocaleString()}
-                      </span>
-                      <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
-                        {JSON.parse(snapshot.snapshot_data || '{}').snapshot_type || 'Snapshot'}
-                      </span>
-                    </div>
-                    
-                    {snapshot.snapshot_data && (() => {
-                      try {
-                        const data = JSON.parse(snapshot.snapshot_data);
-                        return data && (
-                      <div className="text-sm text-gray-300">
-                          <div className="mb-1">
-                            <strong>Tasks:</strong> {data.tasks ? data.tasks.length : 0}
-                          </div>
-                          {data.tasks && data.tasks.length > 0 && (
-                            <div className="ml-4 space-y-1">
-                              {data.tasks.slice(0, 3).map(task => (
-                                <div key={task.id} className="text-xs text-gray-400">
-                                  • {task.title} {task.is_completed ? '(completed)' : ''}
-                                </div>
-                              ))}
-                              {data.tasks.length > 3 && (
-                                <div className="text-xs text-gray-500">
-                                  ... and {data.tasks.length - 3} more
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        );
-                      } catch (e) {
-                        console.error('Error parsing snapshot data:', e);
-                        return null;
-                      }
-                    })()}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Create List Form */}
       {showCreateList && (
@@ -1054,7 +1027,7 @@ const HomeScreen = () => {
         ) : (
           <div>
             {/* List Tabs */}
-            <div className="flex space-x-1 mb-4 sm:mb-6 overflow-x-auto">
+            <div className="flex space-x-1 mb-4 sm:mb-6 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {lists.map((list) => (
                 <div
                   key={list.id}
@@ -1106,23 +1079,77 @@ const HomeScreen = () => {
                   <div className="space-y-2 mb-4 sm:mb-6">
                     {goals.map((goal) => (
                     <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-2 sm:p-3 border border-purple-500/30">
-                      <div className="flex items-center justify-between mb-1 sm:mb-2">
-                        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                          <Target className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
-                          <span className="text-xs sm:text-sm font-medium text-white">{goal.name}</span>
+                      <div className="flex items-center mb-1 sm:hidden">
+                        <Target className="h-3 w-3 text-purple-400 flex-shrink-0" />
+                        <span className="text-xs font-medium text-white truncate ml-1">{goal.name}</span>
+                        <span className="text-[10px] text-gray-500 flex-shrink-0 whitespace-nowrap ml-2">
+                          {goal.calculation_type === 'percentage_time' ? '% Time' :
+                           goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
+                           goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
+                           'Fixed Count'}
+                        </span>
+                      </div>
+                      <div className="flex items-center mb-1 sm:mb-2">
+                        <div className="hidden sm:flex items-center space-x-2 min-w-0 flex-1">
+                          <Target className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                          <span className="text-sm font-medium text-white truncate">{goal.name}</span>
+                          <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
+                            {goal.calculation_type === 'percentage_time' ? '% Time' :
+                             goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
+                             goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
+                             'Fixed Count'}
+                          </span>
                         </div>
-                        <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-                          <span className="text-sm sm:text-lg font-bold text-white">
-                            {Math.round(goal.progress?.percentage || 0)}%
-                          </span>
-                          <span className="text-xs sm:text-sm text-gray-400">
-                            {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
-                              ? `${Math.round(goal.progress?.percentage || 0)}%`
-                              : goal.calculation_type === 'fixed_time' 
-                              ? `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value}min`
-                              : `${goal.progress?.completed || 0}/${goal.progress?.required || goal.target_value} tasks`
-                            }
-                          </span>
+                        <div className="flex items-center flex-shrink-0 w-full sm:w-[290px] justify-between sm:justify-end">
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              onClick={() => navigateGoalDate(goal, 'prev')}
+                              className="p-0.5 rounded bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white transition-colors"
+                              title="Previous period"
+                            >
+                              <ChevronLeft className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => goToCurrentGoalPeriod(goal)}
+                              className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors w-[110px] text-center ${
+                                isCurrentGoalPeriod(goal)
+                                  ? 'bg-purple-600/50 text-purple-200'
+                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                              }`}
+                            >
+                              {getGoalPeriodLabel(goal)}
+                            </button>
+                            <button
+                              onClick={() => navigateGoalDate(goal, 'next')}
+                              disabled={isCurrentGoalPeriod(goal)}
+                              className={`p-0.5 rounded transition-colors ${
+                                isCurrentGoalPeriod(goal)
+                                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
+                              }`}
+                              title="Next period"
+                            >
+                              <ChevronRight className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <div className="flex items-baseline ml-1 sm:ml-2">
+                            <span className="text-sm sm:text-lg font-bold text-white w-[55px] text-right">
+                              {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
+                                ? `${Math.round(goal.progress?.percentage || 0)}%`
+                                : goal.calculation_type === 'fixed_time' 
+                                ? `${Math.round(goal.progress?.completed || 0)}min`
+                                : `${goal.progress?.completed || 0}`
+                              }
+                            </span>
+                            <span className="text-xs sm:text-sm text-gray-400 w-[85px] text-right whitespace-nowrap">
+                              {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
+                                ? `${Math.round(goal.progress?.completed || 0)}% /${goal.target_value}%`
+                                : goal.calculation_type === 'fixed_time' 
+                                ? `${Math.round(goal.progress?.completed || 0)} /${goal.progress?.required || goal.target_value}min`
+                                : `${goal.progress?.completed || 0} /${goal.progress?.required || goal.target_value}`
+                              }
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
@@ -1150,77 +1177,76 @@ const HomeScreen = () => {
             {activeList && (
               <div className="space-y-6">
                 {/* List Header */}
-                <div className="glass rounded-xl p-4 border border-purple-500/20">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="text-3xl font-bold text-white mb-1 truncate">{activeList.name}</h2>
-                      {activeList.reset_period !== 'static' && (
-                        <p className="text-sm text-gray-400">
-                          {new Date(getSelectedDate(activeListId) + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                        </p>
-                      )}
-                      {activeList.description && (
-                        <p className="text-gray-300 mt-2">{activeList.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {activeList.reset_period !== 'static' && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => navigateDate(activeListId, 'prev')}
-                            className="p-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
-                            title="Previous period"
-                          >
-                            <ChevronLeft className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => goToToday(activeListId)}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors w-[200px] text-center ${
-                              isToday(getSelectedDate(activeListId))
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                            }`}
-                          >
-                            {getPeriodLabel(activeList, getSelectedDate(activeListId))}
-                          </button>
-                          <button
-                            onClick={() => navigateDate(activeListId, 'next')}
-                            disabled={isToday(getSelectedDate(activeListId))}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              isToday(getSelectedDate(activeListId))
-                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                            }`}
-                            title="Next period"
-                          >
-                            <ChevronRight className="h-5 w-5" />
-                          </button>
-                        </div>
-                      )}
-                      {isAdmin && (
+                <div className="glass rounded-xl p-3 sm:p-4 border border-purple-500/20 relative">
+                  {tasks.length > 0 && (
+                    <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-sm font-medium bg-gray-700 text-gray-300">
+                      {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
+                    </span>
+                  )}
+                  <div className="mb-2">
+                    <h2 className="text-lg sm:text-3xl font-bold text-white truncate pr-20 sm:pr-28">{activeList.name}</h2>
+                    {activeList.reset_period !== 'static' && (
+                      <p className="text-xs sm:text-sm text-gray-400">
+                        {new Date(getSelectedDate(activeListId) + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                  {activeList.description && (
+                    <p className="text-gray-300 text-sm mb-2">{activeList.description}</p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    {activeList.reset_period !== 'static' && (
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => navigateDate(activeListId, 'prev')}
+                          className="p-1 sm:p-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                          title="Previous period"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                        </button>
+                        <button
+                          onClick={() => goToToday(activeListId)}
+                          className={`px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-colors w-[100px] sm:w-[200px] text-center ${
+                            isToday(getSelectedDate(activeListId))
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                          }`}
+                        >
+                          {getPeriodLabel(activeList, getSelectedDate(activeListId))}
+                        </button>
+                        <button
+                          onClick={() => navigateDate(activeListId, 'next')}
+                          disabled={isToday(getSelectedDate(activeListId))}
+                          className={`p-1 sm:p-1.5 rounded-lg transition-colors ${
+                            isToday(getSelectedDate(activeListId))
+                              ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                          }`}
+                          title="Next period"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                        </button>
+                      </div>
+                    )}
+                    {activeList.reset_period === 'static' && <div />}
+                    {isAdmin && (
+                      <div className="flex items-center gap-1 sm:gap-2">
                         <button
                           onClick={() => handleEditList(activeList)}
-                          className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
+                          className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
                         >
-                          <Edit className="h-4 w-4" />
-                          <span>Edit List</span>
+                          <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>Edit</span>
                         </button>
-                      )}
-                      {isAdmin && (
                         <button
                           onClick={() => setShowCreateTask(!showCreateTask)}
-                          className="btn bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 flex items-center space-x-2"
+                          className="btn bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
                         >
-                          <Plus className="h-4 w-4" />
-                          <span>Add Task</span>
+                          <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>Add</span>
                         </button>
-                      )}
-                      {tasks.length > 0 && (
-                        <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-700 text-gray-300">
-                          {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
-                        </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1630,7 +1656,7 @@ const HomeScreen = () => {
                                           e.stopPropagation();
                                           handleUndoCompletion(task.id);
                                         }}
-                                        className="btn bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center space-x-1 px-3"
+                                        className="btn bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center space-x-1 px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm"
                                         title="Undo last completion"
                                       >
                                         <RotateCcw className="h-3 w-3" />
@@ -1647,7 +1673,7 @@ const HomeScreen = () => {
                                       e.stopPropagation();
                                       handleTaskClick(task.id);
                                     }}
-                                    className={`btn flex items-center justify-center space-x-2 min-w-[140px] ${
+                                    className={`btn flex items-center justify-center space-x-1 sm:space-x-2 px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm min-w-[100px] sm:min-w-[140px] ${
                                       task.is_completed
                                         ? 'bg-green-500 text-white hover:bg-green-600'
                                         : 'bg-gray-500 text-white hover:bg-gray-600'

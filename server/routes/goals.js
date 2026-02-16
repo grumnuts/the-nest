@@ -85,7 +85,8 @@ const calculatePeriodDates = (periodType, date) => {
       break;
     case 'weekly':
       const dayOfWeek = start.getDay();
-      start.setDate(start.getDate() - dayOfWeek);
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Monday start
+      start.setDate(start.getDate() + mondayOffset);
       start.setHours(0, 0, 0, 0);
       end.setDate(start.getDate() + 6);
       end.setHours(23, 59, 59, 999);
@@ -122,6 +123,40 @@ const calculatePeriodDates = (periodType, date) => {
   return { start, end, label };
 };
 
+// Calculate how many times a list's tasks repeat within a goal period
+// For the current (in-progress) period, cap at today so we don't count future days
+const getRepetitionsInPeriod = (listResetPeriod, goalPeriodType, periodStart, periodEnd) => {
+  if (listResetPeriod === 'static') return 1;
+  
+  // Normalize to local midnight dates to avoid UTC/local mismatch in day counting
+  const startDay = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
+  const endDay = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  // Cap at today if the period extends into the future
+  const effectiveEndDay = endDay > today ? today : endDay;
+  
+  const periodDays = Math.max(1, Math.round((effectiveEndDay - startDay) / (1000 * 60 * 60 * 24)) + 1);
+  
+  switch (listResetPeriod) {
+    case 'daily':
+      return periodDays;
+    case 'weekly':
+      return Math.max(1, Math.round(periodDays / 7));
+    case 'fortnightly':
+      return Math.max(1, Math.round(periodDays / 14));
+    case 'monthly':
+      return Math.max(1, Math.round(periodDays / 30));
+    case 'quarterly':
+      return Math.max(1, Math.round(periodDays / 91));
+    case 'annually':
+      return Math.max(1, Math.round(periodDays / 365));
+    default:
+      return 1;
+  }
+};
+
 // Helper function to calculate progress for a single period
 const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd) => {
   // Get task completions for the period
@@ -137,54 +172,73 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd) =>
     return listIds.length === 0 || listIds.includes(completion.list_id);
   });
 
+  // Get list details to know each list's reset_period
+  const lists = await new Promise((resolve, reject) => {
+    if (listIds.length === 0) {
+      resolve([]);
+      return;
+    }
+    const placeholders = listIds.map(() => '?').join(',');
+    db.db.all(
+      `SELECT id, reset_period FROM lists WHERE id IN (${placeholders})`,
+      listIds,
+      (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      }
+    );
+  });
+
   let completed = 0;
   let required = goal.target_value;
 
   // Calculate completed value based on calculation type
   switch (goal.calculation_type) {
-    case 'percentage_task_count':
-      // For percentage, we need total tasks in lists
-      const totalTasks = await new Promise((resolve, reject) => {
-        if (listIds.length === 0) {
-          resolve(0);
-          return;
-        }
-        const placeholders = listIds.map(() => '?').join(',');
-        db.db.all(
-          `SELECT COUNT(*) as count FROM tasks WHERE list_id IN (${placeholders})`,
-          listIds,
-          (err, result) => {
-            if (err) reject(err);
-            else resolve(result[0].count);
-          }
-        );
-      });
-      completed = totalTasks > 0 ? (relevantCompletions.length / totalTasks) * 100 : 0;
-      required = goal.target_value; // Use the actual target percentage from goal
+    case 'percentage_task_count': {
+      // Total expected task completions = tasks per list × repetitions in period
+      let totalExpectedTasks = 0;
+      for (const list of lists) {
+        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd);
+        const taskCount = await new Promise((resolve, reject) => {
+          db.db.get(
+            `SELECT COUNT(*) as count FROM tasks WHERE list_id = ?`,
+            [list.id],
+            (err, result) => {
+              if (err) reject(err);
+              else resolve(result.count);
+            }
+          );
+        });
+        totalExpectedTasks += taskCount * reps;
+      }
+      completed = totalExpectedTasks > 0 ? (relevantCompletions.length / totalExpectedTasks) * 100 : 0;
+      required = goal.target_value;
       break;
-    case 'percentage_time':
-      // For percentage time, we need total possible time from all tasks in lists
-      const totalPossibleTime = await new Promise((resolve, reject) => {
-        if (listIds.length === 0) {
-          resolve(0);
-          return;
-        }
-        const placeholders = listIds.map(() => '?').join(',');
-        db.db.all(
-          `SELECT SUM(duration_minutes) as total_time FROM tasks WHERE list_id IN (${placeholders})`,
-          listIds,
-          (err, result) => {
-            if (err) reject(err);
-            else resolve(result[0].total_time || 0);
-          }
-        );
-      });
+    }
+    case 'percentage_time': {
+      // Total possible time = task durations per list × repetitions in period
+      let totalPossibleTime = 0;
+      for (const list of lists) {
+        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd);
+        const listTime = await new Promise((resolve, reject) => {
+          db.db.get(
+            `SELECT COALESCE(SUM(duration_minutes), 0) as total_time FROM tasks WHERE list_id = ?`,
+            [list.id],
+            (err, result) => {
+              if (err) reject(err);
+              else resolve(result.total_time);
+            }
+          );
+        });
+        totalPossibleTime += listTime * reps;
+      }
       const completedTime = relevantCompletions.reduce((sum, completion) => {
         return sum + (completion.duration_minutes || 0);
       }, 0);
       completed = totalPossibleTime > 0 ? (completedTime / totalPossibleTime) * 100 : 0;
-      required = goal.target_value; // Use the actual target percentage from goal
+      required = goal.target_value;
       break;
+    }
     case 'fixed_task_count':
       completed = relevantCompletions.length;
       break;
@@ -204,125 +258,19 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd) =>
   };
 };
 
-// Simplified progress calculation function (legacy)
-const calculateSimpleProgress = async (goal, listIds) => {
+// Main progress calculation - delegates to calculatePeriodProgress
+// Optional referenceDate param to calculate for a specific period instead of current
+const calculateSimpleProgress = async (goal, listIds, referenceDate) => {
   try {
-    // Get current date for period calculation
-    const now = new Date();
-    let periodStart, periodEnd;
+    const date = referenceDate ? new Date(referenceDate + 'T12:00:00') : new Date();
+    const period = calculatePeriodDates(goal.period_type, date);
+    const result = await calculatePeriodProgress(goal, listIds, period.start, period.end);
     
-    // Calculate period dates based on period_type
-    switch (goal.period_type) {
-      case 'daily':
-        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-        break;
-      case 'weekly':
-        const dayOfWeek = now.getDay();
-        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
-        periodEnd = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'monthly':
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        break;
-      case 'quarterly':
-        const quarter = Math.floor(now.getMonth() / 3);
-        periodStart = new Date(now.getFullYear(), quarter * 3, 1);
-        periodEnd = new Date(now.getFullYear(), (quarter + 1) * 3, 1);
-        break;
-      case 'annually':
-        periodStart = new Date(now.getFullYear(), 0, 1);
-        periodEnd = new Date(now.getFullYear() + 1, 0, 1);
-        break;
-      default:
-        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    }
-
-    // Get task completions for the period
-    const completions = await new Promise((resolve, reject) => {
-      db.getTaskCompletionsInPeriod(goal.user_id, periodStart.toISOString(), periodEnd.toISOString(), (err, completions) => {
-        if (err) reject(err);
-        else resolve(completions || []);
-      });
-    });
-
-    // Filter completions by goal's lists
-    const relevantCompletions = completions.filter(completion => {
-      return listIds.length === 0 || listIds.includes(completion.list_id);
-    });
-
-    let completed = 0;
-    let required = goal.target_value;
-
-    // Calculate completed value based on calculation type
-    switch (goal.calculation_type) {
-      case 'percentage_task_count':
-        // For percentage, we need total tasks in lists
-        const totalTasks = await new Promise((resolve, reject) => {
-          if (listIds.length === 0) {
-            resolve(0);
-            return;
-          }
-          const placeholders = listIds.map(() => '?').join(',');
-          db.db.all(
-            `SELECT COUNT(*) as count FROM tasks WHERE list_id IN (${placeholders})`,
-            listIds,
-            (err, result) => {
-              if (err) reject(err);
-              else resolve(result[0].count);
-            }
-          );
-        });
-        completed = totalTasks > 0 ? (relevantCompletions.length / totalTasks) * 100 : 0;
-        required = goal.target_value; // Use the actual target percentage from goal
-        break;
-      case 'percentage_time':
-        // For percentage time, we need total possible time from all tasks in lists
-        const totalPossibleTime = await new Promise((resolve, reject) => {
-          if (listIds.length === 0) {
-            resolve(0);
-            return;
-          }
-          const placeholders = listIds.map(() => '?').join(',');
-          db.db.all(
-            `SELECT SUM(duration_minutes) as total_time FROM tasks WHERE list_id IN (${placeholders})`,
-            listIds,
-            (err, result) => {
-              if (err) reject(err);
-              else resolve(result[0].total_time || 0);
-            }
-          );
-        });
-        const completedTime = relevantCompletions.reduce((sum, completion) => {
-          return sum + (completion.duration_minutes || 0);
-        }, 0);
-        completed = totalPossibleTime > 0 ? (completedTime / totalPossibleTime) * 100 : 0;
-        required = goal.target_value; // Use the actual target percentage from goal
-        break;
-      case 'fixed_task_count':
-        completed = relevantCompletions.length;
-        break;
-      case 'fixed_time':
-        completed = relevantCompletions.reduce((sum, completion) => {
-          return sum + (completion.duration_minutes || 0);
-        }, 0);
-        break;
-      default:
-        completed = relevantCompletions.length;
-    }
-
-    const percentage = required > 0 ? (completed / required) * 100 : 0;
-    const isAchieved = percentage >= 100;
-
     return {
-      required: required,
-      completed: completed,
-      percentage: percentage,
-      isAchieved: isAchieved,
-      periodStart: periodStart.toISOString(),
-      periodEnd: periodEnd.toISOString()
+      ...result,
+      periodStart: period.start.toISOString(),
+      periodEnd: period.end.toISOString(),
+      periodLabel: period.label
     };
   } catch (error) {
     console.error('Error calculating progress:', error);
@@ -338,8 +286,10 @@ const calculateSimpleProgress = async (goal, listIds) => {
 };
 
 // Get goals for current user
+// Optional query param: ?date=YYYY-MM-DD to get progress for a specific period
 router.get('/my-goals', authenticateToken, async (req, res) => {
   const userId = req.user.userId;
+  const dateParam = req.query.date || null;
   
   try {
     const goals = await new Promise((resolve, reject) => {
@@ -352,7 +302,7 @@ router.get('/my-goals', authenticateToken, async (req, res) => {
     // Calculate progress for each goal
     const goalsWithProgress = await Promise.all(goals.map(async (goal) => {
       const listIds = JSON.parse(goal.list_ids);
-      const progress = await calculateSimpleProgress(goal, listIds);
+      const progress = await calculateSimpleProgress(goal, listIds, dateParam);
       return {
         ...goal,
         list_ids: listIds,
@@ -368,8 +318,9 @@ router.get('/my-goals', authenticateToken, async (req, res) => {
 });
 
 // Get all goals (admin only)
+// Optional query param: ?date=YYYY-MM-DD to get progress for a specific period
 router.get('/all-goals', authenticateToken, checkAdmin, async (req, res) => {
-  console.log('🎯 Fetching all goals for admin:', req.user.username);
+  const dateParam = req.query.date || null;
 
   // Check if database is available
   if (!db || !db.db) {
@@ -384,7 +335,6 @@ router.get('/all-goals', authenticateToken, checkAdmin, async (req, res) => {
           console.error('❌ Error fetching all goals:', err);
           reject(err);
         } else {
-          console.log(`✅ Successfully fetched ${goals.length} goals`);
           resolve(goals);
         }
       });
@@ -393,7 +343,7 @@ router.get('/all-goals', authenticateToken, checkAdmin, async (req, res) => {
     // Calculate progress for each goal
     const goalsWithProgress = await Promise.all(goals.map(async (goal) => {
       const listIds = JSON.parse(goal.list_ids);
-      const progress = await calculateSimpleProgress(goal, listIds);
+      const progress = await calculateSimpleProgress(goal, listIds, dateParam);
       return {
         ...goal,
         list_ids: listIds,
@@ -405,6 +355,37 @@ router.get('/all-goals', authenticateToken, checkAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching goals:', error);
     res.status(500).json({ error: 'Error fetching goals' });
+  }
+});
+
+// Get progress for a single goal at a specific date
+// Query param: ?date=YYYY-MM-DD
+router.get('/:id/progress', authenticateToken, async (req, res) => {
+  const goalId = req.params.id;
+  const dateParam = req.query.date || null;
+
+  try {
+    const goal = await new Promise((resolve, reject) => {
+      db.db.get('SELECT * FROM goals WHERE id = ?', [goalId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!goal) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+
+    const listIds = JSON.parse(goal.list_ids);
+    const progress = await calculateSimpleProgress(goal, listIds, dateParam);
+
+    res.json({
+      goalId: goal.id,
+      progress: progress
+    });
+  } catch (error) {
+    console.error('Error fetching goal progress:', error);
+    res.status(500).json({ error: 'Error fetching goal progress' });
   }
 });
 

@@ -532,9 +532,13 @@ class Database {
   }
 
   // Task completion methods
-  addTaskCompletion(taskId, completedBy, callback) {
+  addTaskCompletion(taskId, completedBy, completedAt, callback) {
+    if (typeof completedAt === 'function') {
+      callback = completedAt;
+      completedAt = localNow();
+    }
     const stmt = this.db.prepare('INSERT INTO task_completions (task_id, completed_by, completed_at) VALUES (?, ?, ?)');
-    stmt.run([taskId, completedBy, localNow()], function(err) {
+    stmt.run([taskId, completedBy, completedAt || localNow()], function(err) {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();
