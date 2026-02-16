@@ -86,7 +86,7 @@ const calculatePeriodDates = (periodType, date) => {
     case 'daily':
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
-      label = start.toLocaleDateString();
+      label = start.toLocaleDateString('en-AU');
       break;
     case 'weekly':
       const dayOfWeek = start.getDay();
@@ -95,14 +95,14 @@ const calculatePeriodDates = (periodType, date) => {
       start.setHours(0, 0, 0, 0);
       end.setDate(start.getDate() + 6);
       end.setHours(23, 59, 59, 999);
-      label = `Week of ${start.toLocaleDateString()}`;
+      label = `Week of ${start.toLocaleDateString('en-AU')}`;
       break;
     case 'monthly':
       start.setDate(1);
       start.setHours(0, 0, 0, 0);
       end.setMonth(end.getMonth() + 1, 0);
       end.setHours(23, 59, 59, 999);
-      label = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      label = start.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
       break;
     case 'quarterly':
       const quarter = Math.floor(start.getMonth() / 3);
@@ -122,7 +122,7 @@ const calculatePeriodDates = (periodType, date) => {
     default:
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
-      label = start.toLocaleDateString();
+      label = start.toLocaleDateString('en-AU');
   }
 
   return { start, end, label };
@@ -133,7 +133,8 @@ const calculatePeriodDates = (periodType, date) => {
 const getRepetitionsInPeriod = (listResetPeriod, goalPeriodType, periodStart, periodEnd, isCurrentPeriod = true) => {
   if (listResetPeriod === 'static') return 1;
   
-  // Normalize to local midnight dates to avoid UTC/local mismatch in day counting
+  // Period dates are already in local time (server TZ is set)
+  // Normalize to midnight for day counting
   const startDay = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
   const endDay = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
   
@@ -146,7 +147,10 @@ const getRepetitionsInPeriod = (listResetPeriod, goalPeriodType, periodStart, pe
     effectiveEndDay = endDay > today ? today : endDay;
   }
   
-  const periodDays = Math.max(1, Math.round((effectiveEndDay - startDay) / (1000 * 60 * 60 * 24)) + 1);
+  // Calculate days between start and end (inclusive)
+  const startUTC = Date.UTC(startDay.getFullYear(), startDay.getMonth(), startDay.getDate());
+  const endUTC = Date.UTC(effectiveEndDay.getFullYear(), effectiveEndDay.getMonth(), effectiveEndDay.getDate());
+  const periodDays = Math.max(1, Math.round((endUTC - startUTC) / (1000 * 60 * 60 * 24)) + 1);
   
   switch (listResetPeriod) {
     case 'daily':
@@ -176,11 +180,6 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
     });
   });
 
-  // Filter completions by goal's lists
-  const relevantCompletions = completions.filter(completion => {
-    return listIds.length === 0 || listIds.includes(completion.list_id);
-  });
-
   // Get list details to know each list's reset_period
   const lists = await new Promise((resolve, reject) => {
     if (listIds.length === 0) {
@@ -198,16 +197,23 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
     );
   });
 
+  // Filter completions to only include tasks from lists that still exist
+  const existingListIds = lists.map(l => l.id);
+  const relevantCompletions = completions.filter(completion => {
+    return existingListIds.includes(completion.list_id);
+  });
+
   let completed = 0;
   let required = goal.target_value;
 
   // Calculate completed value based on calculation type
   switch (goal.calculation_type) {
     case 'percentage_task_count': {
-      // Total expected task completions = tasks per list × repetitions in period
+      // Total expected task completions = tasks per list × full repetitions in period
       let totalExpectedTasks = 0;
       for (const list of lists) {
-        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd, isCurrentPeriod);
+        // For expected tasks, always use full period (no capping)
+        const fullReps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd, false);
         const taskCount = await new Promise((resolve, reject) => {
           db.db.get(
             `SELECT COUNT(*) as count FROM tasks WHERE list_id = ?`,
@@ -218,17 +224,20 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
             }
           );
         });
-        totalExpectedTasks += taskCount * reps;
+        totalExpectedTasks += taskCount * fullReps;
       }
+      
+      // For completed tasks, we only count what's actually done (completions already handle this)
       completed = totalExpectedTasks > 0 ? (relevantCompletions.length / totalExpectedTasks) * 100 : 0;
       required = goal.target_value;
       break;
     }
     case 'percentage_time': {
-      // Total possible time = task durations per list × repetitions in period
+      // Total possible time = task durations per list × full repetitions in period
       let totalPossibleTime = 0;
       for (const list of lists) {
-        const reps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd, isCurrentPeriod);
+        // For expected time, always use full period (no capping)
+        const fullReps = getRepetitionsInPeriod(list.reset_period, goal.period_type, periodStart, periodEnd, false);
         const listTime = await new Promise((resolve, reject) => {
           db.db.get(
             `SELECT COALESCE(SUM(duration_minutes), 0) as total_time FROM tasks WHERE list_id = ?`,
@@ -239,7 +248,7 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
             }
           );
         });
-        totalPossibleTime += listTime * reps;
+        totalPossibleTime += listTime * fullReps;
       }
       const completedTime = relevantCompletions.reduce((sum, completion) => {
         return sum + (completion.duration_minutes || 0);
@@ -273,7 +282,13 @@ const calculateSimpleProgress = async (goal, listIds, referenceDate) => {
   try {
     const date = referenceDate ? new Date(referenceDate + 'T12:00:00') : new Date();
     const period = calculatePeriodDates(goal.period_type, date);
-    const result = await calculatePeriodProgress(goal, listIds, period.start, period.end);
+    
+    // Determine if this is the current period
+    const now = new Date();
+    const isCurrentPeriod = !referenceDate && 
+      period.start <= now && period.end >= now;
+    
+    const result = await calculatePeriodProgress(goal, listIds, period.start, period.end, isCurrentPeriod);
     
     return {
       ...result,
@@ -283,14 +298,7 @@ const calculateSimpleProgress = async (goal, listIds, referenceDate) => {
     };
   } catch (error) {
     console.error('Error calculating progress:', error);
-    return {
-      required: goal.target_value,
-      completed: 0,
-      percentage: 0,
-      isAchieved: false,
-      periodStart: new Date().toISOString(),
-      periodEnd: new Date().toISOString()
-    };
+    return { completed: 0, required: goal.target_value || 100 };
   }
 };
 

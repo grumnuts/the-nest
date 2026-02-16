@@ -311,6 +311,14 @@ class Database {
     stmt.finalize();
   }
 
+  updateUserEmail(userId, newEmail, callback) {
+    const stmt = this.db.prepare('UPDATE users SET email = ?, updated_at = ? WHERE id = ?');
+    stmt.run([newEmail, localNow(), userId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
   getUserByEmail(email, callback) {
     this.db.get('SELECT * FROM users WHERE email = ?', [email], callback);
   }

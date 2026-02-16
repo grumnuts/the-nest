@@ -327,6 +327,7 @@ router.delete('/:id', authenticateToken, checkAdmin, (req, res) => {
   
   const taskId = req.params.id;
   const userId = req.user.userId;
+  const isAdmin = req.user.is_admin;
 
   // First get the task to check permissions
   db.getTaskById(taskId, (err, task) => {
@@ -338,24 +339,35 @@ router.delete('/:id', authenticateToken, checkAdmin, (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Check if user has access to the list
-    db.getListsByUser(userId, (err, userLists) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error checking permissions' });
-      }
+    // Admins can delete any task, otherwise check permissions
+    if (!isAdmin) {
+      // Check if user has access to the list
+      db.getListsByUser(userId, (err, userLists) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error checking permissions' });
+        }
 
-      const hasAccess = userLists.some(list => 
-        list.id === task.list_id && 
-        ['owner', 'editor'].includes(list.permission_level)
-      );
+        const hasAccess = userLists.some(list => 
+          list.id === task.list_id && 
+          ['owner', 'editor'].includes(list.permission_level)
+        );
 
-      // Also allow the assigned user to delete their own task
-      const isAssignedUser = task.assigned_to === userId;
+        // Also allow the assigned user to delete their own task
+        const isAssignedUser = task.assigned_to === userId;
 
-      if (!hasAccess && !isAssignedUser) {
-        return res.status(403).json({ error: 'Insufficient permissions to delete this task' });
-      }
+        if (!hasAccess && !isAssignedUser) {
+          return res.status(403).json({ error: 'Insufficient permissions to delete this task' });
+        }
 
+        // Delete the task
+        performDelete();
+      });
+    } else {
+      // Admin can delete directly
+      performDelete();
+    }
+
+    function performDelete() {
       // Delete the task (this will also delete related completions due to foreign key constraints)
       db.deleteTask(taskId, (err, changes) => {
         if (err) {
@@ -370,7 +382,7 @@ router.delete('/:id', authenticateToken, checkAdmin, (req, res) => {
           message: 'Task deleted successfully'
         });
       });
-    });
+    }
   });
 });
 

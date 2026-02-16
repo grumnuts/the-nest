@@ -915,8 +915,8 @@ const HomeScreen = () => {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        {/* Header */}
-        <header className="glass border-b border-purple-500/20 sticky top-0 z-50">
+      {/* Header */}
+      <header className="glass border-b border-purple-500/20 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center space-x-2 sm:space-x-4">
@@ -1532,7 +1532,7 @@ const HomeScreen = () => {
                 )}
 
                 {/* Tasks List */}
-                <div className="glass rounded-xl p-4 sm:p-6 border border-purple-500/20">
+                <div className="mt-2 sm:mt-3 glass rounded-xl p-4 sm:p-6 border border-purple-500/20">
                   <div className="flex items-center justify-between mb-2 sm:mb-3">
                     <h3 className="text-lg sm:text-xl font-semibold text-white">Tasks</h3>
                     <ToggleSwitch
@@ -1722,20 +1722,19 @@ const HomeScreen = () => {
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
       </div>
       
       <ConfirmDialog
-        isOpen={!!taskToDelete}
-        title="Delete Task"
-        message={`Are you sure you want to delete the task "${taskToDelete?.title}"? This action cannot be undone.`}
-        confirmText="Delete Task"
-        cancelText="Cancel"
-        onConfirm={confirmDeleteTask}
-        onCancel={cancelDeleteTask}
-        type="delete"
-      />
+      isOpen={!!taskToDelete}
+      title="Delete Task"
+      message={`Are you sure you want to delete the task "${taskToDelete?.title}"? This action cannot be undone.`}
+      confirmText="Delete Task"
+      cancelText="Cancel"
+      onConfirm={confirmDeleteTask}
+      onCancel={cancelDeleteTask}
+      type="delete"
+    />
     </>
   );
 };

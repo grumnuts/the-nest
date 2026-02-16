@@ -88,7 +88,6 @@ router.post('/change-username', authenticateToken, async (req, res) => {
       }
 
       // Verify current password
-      const bcrypt = require('bcrypt');
       const isValid = await bcrypt.compare(password, user.password_hash);
 
       if (!isValid) {
@@ -122,7 +121,6 @@ router.post('/change-username', authenticateToken, async (req, res) => {
             }
 
             // Generate new JWT token with updated username
-            const jwt = require('jsonwebtoken');
             const token = jwt.sign(
               { 
                 userId: updatedUser.id, 
@@ -132,7 +130,7 @@ router.post('/change-username', authenticateToken, async (req, res) => {
                 hide_goals: updatedUser.hide_goals,
                 hide_completed_tasks: updatedUser.hide_completed_tasks
               },
-              process.env.JWT_SECRET,
+              JWT_SECRET,
               { expiresIn: '24h' }
             );
 
@@ -199,6 +197,102 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Change password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Change email
+router.post('/change-email', authenticateToken, async (req, res) => {
+  try {
+    const { newEmail, password } = req.body;
+    const userId = req.user.userId;
+
+    // Validate input
+    if (!newEmail || !password) {
+      return res.status(400).json({ error: 'New email and current password are required' });
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    // Get current user to verify password
+    db.getUserById(userId, async (err, user) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching user data' });
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Verify current password
+      const isValid = await bcrypt.compare(password, user.password_hash);
+
+      if (!isValid) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+
+      // Check if new email is already taken
+      db.getUserByEmail(newEmail, (err, existingUser) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error checking email availability' });
+        }
+
+        if (existingUser) {
+          return res.status(400).json({ error: 'Email is already taken' });
+        }
+
+        // Update email
+        db.updateUserEmail(userId, newEmail, (err, changes) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error updating email' });
+          }
+
+          if (changes === 0) {
+            return res.status(404).json({ error: 'User not found' });
+          }
+
+          // Get updated user data
+          db.getUserById(userId, (err, updatedUser) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error fetching updated user data' });
+            }
+
+            // Generate new JWT token with updated email
+            const token = jwt.sign(
+              { 
+                userId: updatedUser.id, 
+                username: updatedUser.username, 
+                email: updatedUser.email, 
+                is_admin: updatedUser.is_admin, 
+                hide_goals: updatedUser.hide_goals,
+                hide_completed_tasks: updatedUser.hide_completed_tasks
+              },
+              JWT_SECRET,
+              { expiresIn: '24h' }
+            );
+
+            res.json({
+              message: 'Email updated successfully',
+              token,
+              user: { 
+                userId: updatedUser.id, 
+                username: updatedUser.username, 
+                email: updatedUser.email, 
+                is_admin: updatedUser.is_admin,
+                hide_goals: updatedUser.hide_goals,
+                hide_completed_tasks: updatedUser.hide_completed_tasks
+              }
+            });
+          });
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Error changing email:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

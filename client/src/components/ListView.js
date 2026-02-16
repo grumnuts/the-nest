@@ -324,7 +324,7 @@ const ListView = () => {
                   {history.map((snapshot) => (
                     <div key={snapshot.id} className="border-l-4 border-gray-200 pl-4">
                       <div className="text-sm text-gray-600">
-                        {new Date(snapshot.period_start).toLocaleDateString()} - {new Date(snapshot.period_end).toLocaleDateString()}
+                        {new Date(snapshot.period_start).toLocaleDateString('en-AU')} - {new Date(snapshot.period_end).toLocaleDateString('en-AU')}
                       </div>
                       <div className="text-sm text-gray-800">
                         {snapshot.snapshot_data.tasks?.length || 0} tasks
@@ -381,7 +381,7 @@ const ListView = () => {
                     </div>
                     {task.is_completed && task.completed_at && (
                       <div className="text-xs text-gray-500">
-                        {new Date(task.completed_at).toLocaleDateString()}
+                        {new Date(task.completed_at).toLocaleDateString('en-AU')}
                       </div>
                     )}
                   </div>

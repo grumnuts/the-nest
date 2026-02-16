@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Target, TrendingUp, Clock, CheckCircle, Plus, Edit2, Trash2, Users, Calendar, BarChart3, X, Star } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import ConfirmDialog from './ConfirmDialog';
 
 const Goals = () => {
   const { user } = useAuth();
-  const isAdmin = user?.username === 'admin';
+  const isAdmin = user?.is_admin === 1;
   
   const [goals, setGoals] = useState([]);
   const [users, setUsers] = useState([]);
@@ -19,6 +20,9 @@ const Goals = () => {
   const [availablePeriods, setAvailablePeriods] = useState([]);
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [periodLoading, setPeriodLoading] = useState(false);
+  
+  // State for delete confirmation
+  const [goalToDelete, setGoalToDelete] = useState(null);
   
   const [newGoal, setNewGoal] = useState({
     userId: '',
@@ -155,17 +159,26 @@ const Goals = () => {
   };
 
   const handleDeleteGoal = async (goalId) => {
-    if (!window.confirm('Are you sure you want to delete this goal?')) {
-      return;
-    }
+    const goal = goals.find(g => g.id === goalId);
+    setGoalToDelete(goal);
+  };
+
+  const confirmDeleteGoal = async () => {
+    if (!goalToDelete) return;
     
     try {
-      await axios.delete(`/api/goals/${goalId}`);
+      await axios.delete(`/api/goals/${goalToDelete.id}`);
       fetchGoals();
+      setGoalToDelete(null);
     } catch (error) {
       console.error('Error deleting goal:', error);
       alert('Error deleting goal: ' + (error.response?.data?.error || error.message));
+      setGoalToDelete(null);
     }
+  };
+
+  const cancelDeleteGoal = () => {
+    setGoalToDelete(null);
   };
 
   const handleEditGoal = (goal) => {
@@ -228,7 +241,8 @@ const Goals = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -316,20 +330,12 @@ const Goals = () => {
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={() => handleEditGoal(goal)}
-                      className="p-1 text-gray-400 hover:text-blue-400 transition-colors rounded hover:bg-blue-500/10"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteGoal(goal.id)}
-                      className="p-1 text-gray-400 hover:text-red-400 transition-colors rounded hover:bg-red-500/10"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleEditGoal(goal)}
+                    className="p-1 text-gray-400 hover:text-blue-400 transition-colors rounded hover:bg-blue-500/10"
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </button>
                 )}
               </div>
 
@@ -380,7 +386,7 @@ const Goals = () => {
               {/* Action Buttons */}
               <div className="flex items-center justify-between pt-4 border-t border-gray-700">
                 <div className="text-xs text-gray-500">
-                  Period: {new Date(goal.progress?.periodStart || Date.now()).toLocaleDateString()} - {new Date(goal.progress?.periodEnd || Date.now()).toLocaleDateString()}
+                  Period: {new Date(goal.progress?.periodStart || Date.now()).toLocaleDateString('en-AU')} - {new Date(goal.progress?.periodEnd || Date.now()).toLocaleDateString('en-AU')}
                 </div>
                 <button
                   onClick={() => fetchGoalProgress(goal.id)}
@@ -538,10 +544,10 @@ const Goals = () => {
                 </div>
               </div>
 
-              <div className="flex space-x-4 pt-6 border-t border-gray-700">
+              <div className="flex flex-wrap gap-2 pt-6 border-t border-gray-700">
                 <button
                   type="submit"
-                  className="btn-primary flex-1"
+                  className="btn-primary flex-1 min-w-[100px]"
                 >
                   {editingGoal ? 'Update Goal' : 'Create Goal'}
                 </button>
@@ -560,10 +566,24 @@ const Goals = () => {
                       listIds: []
                     });
                   }}
-                  className="btn-secondary flex-1"
+                  className="btn-secondary flex-1 min-w-[80px]"
                 >
                   Cancel
                 </button>
+                {editingGoal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeleteGoal(editingGoal.id);
+                      setShowCreateGoal(false);
+                      setEditingGoal(null);
+                    }}
+                    className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete Goal</span>
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -597,7 +617,7 @@ const Goals = () => {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-sm font-medium text-white">
-                          {new Date(progress.period_start).toLocaleDateString('en-US', { 
+                          {new Date(progress.period_start).toLocaleDateString('en-AU', { 
                             weekday: 'short', 
                             year: 'numeric', 
                             month: 'short', 
@@ -605,7 +625,7 @@ const Goals = () => {
                           })}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {new Date(progress.period_end).toLocaleDateString('en-US', { 
+                          {new Date(progress.period_end).toLocaleDateString('en-AU', { 
                             weekday: 'short', 
                             year: 'numeric', 
                             month: 'short', 
@@ -651,6 +671,18 @@ const Goals = () => {
         </div>
       )}
     </div>
+    
+    <ConfirmDialog
+      isOpen={!!goalToDelete}
+      title="Delete Goal"
+      message={`Are you sure you want to delete the goal "${goalToDelete?.name}"? This action cannot be undone.`}
+      confirmText="Delete Goal"
+      cancelText="Cancel"
+      onConfirm={confirmDeleteGoal}
+      onCancel={cancelDeleteGoal}
+      type="delete"
+    />
+    </>
   );
 };
 

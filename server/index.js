@@ -147,7 +147,7 @@ app.listen(PORT, async () => {
   console.log(`🚀 The Nest server running on port ${PORT}`);
   console.log(`📊 Health check available at http://localhost:${PORT}/api/health`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🕐 Current time: ${new Date().toLocaleString()}`);
+  console.log(`🕐 Current time: ${new Date().toLocaleString('en-AU')}`);
   console.log(`🌍 Timezone: ${process.env.TZ || 'UTC'}`);
   
   // Wait a moment for database to be fully ready
