@@ -11,7 +11,12 @@
     "start": "cd server && npm start",
     "install-all": "npm install && cd server && npm install && cd ../client && npm install"
   },
-  "keywords": ["task-tracking", "chores", "productivity", "team-management"],
+  "keywords": [
+    "task-tracking",
+    "chores",
+    "productivity",
+    "team-management"
+  ],
   "author": "The Nest Team",
   "license": "MIT",
   "devDependencies": {

@@ -29,7 +29,7 @@ docker run -d \
 
 ### Docker Compose
 
-See [`docker-compose-example.yml`](docker-compose-example.yml) or use this:
+See [`docker-compose.yml`](docker-compose.yml) or use this:
 
 ```yaml
 services:
@@ -42,6 +42,8 @@ services:
       - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
       - CLIENT_URL=http://localhost:5000
       - TZ=UTC
+      - PUID=1001 # Optional
+      - PGID=1001 # Optional
     volumes:
       - nest_data:/app/data
     restart: unless-stopped
