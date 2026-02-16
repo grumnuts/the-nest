@@ -427,6 +427,10 @@ const HomeScreen = () => {
 
   // Drag and drop functions for list reordering
   const handleDragStart = (e, list) => {
+    if (!isAdmin) {
+      e.preventDefault();
+      return;
+    }
     setDraggedList(list);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -444,33 +448,48 @@ const HomeScreen = () => {
   };
 
   const handleDragLeave = (e) => {
-    // Only clear if we're actually leaving the element
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      setDragOverList(null);
-    }
+    setDragOverList(null);
   };
 
   const handleDrop = (e, targetList) => {
     e.preventDefault();
     setDragOverList(null);
     
-    if (!draggedList || draggedList.id === targetList.id) {
+    if (!isAdmin || !draggedList || draggedList.id === targetList.id) {
+      setDraggedList(null);
       return;
     }
 
     const draggedIndex = lists.findIndex(list => list.id === draggedList.id);
     const targetIndex = lists.findIndex(list => list.id === targetList.id);
     
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedList(null);
+      return;
+    }
+    
     const newLists = [...lists];
-    newLists.splice(draggedIndex, 1);
+    const [movedList] = newLists.splice(draggedIndex, 1);
     
     // Determine insertion position based on where the user dropped
     const rect = e.currentTarget.getBoundingClientRect();
     const midPoint = rect.left + rect.width / 2;
     const insertBefore = e.clientX < midPoint;
     
-    const finalIndex = insertBefore ? targetIndex : targetIndex + 1;
-    newLists.splice(finalIndex, 0, draggedList);
+    // Calculate the final index accounting for the removal
+    let finalIndex;
+    if (draggedIndex < targetIndex) {
+      // If dragging forward, the target index shifts back by 1
+      finalIndex = insertBefore ? targetIndex - 1 : targetIndex;
+    } else {
+      // If dragging backward, target index stays the same
+      finalIndex = insertBefore ? targetIndex : targetIndex + 1;
+    }
+    
+    // Ensure index is within bounds
+    finalIndex = Math.max(0, Math.min(finalIndex, newLists.length));
+    
+    newLists.splice(finalIndex, 0, movedList);
     
     setLists(newLists);
     setDraggedList(null);
@@ -483,7 +502,6 @@ const HomeScreen = () => {
     try {
       const listIds = orderedLists.map(list => list.id);
       await axios.post('/api/lists/reorder', { listIds });
-      console.log('List order saved successfully');
     } catch (error) {
       console.error('Error saving list order:', error);
       // Optionally revert the order if save fails
@@ -493,6 +511,10 @@ const HomeScreen = () => {
 
   // Drag and drop functions for task reordering
   const handleTaskDragStart = (e, task) => {
+    if (!isAdmin) {
+      e.preventDefault();
+      return;
+    }
     setDraggedTask(task);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -510,33 +532,48 @@ const HomeScreen = () => {
   };
 
   const handleTaskDragLeave = (e) => {
-    // Only clear if we're actually leaving the element
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      setDragOverTask(null);
-    }
+    setDragOverTask(null);
   };
 
   const handleTaskDrop = (e, targetTask) => {
     e.preventDefault();
     setDragOverTask(null);
     
-    if (!draggedTask || draggedTask.id === targetTask.id) {
+    if (!isAdmin || !draggedTask || draggedTask.id === targetTask.id) {
+      setDraggedTask(null);
       return;
     }
 
     const draggedIndex = tasks.findIndex(task => task.id === draggedTask.id);
     const targetIndex = tasks.findIndex(task => task.id === targetTask.id);
     
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedTask(null);
+      return;
+    }
+    
     const newTasks = [...tasks];
-    newTasks.splice(draggedIndex, 1);
+    const [movedTask] = newTasks.splice(draggedIndex, 1);
     
     // Determine insertion position based on where the user dropped
     const rect = e.currentTarget.getBoundingClientRect();
     const midPoint = rect.top + rect.height / 2;
     const insertBefore = e.clientY < midPoint;
     
-    const finalIndex = insertBefore ? targetIndex : targetIndex + 1;
-    newTasks.splice(finalIndex, 0, draggedTask);
+    // Calculate the final index accounting for the removal
+    let finalIndex;
+    if (draggedIndex < targetIndex) {
+      // If dragging forward, the target index shifts back by 1
+      finalIndex = insertBefore ? targetIndex - 1 : targetIndex;
+    } else {
+      // If dragging backward, target index stays the same
+      finalIndex = insertBefore ? targetIndex : targetIndex + 1;
+    }
+    
+    // Ensure index is within bounds
+    finalIndex = Math.max(0, Math.min(finalIndex, newTasks.length));
+    
+    newTasks.splice(finalIndex, 0, movedTask);
     
     setTasks(newTasks);
     setDraggedTask(null);
@@ -549,12 +586,27 @@ const HomeScreen = () => {
     try {
       const taskIds = orderedTasks.map(task => task.id);
       await axios.post(`/api/tasks/reorder/${activeListId}`, { taskIds });
-          } catch (error) {
+      setLastUpdate(Date.now());
+    } catch (error) {
       console.error('Error saving task order:', error);
-      // Optionally revert the order if save fails
+      // Optionally revert the order on error
       fetchListData(activeListId);
     }
   };
+
+  
+  // Global drag end handler for cleanup
+  useEffect(() => {
+    const handleDragEnd = () => {
+      setDraggedList(null);
+      setDraggedTask(null);
+      setDragOverList(null);
+      setDragOverTask(null);
+    };
+
+    document.addEventListener('dragend', handleDragEnd);
+    return () => document.removeEventListener('dragend', handleDragEnd);
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -572,7 +624,7 @@ const HomeScreen = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lists, activeListId]);
+  }, [activeListId, lists]);
 
   if (loading) {
     return (
@@ -1053,6 +1105,8 @@ const HomeScreen = () => {
                   onDragOver={(e) => handleDragOver(e, list)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, list)}
+                  data-draggable="true"
+                  data-list-id={list.id}
                   className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-t-lg text-xs sm:text-sm font-medium transition-all cursor-move relative whitespace-nowrap ${
                     activeListId === list.id
                       ? 'bg-purple-600 text-white shadow-lg'
@@ -1558,6 +1612,8 @@ const HomeScreen = () => {
                           onDragOver={(e) => handleTaskDragOver(e, task)}
                           onDragLeave={handleTaskDragLeave}
                           onDrop={(e) => handleTaskDrop(e, task)}
+                          data-draggable="true"
+                          data-task-id={task.id}
                           className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border transition-all cursor-move relative ${
                             task.is_completed
                               ? 'bg-green-900/30 border-green-500/50'
