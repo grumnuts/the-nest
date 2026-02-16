@@ -16,11 +16,7 @@ const Goals = () => {
   const [editingGoal, setEditingGoal] = useState(null);
   const [selectedGoalProgress, setSelectedGoalProgress] = useState(null);
   
-  // New state for period tabs
-  const [availablePeriods, setAvailablePeriods] = useState([]);
-  const [selectedPeriod, setSelectedPeriod] = useState(null);
-  const [periodLoading, setPeriodLoading] = useState(false);
-  
+    
   // State for delete confirmation
   const [goalToDelete, setGoalToDelete] = useState(null);
   
@@ -86,34 +82,7 @@ const Goals = () => {
     }
   };
 
-  const fetchPeriods = async (periodType) => {
-    if (!periodType || periodType === 'static') return;
-    
-    setPeriodLoading(true);
-    try {
-      const response = await axios.get(`/api/goals/periods/${periodType}?limit=10`);
-      setAvailablePeriods(response.data.periods);
-      
-      // Set selected period to current period if not already selected
-      if (!selectedPeriod) {
-        const currentPeriod = response.data.periods.find(p => p.isCurrent);
-        if (currentPeriod) {
-          setSelectedPeriod(currentPeriod.date);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching periods:', error);
-    } finally {
-      setPeriodLoading(false);
-    }
-  };
-
-  const handlePeriodChange = (periodDate) => {
-    setSelectedPeriod(periodDate);
-    // Refetch goals with new period
-    fetchGoals();
-  };
-
+  
   const handleCreateGoal = async (e) => {
     e.preventDefault();
     
@@ -260,36 +229,7 @@ const Goals = () => {
         )}
       </div>
 
-      {/* Period Tabs */}
-      {availablePeriods.length > 0 && (
-        <div className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-4 border border-purple-500/30 shadow-xl">
-          <div className="flex items-center space-x-4 mb-3">
-            <Calendar className="h-5 w-5 text-purple-400" />
-            <h3 className="text-lg font-semibold text-white">Period</h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {availablePeriods.map((period) => (
-              <button
-                key={period.date}
-                onClick={() => handlePeriodChange(period.date)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                  selectedPeriod === period.date
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                } ${period.isCurrent ? 'ring-2 ring-purple-400 ring-opacity-50' : ''}`}
-              >
-                <div className="flex items-center space-x-2">
-                  <span>{period.label}</span>
-                  {period.isCurrent && (
-                    <span className="text-xs bg-purple-500 px-2 py-0.5 rounded-full">Current</span>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
+      
       {/* Goals List */}
       {!goals || goals.length === 0 ? (
         <div className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-8 border border-purple-500/30 shadow-xl text-center">
@@ -301,18 +241,18 @@ const Goals = () => {
       ) : (
         <div className="space-y-2">
           {goals && goals.map((goal) => (
-            <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-3 border border-purple-500/30 shadow-xl">
+            <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-2 border border-purple-500/30 shadow-xl">
               {/* Goal Header */}
-              <div className="flex items-start justify-between mb-2">
+              <div className="flex items-start justify-between mb-1">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-1">
+                  <div className="flex items-center space-x-2 mb-0.5">
                     <h3 className="text-sm font-semibold text-white">{goal.name}</h3>
                     {goal.progress?.isAchieved && (
                       <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
                     )}
                   </div>
                   {goal.description && (
-                    <p className="text-gray-400 text-xs mb-1 line-clamp-1">{goal.description}</p>
+                    <p className="text-gray-400 text-xs mb-0.5 line-clamp-1">{goal.description}</p>
                   )}
                   <div className="flex items-center space-x-3 text-xs text-gray-500">
                     <div className="flex items-center space-x-1">
@@ -340,8 +280,8 @@ const Goals = () => {
               </div>
 
               {/* Progress Section */}
-              <div className="mb-2">
-                <div className="flex items-center justify-between mb-1">
+              <div className="mb-1">
+                <div className="flex items-center justify-between mb-0.5">
                   <div>
                     <span className="text-lg font-bold text-white">
                       {Math.round(goal.progress?.percentage || 0)}%

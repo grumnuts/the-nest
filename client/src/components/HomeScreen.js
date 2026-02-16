@@ -1044,7 +1044,7 @@ const HomeScreen = () => {
         ) : (
           <div>
             {/* List Tabs */}
-            <div className="flex space-x-1 mb-4 sm:mb-6 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex space-x-1 mb-2 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {lists.map((list) => (
                 <div
                   key={list.id}
@@ -1080,12 +1080,11 @@ const HomeScreen = () => {
             {/* Goals Tracker - Show header if goals exist, content only if not hidden */}
             {goals.length > 0 && (
               <>
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-base sm:text-lg font-semibold text-white">Goals Progress</h3>
                   <ToggleSwitch
                     isOn={!user?.hide_goals}
                     onToggle={toggleHideGoals}
-                    icon={Settings}
                     labelText="Show Goals"
                     mobileText={!user?.hide_goals ? 'Hide' : 'Show'}
                     size="small"
@@ -1093,7 +1092,7 @@ const HomeScreen = () => {
                 </div>
                 
                 {!user?.hide_goals && (
-                  <div className="space-y-2 mb-4 sm:mb-6">
+                  <div className="space-y-2 mb-2">
                     {goals.map((goal) => (
                     <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-2 sm:p-3 border border-purple-500/30">
                       <div className="flex items-center mb-1 sm:hidden">
@@ -1192,7 +1191,7 @@ const HomeScreen = () => {
 
             {/* Active List Content */}
             {activeList && (
-              <div className="space-y-6">
+              <div className="space-y-2">
                 {/* List Header */}
                 <div className="glass rounded-xl p-3 sm:p-4 border border-purple-500/20 relative">
                   {tasks.length > 0 && (
@@ -1533,12 +1532,11 @@ const HomeScreen = () => {
 
                 {/* Tasks List */}
                 <div className="glass rounded-xl p-4 sm:p-6 border border-purple-500/20">
-                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="flex items-center justify-between mb-1">
                     <h3 className="text-lg sm:text-xl font-semibold text-white">Tasks</h3>
                     <ToggleSwitch
                       isOn={!user?.hide_completed_tasks}
                       onToggle={toggleHideCompletedTasks}
-                      icon={CheckCircle2}
                       labelText="Show Complete"
                       mobileText={!user?.hide_completed_tasks ? 'Hide' : 'Show'}
                       size="small"
@@ -1560,7 +1558,7 @@ const HomeScreen = () => {
                           onDragOver={(e) => handleTaskDragOver(e, task)}
                           onDragLeave={handleTaskDragLeave}
                           onDrop={(e) => handleTaskDrop(e, task)}
-                          className={`p-3 sm:p-4 rounded-lg border transition-all cursor-move relative ${
+                          className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border transition-all cursor-move relative ${
                             task.is_completed
                               ? 'bg-green-900/30 border-green-500/50'
                               : 'bg-gray-800/50 border-gray-700 hover:border-purple-500/50'

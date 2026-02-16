@@ -14,8 +14,8 @@ function localNow() {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-// Use /app/data directory in Docker, local directory in development
-const dataDir = process.env.NODE_ENV === 'production' ? '/app/data' : __dirname;
+// Use /app/data directory in Docker, local directory otherwise
+const dataDir = process.env.DOCKER_ENV === 'true' ? '/app/data' : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
 
 console.log(`📂 Database directory: ${dataDir}`);
@@ -48,12 +48,12 @@ try {
 } catch (error) {
   console.error(`❌ Failed to setup data directory ${dataDir}:`, error.message);
   console.error(`❌ Full error:`, error);
-  // In production, this is a critical error
-  if (process.env.NODE_ENV === 'production') {
-    console.error('❌ CRITICAL: Cannot setup database directory in production!');
+  // In Docker production, this is a critical error
+  if (process.env.DOCKER_ENV === 'true') {
+    console.error('❌ CRITICAL: Cannot setup database directory in Docker!');
     process.exit(1);
   } else {
-    console.log('⚠️  Falling back to local directory for development');
+    console.log('⚠️  Falling back to local directory for local development');
   }
 }
 
@@ -79,9 +79,9 @@ class Database {
         console.error('❌ Error code:', err.code);
         console.error('❌ Error errno:', err.errno);
         
-        // In production, this is a critical error
-        if (process.env.NODE_ENV === 'production') {
-          console.error('❌ CRITICAL: Database cannot be opened in production!');
+        // In Docker production, this is a critical error
+        if (process.env.DOCKER_ENV === 'true') {
+          console.error('❌ CRITICAL: Database cannot be opened in Docker!');
           process.exit(1);
         }
       } else {
