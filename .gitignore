@@ -87,3 +87,8 @@ coverage/
 
 # Documentation build
 docs/build/
+
+# Development utilities
+init-admin.js
+*.backup
+*.bak

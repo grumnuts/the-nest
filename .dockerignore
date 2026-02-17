@@ -129,3 +129,13 @@ webpack.config.js
 
 # Windsurf workspace
 .windsurft/
+
+# Development utilities
+init-admin.js
+*.backup
+*.bak
+*.log
+
+# Build artifacts that should be rebuilt in container
+client/build/
+public/asset-manifest.json
