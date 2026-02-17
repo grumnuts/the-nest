@@ -15,7 +15,9 @@ function localNow() {
 }
 
 // Use /app/data directory in Docker, local directory otherwise
-const dataDir = process.env.DOCKER_ENV === 'true' ? '/app/data' : __dirname;
+// Check if we're in Docker by looking for the Docker-specific path or environment
+const isDocker = process.env.DOCKER_ENV === 'true' || fs.existsSync('/.dockerenv') || process.env.NODE_ENV === 'production';
+const dataDir = isDocker ? '/app/data' : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
 
 // Ensure data directory exists
@@ -27,7 +29,7 @@ try {
 } catch (error) {
   console.error('Failed to setup data directory:', error.message);
   // In Docker production, this is a critical error
-  if (process.env.DOCKER_ENV === 'true') {
+  if (isDocker) {
     process.exit(1);
   }
 }
@@ -35,6 +37,9 @@ try {
 class Database {
   constructor() {
     console.log(`🗄️  Initializing database at: ${dbPath}`);
+    console.log(`🐳 Docker environment: ${isDocker ? 'YES' : 'NO'}`);
+    console.log(`📁 Data directory: ${dataDir}`);
+    console.log(`🔍 Checking if data directory exists: ${fs.existsSync(dataDir) ? 'YES' : 'NO'}`);
     
     // Check if database directory is accessible before attempting to open
     try {
@@ -44,6 +49,10 @@ class Database {
       }
     } catch (checkError) {
       console.error('❌ Database directory check failed:', checkError.message);
+      if (isDocker) {
+        console.error('🐳 Docker environment detected, but data directory is not accessible');
+        console.error('💡 Please check your volume mount: /app/data should be mounted to a writable host directory');
+      }
       throw checkError;
     }
     
@@ -51,7 +60,9 @@ class Database {
       if (err) {
         console.error('Error opening database:', err.message);
         // In Docker production, this is a critical error
-        if (process.env.DOCKER_ENV === 'true') {
+        if (isDocker) {
+          console.error('🐳 Docker environment detected, database creation failed');
+          console.error('💡 Please check volume permissions and disk space');
           process.exit(1);
         }
         return;
