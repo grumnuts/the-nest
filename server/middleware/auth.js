@@ -73,11 +73,31 @@ const validateGoal = [
   }
 ];
 
+// Helper function to check if user is admin or owner
+const checkAdminOrOwner = (req, res, next) => {
+  // This will be used in routes to check if user has admin/owner privileges
+  // The actual role check will be done in the routes using the user's role from JWT
+  next();
+};
+
+// Helper function to check if user has admin privileges (admin or owner)
+const hasAdminPrivileges = (user) => {
+  return user.role === 'admin' || user.role === 'owner' || user.is_admin === 1;
+};
+
+// Helper function to check if user has owner privileges
+const hasOwnerPrivileges = (user) => {
+  return user.role === 'owner';
+};
+
 module.exports = {
   authenticateToken,
   validateLogin,
   validateList,
   validateTask,
   validateGoal,
+  checkAdminOrOwner,
+  hasAdminPrivileges,
+  hasOwnerPrivileges,
   JWT_SECRET
 };

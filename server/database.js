@@ -250,6 +250,34 @@ class Database {
         }
       });
 
+      // Add role column to users table for multiple role support (user, admin, owner)
+      this.db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding role column to users:', err);
+        } else {
+          // Migrate existing is_admin values to role
+          this.db.run(`UPDATE users SET role = CASE 
+            WHEN is_admin = 1 THEN 'admin' 
+            ELSE 'user' 
+          END`, (migrationErr) => {
+            if (migrationErr) {
+              console.error('Error migrating is_admin to role:', migrationErr);
+            } else {
+              console.log('✅ Successfully migrated is_admin to role field');
+              
+              // Set the default admin account (ID 1) to owner role
+              this.db.run(`UPDATE users SET role = 'owner' WHERE id = 1`, (ownerErr) => {
+                if (ownerErr) {
+                  console.error('Error setting owner role for default admin:', ownerErr);
+                } else {
+                  console.log('✅ Default admin account (ID 1) set to owner role');
+                }
+              });
+            }
+          });
+        }
+      });
+
       // Task completions history
       this.db.run(`
         CREATE TABLE IF NOT EXISTS task_completions (

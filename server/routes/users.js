@@ -1,8 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
-const { checkAdmin } = require('../middleware/admin');
+const { authenticateToken, validateLogin, JWT_SECRET, hasAdminPrivileges, hasOwnerPrivileges } = require('../middleware/auth');
 const Database = require('../database');
 
 const db = new Database();
@@ -12,8 +11,8 @@ router.get('/', authenticateToken, (req, res) => {
   // Any authenticated user can fetch the user list to add users to their lists
   console.log(`📋 User ${req.user.userId} (${req.user.username}) fetching user list`);
   
-  // Get all users
-  db.db.all('SELECT id, username, email, is_admin, created_at FROM users', [], (err, users) => {
+  // Get all users with role field
+  db.db.all('SELECT id, username, email, is_admin, role, created_at FROM users', [], (err, users) => {
     if (err) {
       return res.status(500).json({ error: 'Error fetching users' });
     }
@@ -33,7 +32,7 @@ router.post('/', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Error checking user permissions' });
     }
     
-    if (!user || !user.is_admin) {
+    if (!user || !hasAdminPrivileges(user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -64,23 +63,20 @@ router.post('/', authenticateToken, (req, res) => {
             return res.status(500).json({ error: 'Error creating user' });
           }
           
-          // Set admin status if role is 'admin'
-          if (role === 'admin') {
-            db.db.run('UPDATE users SET is_admin = 1 WHERE id = ?', [newUserId], (err) => {
-              if (err) {
-                console.error('Error setting admin status:', err);
-              }
-              res.status(201).json({
-                message: 'User created successfully',
-                userId: newUserId
-              });
-            });
-          } else {
+          // Set role for the new user
+          const userRole = (role === 'owner' || role === 'admin' || role === 'user') ? role : 'user';
+          const isAdmin = (userRole === 'admin' || userRole === 'owner') ? 1 : 0;
+          
+          db.db.run('UPDATE users SET role = ?, is_admin = ? WHERE id = ?', [userRole, isAdmin, newUserId], (err) => {
+            if (err) {
+              console.error('Error setting user role:', err);
+            }
             res.status(201).json({
               message: 'User created successfully',
-              userId: newUserId
+              userId: newUserId,
+              role: userRole
             });
-          }
+          });
         });
       });
     });
@@ -93,13 +89,13 @@ router.put('/:id', authenticateToken, (req, res) => {
   const { username, email, password, role } = req.body;
   const adminUserId = req.user.userId;
   
-  // Check if user is admin
+  // Check if user has admin privileges
   db.getUserById(adminUserId, (err, adminUser) => {
     if (err) {
       return res.status(500).json({ error: 'Error checking user permissions' });
     }
     
-    if (!adminUser || !adminUser.is_admin) {
+    if (!adminUser || !hasAdminPrivileges(adminUser)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -108,35 +104,63 @@ router.put('/:id', authenticateToken, (req, res) => {
       return res.status(403).json({ error: 'Cannot edit admin account' });
     }
     
-    // Validate input
-    if (!username || !email) {
-      return res.status(400).json({ error: 'Username and email are required' });
-    }
-    
-    // Check if username/email already exists for another user
-    db.db.get('SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?', [username, email, id], (err, existingUser) => {
+    // Don't allow admins to edit owners (only owners can edit owners)
+    db.getUserById(parseInt(id), (err, targetUser) => {
       if (err) {
-        return res.status(500).json({ error: 'Error checking existing user' });
+        return res.status(500).json({ error: 'Error checking target user' });
       }
       
-      if (existingUser) {
-        return res.status(400).json({ error: 'Username or email already exists' });
+      if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
       }
       
-      // Update user
-      const isAdmin = role === 'admin' ? 1 : 0;
-      let query = 'UPDATE users SET username = ?, email = ?, is_admin = ?';
-      let params = [username, email, isAdmin];
+      // Check if target user is owner and current user is not owner
+      if (targetUser.role === 'owner' && !hasOwnerPrivileges(adminUser)) {
+        return res.status(403).json({ error: 'Only owners can edit owner accounts' });
+      }
       
-      if (password) {
-        // Hash new password
-        bcrypt.hash(password, 10, (err, hash) => {
-          if (err) {
-            return res.status(500).json({ error: 'Error hashing password' });
-          }
-          
-          query += ', password_hash = ? WHERE id = ?';
-          params.push(hash, id);
+      // Validate input
+      if (!username || !email) {
+        return res.status(400).json({ error: 'Username and email are required' });
+      }
+      
+      // Check if username/email already exists for another user
+      db.db.get('SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?', [username, email, id], (err, existingUser) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error checking existing user' });
+        }
+        
+        if (existingUser) {
+          return res.status(400).json({ error: 'Username or email already exists' });
+        }
+        
+        // Update user
+        const userRole = (role === 'owner' || role === 'admin' || role === 'user') ? role : 'user';
+        const isAdmin = (userRole === 'admin' || userRole === 'owner') ? 1 : 0;
+        let query = 'UPDATE users SET username = ?, email = ?, role = ?, is_admin = ?';
+        let params = [username, email, userRole, isAdmin];
+        
+        if (password) {
+          // Hash new password
+          bcrypt.hash(password, 10, (err, hash) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error hashing password' });
+            }
+            
+            query += ', password_hash = ? WHERE id = ?';
+            params.push(hash, id);
+            
+            db.db.run(query, params, function(err) {
+              if (err) {
+                return res.status(500).json({ error: 'Error updating user' });
+              }
+              
+              res.json({ message: 'User updated successfully' });
+            });
+          });
+        } else {
+          query += ' WHERE id = ?';
+          params.push(id);
           
           db.db.run(query, params, function(err) {
             if (err) {
@@ -145,19 +169,8 @@ router.put('/:id', authenticateToken, (req, res) => {
             
             res.json({ message: 'User updated successfully' });
           });
-        });
-      } else {
-        query += ' WHERE id = ?';
-        params.push(id);
-        
-        db.db.run(query, params, function(err) {
-          if (err) {
-            return res.status(500).json({ error: 'Error updating user' });
-          }
-          
-          res.json({ message: 'User updated successfully' });
-        });
-      }
+        }
+      });
     });
   });
 });

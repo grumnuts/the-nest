@@ -514,7 +514,7 @@ const Settings = () => {
               <div className="glass rounded-xl p-6 border border-purple-500/20">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-white">User Management</h2>
-                  {currentUser?.is_admin === 1 && (
+                  {(currentUser?.is_admin === 1 || currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
                     <button
                       onClick={() => setShowAddUser(true)}
                       className="btn-primary flex items-center space-x-2"
@@ -541,23 +541,25 @@ const Settings = () => {
                             </div>
                             <div className="mt-2">
                               <span className={`text-xs px-2 py-1 rounded ${
-                                user.is_admin 
+                                user.role === 'owner'
+                                  ? 'bg-purple-500/20 text-purple-300'
+                                  : user.role === 'admin'
                                   ? 'bg-red-500/20 text-red-300' 
                                   : 'bg-blue-500/20 text-blue-300'
                               }`}>
-                                {user.is_admin ? 'admin' : 'user'}
+                                {user.role || (user.is_admin ? 'admin' : 'user')}
                               </span>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {/* Only show edit button for admins and not for current user's own account */}
-                          {currentUser?.is_admin === 1 && user.id !== currentUser.userId && (
+                          {/* Only show edit button for admins/owners, but hide for owners when current user is not owner */}
+                          {(currentUser?.is_admin === 1 || currentUser?.role === 'admin' || currentUser?.role === 'owner') && user.id !== currentUser.userId && !(user.role === 'owner' && currentUser?.role !== 'owner') && (
                             <button
                               onClick={() => {
                                 console.log('Edit button clicked for user:', user);
                                 setEditingUser(user);
-                                setNewUser({ username: user.username, email: user.email, password: '', role: user.is_admin ? 'admin' : 'user' });
+                                setNewUser({ username: user.username, email: user.email, password: '', role: user.role || (user.is_admin ? 'admin' : 'user') });
                                 setShowAddUser(true);
                               }}
                               className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
@@ -618,6 +620,7 @@ const Settings = () => {
                       >
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
+                        <option value="owner">Owner</option>
                       </select>
                     </div>
                     <div className="flex flex-wrap gap-2">

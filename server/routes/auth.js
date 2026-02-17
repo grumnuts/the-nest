@@ -33,7 +33,15 @@ router.post('/login', validateLogin, (req, res) => {
 
       // Generate JWT token
       const token = jwt.sign(
-        { userId: user.id, username: user.username, email: user.email, is_admin: user.is_admin, hide_goals: user.hide_goals, hide_completed_tasks: user.hide_completed_tasks },
+        { 
+          userId: user.id, 
+          username: user.username, 
+          email: user.email, 
+          role: user.role || (user.is_admin ? 'admin' : 'user'), // Use new role field or fallback to is_admin
+          is_admin: user.is_admin, // Keep for backward compatibility
+          hide_goals: user.hide_goals, 
+          hide_completed_tasks: user.hide_completed_tasks 
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -41,7 +49,15 @@ router.post('/login', validateLogin, (req, res) => {
       res.json({
         message: 'Login successful',
         token,
-        user: { userId: user.id, username: user.username, email: user.email, is_admin: user.is_admin, hide_goals: user.hide_goals, hide_completed_tasks: user.hide_completed_tasks }
+        user: { 
+          userId: user.id, 
+          username: user.username, 
+          email: user.email, 
+          role: user.role || (user.is_admin ? 'admin' : 'user'),
+          is_admin: user.is_admin, // Keep for backward compatibility
+          hide_goals: user.hide_goals, 
+          hide_completed_tasks: user.hide_completed_tasks 
+        }
       });
     });
   });
@@ -55,7 +71,8 @@ router.get('/verify', authenticateToken, (req, res) => {
       userId: req.user.userId,
       username: req.user.username,
       email: req.user.email,
-      is_admin: req.user.is_admin,
+      role: req.user.role || (req.user.is_admin ? 'admin' : 'user'),
+      is_admin: req.user.is_admin, // Keep for backward compatibility
       hide_goals: req.user.hide_goals,
       hide_completed_tasks: req.user.hide_completed_tasks
     }
