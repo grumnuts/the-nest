@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 // Generate a local timestamp string respecting the TZ environment variable
 // SQLite's CURRENT_TIMESTAMP always returns UTC regardless of TZ
@@ -19,9 +20,6 @@ function localNow() {
 const isDocker = process.env.DOCKER_ENV === 'true' || fs.existsSync('/.dockerenv') || process.env.NODE_ENV === 'production';
 const dataDir = isDocker ? '/app/data' : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
-
-// Ensure data directory exists
-const fs = require('fs');
 try {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
