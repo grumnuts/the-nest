@@ -62,6 +62,8 @@ volumes:
 | `TZ` | No | `UTC` | Timezone (e.g. `Australia/Brisbane`) |
 | `PUID` | No | `1001` | User ID for file permissions |
 | `PGID` | No | `1001` | Group ID for file permissions |
+| `EMERGENCY_RESET_PASSWORD` | No | — | Emergency password reset (see below) |
+| `EMERGENCY_RESET_USER` | No | — | Target user for emergency reset (default: admin) |
 
 > **PUID/PGID**: Only needed if you have volume permission issues on Linux. Set to match your host user (e.g. `1000`).
 
@@ -96,11 +98,68 @@ The container includes a built-in health check:
 GET /api/health → {"status":"OK","database":"CONNECTED"}
 ```
 
+## Emergency Password Reset
+
+If you get locked out of your admin account, you can reset the password using environment variables:
+
+### Step 1: Activate Emergency Reset
+
+Edit your `docker-compose.yml` and uncomment the emergency reset lines:
+
+```yaml
+environment:
+  - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
+  - CLIENT_URL=http://localhost:5000
+  - TZ=UTC
+  # Uncomment below lines to reset password (2-step process)
+  # 1. Uncomment lines, set new password, and restart container
+  # 2. Test login, then comment out lines again and restart
+  - EMERGENCY_RESET_PASSWORD=newSecurePassword123!
+  - EMERGENCY_RESET_USER=admin
+```
+
+### Step 2: Restart Container
+
+```bash
+docker-compose restart the-nest
+```
+
+### Step 3: Check Logs
+
+```bash
+docker logs the-nest
+```
+
+You should see:
+```
+🚨 🚨 🚨 EMERGENCY PASSWORD RESET 🚨 🚨 🚨
+🔐 User: admin
+✅ Password reset successful for: admin
+🔑 New password is now active
+⚠️  IMPORTANT: Remove EMERGENCY_RESET_* environment variables
+⚠️  Then restart the server to clear this message
+🚨 🚨 🚨 EMERGENCY PASSWORD RESET 🚨 🚨 🚨
+```
+
+### Step 4: Test Login & Cleanup
+
+1. **Test login** with your new password
+2. **Edit docker-compose.yml** and comment out the emergency reset lines again
+3. **Restart container**: `docker-compose restart the-nest`
+
+### Important Notes
+
+- **Username Changes**: If you changed the admin username, update `EMERGENCY_RESET_USER` accordingly
+- **Security**: The password is hashed immediately on startup
+- **One-Time Use**: The reset only happens when both environment variables are present
+- **No API Endpoint**: This is a server-side only process for security
+
 ## Troubleshooting
 
 - **CORS errors** — Ensure `CLIENT_URL` matches the URL in your browser exactly
 - **Permission errors on Linux** — Set `PUID` and `PGID` to match your host user (`id -u` / `id -g`)
 - **Database path issues** — Ensure the volume is mounted to `/app/data`
+- **Emergency reset not working** — Check that both `EMERGENCY_RESET_PASSWORD` and `EMERGENCY_RESET_USER` are set correctly
 
 ---
 

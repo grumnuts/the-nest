@@ -10,6 +10,11 @@ services:
       - TZ=UTC
       - PUID=1001 # Optional
       - PGID=1001 # Optional
+      # Uncomment below lines to reset password (2-step process)
+      # 1. Uncomment lines, set new password, and restart container
+      # 2. Test login, then comment out lines again and restart
+      # - EMERGENCY_RESET_PASSWORD=newSecurePassword123!
+      # - EMERGENCY_RESET_USER=admin
     volumes:
       - nest_data:/app/data
     restart: unless-stopped

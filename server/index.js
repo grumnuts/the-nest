@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const authRoutes = require('./routes/auth');
 const listRoutes = require('./routes/lists');
@@ -142,16 +143,70 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Emergency password reset function
+const checkEmergencyReset = async () => {
+  if (process.env.EMERGENCY_RESET_PASSWORD && process.env.EMERGENCY_RESET_USER) {
+    try {
+      const newPassword = process.env.EMERGENCY_RESET_PASSWORD;
+      const targetUser = process.env.EMERGENCY_RESET_USER;
+      
+      console.log('\n🚨 🚨 🚨 EMERGENCY PASSWORD RESET 🚨 🚨 🚨');
+      console.log(`� User: ${targetUser}`);
+      
+      // Initialize database connection
+      const Database = require('./database');
+      const db = new Database();
+      
+      // Wait for database to be ready
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Verify user exists
+      const user = await new Promise((resolve, reject) => {
+        db.db.get('SELECT id, username FROM users WHERE username = ?', [targetUser], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+      
+      if (!user) {
+        console.log(`❌ User '${targetUser}' not found in database`);
+        return;
+      }
+      
+      // Hash and update password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      await new Promise((resolve, reject) => {
+        db.db.run('UPDATE users SET password_hash = ? WHERE username = ?', 
+          [hashedPassword, targetUser], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      
+      console.log(`✅ Password reset successful for: ${targetUser}`);
+      console.log('🔑 New password is now active');
+      console.log('⚠️  IMPORTANT: Remove EMERGENCY_RESET_* environment variables');
+      console.log('⚠️  Then restart the server to clear this message');
+      console.log('🚨 🚨 🚨 EMERGENCY PASSWORD RESET 🚨 🚨 🚨\n');
+      
+    } catch (error) {
+      console.error('❌ Emergency password reset failed:', error.message);
+    }
+  }
+};
+
 // Start server
 app.listen(PORT, async () => {
-  console.log(`🚀 The Nest server running on port ${PORT}`);
-  console.log(`📊 Health check available at http://localhost:${PORT}/api/health`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🕐 Current time: ${new Date().toLocaleString('en-AU')}`);
   console.log(`🌍 Timezone: ${process.env.TZ || 'UTC'}`);
   
   // Wait a moment for database to be fully ready
   await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Check for emergency password reset
+  await checkEmergencyReset();
   
   // Initialize admin user on first startup - removed init-admin.js during cleanup
   // Admin initialization is now handled through the database setup
