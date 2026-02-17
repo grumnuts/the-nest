@@ -52,7 +52,7 @@ const Settings = () => {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'goals', label: 'Goals', icon: Target },
-    ...(currentUser?.is_admin === 1 ? [{ id: 'users', label: 'Users', icon: Users }] : [])
+    { id: 'users', label: 'Users', icon: Users }
   ];
 
   // Fetch users from API
@@ -69,7 +69,7 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'users' && currentUser?.is_admin === 1) {
+    if (activeTab === 'users') {
       fetchUsers();
     }
   }, [activeTab, currentUser]);
@@ -509,18 +509,20 @@ const Settings = () => {
 
           {activeTab === 'goals' && <Goals />}
 
-          {activeTab === 'users' && currentUser?.is_admin === 1 && (
+          {activeTab === 'users' && (
             <div className="space-y-6">
               <div className="glass rounded-xl p-6 border border-purple-500/20">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-white">User Management</h2>
-                  <button
-                    onClick={() => setShowAddUser(true)}
-                    className="btn-primary flex items-center space-x-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add User</span>
-                  </button>
+                  {currentUser?.is_admin === 1 && (
+                    <button
+                      onClick={() => setShowAddUser(true)}
+                      className="btn-primary flex items-center space-x-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Add User</span>
+                    </button>
+                  )}
                 </div>
 
                 {usersLoading ? (
@@ -549,8 +551,8 @@ const Settings = () => {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {/* Don't show edit button for current user's own account */}
-                          {user.id !== currentUser.userId && (
+                          {/* Only show edit button for admins and not for current user's own account */}
+                          {currentUser?.is_admin === 1 && user.id !== currentUser.userId && (
                             <button
                               onClick={() => {
                                 console.log('Edit button clicked for user:', user);
