@@ -983,7 +983,11 @@ const HomeScreen = () => {
       setSelectedNewListUser('');
       setSelectedNewListUserPermission('user');
       setShowCreateList(false);
-      fetchLists();
+      
+      // Small delay to ensure backend has processed the permissions
+      setTimeout(() => {
+        fetchLists();
+      }, 300);
     } catch (error) {
       console.error('Error creating list:', error.response?.data || error.message);
       const errorMsg = error.response?.data?.errors 
