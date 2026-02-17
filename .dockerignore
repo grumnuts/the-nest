@@ -73,13 +73,7 @@ Thumbs.db
 .gitignore
 
 # Docker
-Dockerfile
-docker-compose.yml
 .dockerignore
-
-# Documentation
-README.md
-*.md
 
 # Test files
 test-results/
@@ -113,9 +107,7 @@ __tests__/
 *.test.js
 *.test.ts
 
-# Shell scripts
-*.sh
-docker-entrypoint.sh
+# Shell scripts (keep needed ones)
 build-multi-arch.sh
 
 # Sample files

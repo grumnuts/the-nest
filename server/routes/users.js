@@ -8,9 +8,6 @@ const db = new Database();
 
 // Get all users (any authenticated user)
 router.get('/', authenticateToken, (req, res) => {
-  // Any authenticated user can fetch the user list to add users to their lists
-  console.log(`📋 User ${req.user.userId} (${req.user.username}) fetching user list`);
-  
   // Get all users with role field
   db.db.all('SELECT id, username, email, is_admin, role, created_at FROM users', [], (err, users) => {
     if (err) {

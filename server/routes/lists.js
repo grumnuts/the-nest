@@ -8,11 +8,8 @@ const db = new Database();
 
 // Get all lists for authenticated users based on permissions
 router.get('/', authenticateToken, (req, res) => {
-  console.log('📋 Fetching lists for user:', req.user.username);
-  
   // Check if database is available
   if (!db || !db.db) {
-    console.error('❌ Database not available');
     return res.status(500).json({ error: 'Database not available' });
   }
   
@@ -28,11 +25,9 @@ router.get('/', authenticateToken, (req, res) => {
   
   db.db.all(query, [userId], (err, lists) => {
     if (err) {
-      console.error('❌ Error fetching lists:', err);
       return res.status(500).json({ error: 'Error fetching lists', details: err.message });
     }
 
-    console.log(`✅ Successfully fetched ${lists.length} lists for user ${req.user.username}`);
     res.json({ lists });
   });
 });

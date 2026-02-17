@@ -341,7 +341,6 @@ router.get('/all-goals', authenticateToken, checkAdmin, async (req, res) => {
 
   // Check if database is available
   if (!db || !db.db) {
-    console.error('❌ Database not available for goals');
     return res.status(500).json({ error: 'Database not available' });
   }
 
@@ -349,7 +348,6 @@ router.get('/all-goals', authenticateToken, checkAdmin, async (req, res) => {
     const goals = await new Promise((resolve, reject) => {
       db.getAllGoals((err, goals) => {
         if (err) {
-          console.error('❌ Error fetching all goals:', err);
           reject(err);
         } else {
           resolve(goals);

@@ -275,31 +275,24 @@ const HomeScreen = () => {
       
       // Fetch actual permissions for each list
       const permissions = {};
-      console.log(`🔍 Starting permission fetch for user: ${user?.id}, username: ${user?.username}, full user:`, user);
       for (const list of response.data.lists) {
         try {
-          console.log(`📋 Fetching permissions for list ${list.id}`);
           const userResponse = await axios.get(`/api/lists/${list.id}/users`);
-          console.log(`📤 Response for list ${list.id}:`, userResponse.data);
           
           // Try multiple ways to find the user ID
           let userPermission = null;
           if (user?.id) {
             userPermission = userResponse.data.find(u => u.id === user.id);
-            console.log(`👤 Found permission by user.id ${user?.id}:`, userPermission);
           } else if (user?.username) {
             userPermission = userResponse.data.find(u => u.username === user.username);
-            console.log(`👤 Found permission by username ${user?.username}:`, userPermission);
           }
           
           permissions[list.id] = userPermission ? userPermission.permission_level : null;
-          console.log(`✅ Set permission for list ${list.id}:`, permissions[list.id]);
         } catch (error) {
           console.error(`Error fetching permissions for list ${list.id}:`, error);
           permissions[list.id] = null;
         }
       }
-      console.log(`🎯 Final permissions object:`, permissions);
       setListPermissions(permissions);
     } catch (error) {
       console.error('Error fetching lists:', error);
@@ -308,16 +301,12 @@ const HomeScreen = () => {
 
   // Check if user has admin permission for a list (admin or owner)
   const hasListAdminPermission = (listId) => {
-    const permission = listPermissions[listId] === 'admin' || listPermissions[listId] === 'owner';
-    console.log(`🔍 hasListAdminPermission(${listId}):`, permission, `User: ${user?.id} (${user?.username}), Permissions:`, listPermissions);
-    return permission;
+    return listPermissions[listId] === 'admin' || listPermissions[listId] === 'owner';
   };
 
   // Check if user has owner permission for a list (only owners can edit lists)
   const hasListOwnerPermission = (listId) => {
-    const permission = listPermissions[listId] === 'owner';
-    console.log(`🔍 hasListOwnerPermission(${listId}):`, permission, `User: ${user?.id} (${user?.username}), Permissions:`, listPermissions);
-    return permission;
+    return listPermissions[listId] === 'owner';
   };
 
   // Check if user has any permission for a list
@@ -381,26 +370,22 @@ const HomeScreen = () => {
 
   // Add user to list (stage change locally)
   const addUserToList = (listId, userId, permissionLevel) => {
-    console.log(`🔍 Adding user locally: userId=${userId}, permissionLevel=${permissionLevel}`);
-    
     // Convert userId to number for proper lookup
     const numericUserId = parseInt(userId, 10);
-    console.log(`🔍 Converted userId to number: ${numericUserId}`);
     
     // Check if this user is already in pending changes
     const existingChange = pendingUserChanges.find(
-      change => change.userId === numericUserId && change.action === 'add'
+      change => change.userId === numericUserId && change.listId === listId
     );
     
     if (!existingChange) {
-      // Add to pending changes
       const newChange = {
-        action: 'add',
+        listId,
         userId: numericUserId,
+        action: 'add',
         permissionLevel,
         user: allUsers.find(u => u.id === numericUserId)
       };
-      console.log(`📝 Staging change:`, newChange);
       setPendingUserChanges(prev => [...prev, newChange]);
       
       // Update local display immediately with proper sorting
@@ -414,8 +399,8 @@ const HomeScreen = () => {
         const updatedList = [...prev, newUser];
         
         // Sort by role hierarchy (owner > admin > user) then alphabetically
-        const roleOrder = { owner: 0, admin: 1, user: 2 };
         return updatedList.sort((a, b) => {
+          const roleOrder = { owner: 0, admin: 1, user: 2 };
           const aRoleOrder = roleOrder[a.permission_level] ?? 999;
           const bRoleOrder = roleOrder[b.permission_level] ?? 999;
           
@@ -426,27 +411,19 @@ const HomeScreen = () => {
           return a.username.localeCompare(b.username);
         });
       });
-      console.log(`✅ Updated local display with sorting, pending changes:`, pendingUserChanges.length + 1);
-    } else {
-      console.log(`⚠️ User ${numericUserId} already in pending changes`);
     }
   };
 
   // Add user to list by selection
   const addUserToListBySelection = (listId, userId, permissionLevel = 'user') => {
-    console.log(`🔍 addUserToListBySelection called: listId=${listId}, userId=${userId}, permissionLevel=${permissionLevel}`);
-    console.log(`🔍 allUsers:`, allUsers);
-    console.log(`🔍 selectedNewUser:`, selectedNewUser);
-    console.log(`🔍 selectedNewUserPermission:`, selectedNewUserPermission);
-    
     if (!userId) {
       alert('Please select a user');
       return;
     }
     
     addUserToList(listId, userId, permissionLevel);
-    setSelectedNewUser(''); // Clear the selection
-    setSelectedNewUserPermission('user'); // Reset permission level
+    setSelectedNewUser('');
+    setSelectedNewUserPermission('user');
   };
 
   // Remove user from list (stage change locally)
@@ -987,11 +964,9 @@ const HomeScreen = () => {
       for (const userListUser of newListUsers) {
         // Skip the current user since they're automatically added as owner by the backend
         if (userListUser.id === user?.id) {
-          console.log(`⏭️ Skipping current user ${user?.id} (automatically added as owner)`);
           continue;
         }
         
-        console.log(`👤 Adding user ${userListUser.id} with permission ${userListUser.permission_level}`);
         await axios.post(`/api/lists/${listId}/users`, {
           userId: userListUser.id,
           permissionLevel: userListUser.permission_level
@@ -1110,44 +1085,21 @@ const HomeScreen = () => {
   const handleUpdateList = async (e) => {
     e.preventDefault();
     try {
-      console.log('🔄 Applying pending changes:', pendingUserChanges);
-      
       // Apply all pending user changes first
       for (const change of pendingUserChanges) {
-        console.log(`📝 Applying change:`, change);
         if (change.action === 'add') {
           await axios.post(`/api/lists/${editingList.id}/users`, {
             userId: change.userId,
             permissionLevel: change.permissionLevel
           });
-          console.log(`✅ Added user ${change.userId} with permission ${change.permissionLevel}`);
         } else if (change.action === 'remove') {
           await axios.delete(`/api/lists/${editingList.id}/users/${change.userId}`);
-          console.log(`✅ Removed user ${change.userId}`);
         } else if (change.action === 'update') {
           await axios.post(`/api/lists/${editingList.id}/users`, {
             userId: change.userId,
             permissionLevel: change.permissionLevel
           });
-          console.log(`✅ Updated user ${change.userId} to ${change.permissionLevel}`);
         }
-      }
-      
-      // Verify the changes were applied by fetching current list users
-      console.log(`🔍 Verifying changes for list ${editingList.id}`);
-      try {
-        const verifyResponse = await axios.get(`/api/lists/${editingList.id}/users`);
-        console.log(`📋 Current list users after update:`, verifyResponse.data);
-        
-        // Check if test1 has the expected permissions
-        const test1User = verifyResponse.data.find(u => u.username === 'test1');
-        if (test1User) {
-          console.log(`👤 test1 permissions: ${test1User.permission_level}`);
-        } else {
-          console.log(`⚠️ test1 not found in list users`);
-        }
-      } catch (error) {
-        console.error('❌ Error verifying changes:', error);
       }
 
       // Update list details
@@ -1156,11 +1108,9 @@ const HomeScreen = () => {
         description: editingList.description,
         reset_period: editingList.reset_period
       });
-      console.log('List updated:', response.data);
       
       // Force refresh permissions after a short delay to ensure backend changes are processed
       setTimeout(() => {
-        console.log('🔄 Force refreshing permissions after user changes...');
         fetchLists();
       }, 500);
       
@@ -1170,8 +1120,7 @@ const HomeScreen = () => {
       setSelectedNewUserPermission('user');
     } catch (error) {
       console.error('Error updating list:', error);
-      const errorMsg = error.response?.data?.error || error.message;
-      alert(`Error updating list: ${errorMsg}`);
+      alert('Error updating list: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -1182,12 +1131,11 @@ const HomeScreen = () => {
 
   const handleConfirmDeleteList = async () => {
     try {
-      const response = await axios.delete(`/api/lists/${listToDelete.id}`);
-      console.log('List deleted:', response.data);
+      await axios.delete(`/api/lists/${listToDelete.id}`);
       
       // If the deleted list was active, switch to another list
       if (activeListId === listToDelete.id) {
-        const remainingLists = lists.filter(l => l.id !== listToDelete.id);
+        const remainingLists = lists.filter(list => list.id !== listToDelete.id);
         if (remainingLists.length > 0) {
           setActiveListId(remainingLists[0].id);
         } else {
@@ -1195,9 +1143,9 @@ const HomeScreen = () => {
         }
       }
       
-      fetchLists();
       setShowDeleteListConfirm(false);
       setListToDelete(null);
+      fetchLists(); // Refresh the lists
     } catch (error) {
       console.error('Error deleting list:', error);
       const errorMsg = error.response?.data?.error || error.message;
@@ -1771,10 +1719,7 @@ const HomeScreen = () => {
                       </div>
                     )}
                     {activeList.reset_period === 'static' && <div />}
-                    {(() => {
-                        console.log(`🎯 Rendering admin buttons - activeListId: ${activeListId}, hasAdmin: ${hasListAdminPermission(activeListId)}, hasOwner: ${hasListOwnerPermission(activeListId)}`);
-                        return hasListAdminPermission(activeListId);
-                      })() && (
+                    {hasListAdminPermission(activeListId) && (
                       <div className="flex items-center gap-1 sm:gap-2">
                         {hasListOwnerPermission(activeListId) && (
                           <button

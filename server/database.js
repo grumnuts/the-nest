@@ -18,42 +18,17 @@ function localNow() {
 const dataDir = process.env.DOCKER_ENV === 'true' ? '/app/data' : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
 
-console.log(`📂 Database directory: ${dataDir}`);
-console.log(`🗄️  Database path: ${dbPath}`);
-console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
-
 // Ensure data directory exists
 const fs = require('fs');
 try {
-  console.log(`🔍 Checking data directory: ${dataDir}`);
-  
   if (!fs.existsSync(dataDir)) {
-    console.log(`📁 Creating data directory: ${dataDir}`);
     fs.mkdirSync(dataDir, { recursive: true });
-    console.log(`✅ Data directory created successfully`);
-  } else {
-    console.log(`✅ Data directory exists: ${dataDir}`);
-    
-    // Check if directory is writable
-    try {
-      const testFile = path.join(dataDir, '.test');
-      fs.writeFileSync(testFile, 'test');
-      fs.unlinkSync(testFile);
-      console.log(`✅ Data directory is writable`);
-    } catch (writeError) {
-      console.error(`❌ Data directory is not writable:`, writeError.message);
-      throw writeError;
-    }
   }
 } catch (error) {
-  console.error(`❌ Failed to setup data directory ${dataDir}:`, error.message);
-  console.error(`❌ Full error:`, error);
+  console.error('Failed to setup data directory:', error.message);
   // In Docker production, this is a critical error
   if (process.env.DOCKER_ENV === 'true') {
-    console.error('❌ CRITICAL: Cannot setup database directory in Docker!');
     process.exit(1);
-  } else {
-    console.log('⚠️  Falling back to local directory for local development');
   }
 }
 
@@ -74,25 +49,19 @@ class Database {
     
     this.db = new sqlite3.Database(dbPath, (err) => {
       if (err) {
-        console.error('❌ Error opening database:', err.message);
-        console.error('❌ Database path:', dbPath);
-        console.error('❌ Error code:', err.code);
-        console.error('❌ Error errno:', err.errno);
-        
+        console.error('Error opening database:', err.message);
         // In Docker production, this is a critical error
         if (process.env.DOCKER_ENV === 'true') {
-          console.error('❌ CRITICAL: Database cannot be opened in Docker!');
           process.exit(1);
         }
-      } else {
-        console.log('✅ Database connection established');
+        return;
       }
+      
+      this.initialize();
     });
-    
-    this.init();
   }
 
-  init() {
+  initialize() {
     this.db.serialize(() => {
       // Users table
       this.db.run(`
@@ -263,14 +232,10 @@ class Database {
             if (migrationErr) {
               console.error('Error migrating is_admin to role:', migrationErr);
             } else {
-              console.log('✅ Successfully migrated is_admin to role field');
-              
               // Set the default admin account (ID 1) to owner role
               this.db.run(`UPDATE users SET role = 'owner' WHERE id = 1`, (ownerErr) => {
                 if (ownerErr) {
                   console.error('Error setting owner role for default admin:', ownerErr);
-                } else {
-                  console.log('✅ Default admin account (ID 1) set to owner role');
                 }
               });
             }

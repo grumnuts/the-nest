@@ -564,7 +564,6 @@ const Settings = () => {
                           ) && (
                             <button
                               onClick={() => {
-                                console.log('Edit button clicked for user:', user);
                                 setEditingUser(user);
                                 setNewUser({ username: user.username, email: user.email, password: '', role: user.role || (user.is_admin ? 'admin' : 'user') });
                                 setShowAddUser(true);

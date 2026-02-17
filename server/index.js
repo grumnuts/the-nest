@@ -3,7 +3,6 @@ require('dotenv').config({ override: false });
 // Set timezone from environment variable
 if (process.env.TZ) {
   process.env.TZ = process.env.TZ;
-  console.log(`🌍 Timezone set to: ${process.env.TZ}`);
 }
 
 const express = require('express');
@@ -108,9 +107,8 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '..', 'public')));
   
   // Specific routes for assets to ensure they're served correctly
-  app.get('/TheNestLogo.png', (req, res) => {
-    const logoPath = path.join(__dirname, '..', 'public', 'TheNestLogo.png');
-    res.sendFile(logoPath);
+  app.get('/assets/:filename', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'assets', req.params.filename));
   });
   
   app.get('/favicon.ico', (req, res) => {
@@ -198,10 +196,6 @@ const checkEmergencyReset = async () => {
 
 // Start server
 app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🕐 Current time: ${new Date().toLocaleString('en-AU')}`);
-  console.log(`🌍 Timezone: ${process.env.TZ || 'UTC'}`);
-  
   // Wait a moment for database to be fully ready
   await new Promise(resolve => setTimeout(resolve, 1000));
   
@@ -216,13 +210,9 @@ app.listen(PORT, async () => {
   const db = new Database();
   db.migrateListPermissions((err) => {
     if (err) {
-      console.error('❌ List permissions migration failed:', err);
-    } else {
-      console.log('✅ List permissions migration completed successfully');
+      console.error('List permissions migration failed:', err);
     }
   });
-  
-  console.log('🎉 Server startup complete!');
 });
 
 module.exports = app;

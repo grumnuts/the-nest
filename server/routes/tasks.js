@@ -45,8 +45,6 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
   
   // If a date is provided, record the completion at noon on that date
   const completedAt = date ? `${date} 12:00:00` : null;
-  
-  console.log(`Task ${taskId} status update to ${is_completed} by user ${userId}${date ? ` for date ${date}` : ''}`);
 
   // Get the task and check list permissions
   db.getTaskById(taskId, (err, task) => {

@@ -20,6 +20,8 @@ node_modules/
 server/data/
 server/the_nest.db
 server/sample.db
+/the_nest.db
+server/the_nest.db*
 
 # Logs
 logs

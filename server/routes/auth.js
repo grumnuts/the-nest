@@ -9,7 +9,6 @@ const db = new Database();
 
 // Login user
 router.post('/login', validateLogin, (req, res) => {
-  console.log('🔐 Login attempt for username:', req.body.username);
   const { username, password } = req.body;
 
   db.getUserByUsername(username, (err, user) => {
@@ -65,7 +64,6 @@ router.post('/login', validateLogin, (req, res) => {
 
 // Verify token
 router.get('/verify', authenticateToken, (req, res) => {
-  console.log('🔍 Token verification for user:', req.user.username);
   res.json({
     user: {
       userId: req.user.userId,
