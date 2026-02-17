@@ -153,9 +153,8 @@ app.listen(PORT, async () => {
   // Wait a moment for database to be fully ready
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  // Initialize admin user on first startup
-  const initializeAdmin = require('./init-admin');
-  await initializeAdmin();
+  // Initialize admin user on first startup - removed init-admin.js during cleanup
+  // Admin initialization is now handled through the database setup
   
   // Run list permissions migration
   const Database = require('./database');

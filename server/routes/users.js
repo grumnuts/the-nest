@@ -7,28 +7,18 @@ const Database = require('../database');
 
 const db = new Database();
 
-// Get all users (admin or list admin)
+// Get all users (any authenticated user)
 router.get('/', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
+  // Any authenticated user can fetch the user list to add users to their lists
+  console.log(`📋 User ${req.user.userId} (${req.user.username}) fetching user list`);
   
-  // Check if user is admin
-  db.getUserById(userId, (err, user) => {
+  // Get all users
+  db.db.all('SELECT id, username, email, is_admin, created_at FROM users', [], (err, users) => {
     if (err) {
-      return res.status(500).json({ error: 'Error checking user permissions' });
+      return res.status(500).json({ error: 'Error fetching users' });
     }
     
-    if (!user || !user.is_admin) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    // Get all users
-    db.db.all('SELECT id, username, email, is_admin, created_at FROM users', [], (err, users) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error fetching users' });
-      }
-      
-      res.json(users);
-    });
+    res.json(users);
   });
 });
 

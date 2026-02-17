@@ -325,6 +325,19 @@ const HomeScreen = () => {
     return !!listPermissions[listId];
   };
 
+  // Get effective permission for a user (including pending changes)
+  const getEffectivePermission = (userId, originalPermission) => {
+    const pendingChange = pendingUserChanges.find(
+      change => change.userId === userId && (change.action === 'update' || change.action === 'add')
+    );
+    
+    if (pendingChange) {
+      return pendingChange.permissionLevel;
+    }
+    
+    return originalPermission;
+  };
+
   // Fetch all users for dropdown
   const fetchAllUsers = async () => {
     try {
@@ -1144,7 +1157,13 @@ const HomeScreen = () => {
         reset_period: editingList.reset_period
       });
       console.log('List updated:', response.data);
-      fetchLists(); 
+      
+      // Force refresh permissions after a short delay to ensure backend changes are processed
+      setTimeout(() => {
+        console.log('🔄 Force refreshing permissions after user changes...');
+        fetchLists();
+      }, 500);
+      
       setShowEditList(false);
       setEditingList(null);
       setPendingUserChanges([]);
@@ -1421,52 +1440,54 @@ const HomeScreen = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {/* Show dropdown and delete button only if not the current user as owner */}
-                        {!(user?.id === listUser.id && listUser.permission_level === 'owner') ? (
-                          <>
-                            <select
-                              value={listUser.permission_level}
-                              onChange={(e) => {
-                                const newPermission = e.target.value;
-                                setNewListUsers(prev => {
-                                  const updatedList = prev.map(user => 
-                                    user.id === listUser.id 
-                                      ? { ...user, permission_level: newPermission }
-                                      : user
-                                  );
+                        {/* Show dropdown for all users except current user */}
+                        {!(user?.userId === listUser.id && listUser.permission_level === 'owner') ? (
+                          <select
+                            value={listUser.permission_level}
+                            onChange={(e) => {
+                              const newPermission = e.target.value;
+                              setNewListUsers(prev => {
+                                const updatedList = prev.map(user => 
+                                  user.id === listUser.id 
+                                    ? { ...user, permission_level: newPermission }
+                                    : user
+                                );
+                                
+                                // Sort by role hierarchy (owner > admin > user) then alphabetically
+                                const roleOrder = { owner: 0, admin: 1, user: 2 };
+                                return updatedList.sort((a, b) => {
+                                  const aRoleOrder = roleOrder[a.permission_level] ?? 999;
+                                  const bRoleOrder = roleOrder[b.permission_level] ?? 999;
                                   
-                                  // Sort by role hierarchy (owner > admin > user) then alphabetically
-                                  const roleOrder = { owner: 0, admin: 1, user: 2 };
-                                  return updatedList.sort((a, b) => {
-                                    const aRoleOrder = roleOrder[a.permission_level] ?? 999;
-                                    const bRoleOrder = roleOrder[b.permission_level] ?? 999;
-                                    
-                                    if (aRoleOrder !== bRoleOrder) {
-                                      return aRoleOrder - bRoleOrder;
-                                    }
-                                    
-                                    return a.username.localeCompare(b.username);
-                                  });
+                                  if (aRoleOrder !== bRoleOrder) {
+                                    return aRoleOrder - bRoleOrder;
+                                  }
+                                  
+                                  return a.username.localeCompare(b.username);
                                 });
-                              }}
-                              className="bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-purple-500 focus:outline-none"
-                            >
-                              <option value="owner">Owner</option>
-                              <option value="admin">Admin</option>
-                              <option value="user">User</option>
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => removeUserFromNewList(listUser.id)}
-                              className="text-red-400 hover:text-red-300 transition-colors"
-                              title="Remove user"
-                            >
-                              <UserMinus className="h-3 w-3" />
-                            </button>
-                          </>
+                              });
+                            }}
+                            className="bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-purple-500 focus:outline-none"
+                          >
+                            <option value="owner">Owner</option>
+                            <option value="admin">Admin</option>
+                            <option value="user">User</option>
+                          </select>
                         ) : (
                           // Show empty space for current user as owner to maintain alignment
                           <div className="w-20"></div>
+                        )}
+                        
+                        {/* Show delete button for all users except current user */}
+                        {!(user?.userId === listUser.id && listUser.permission_level === 'owner') && user?.userId !== listUser.id && (
+                          <button
+                            type="button"
+                            onClick={() => removeUserFromNewList(listUser.id)}
+                            className="text-red-400 hover:text-red-300 transition-colors"
+                            title="Remove user"
+                          >
+                            <UserMinus className="h-3 w-3" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1752,16 +1773,18 @@ const HomeScreen = () => {
                     {activeList.reset_period === 'static' && <div />}
                     {(() => {
                         console.log(`🎯 Rendering admin buttons - activeListId: ${activeListId}, hasAdmin: ${hasListAdminPermission(activeListId)}, hasOwner: ${hasListOwnerPermission(activeListId)}`);
-                        return hasListOwnerPermission(activeListId);
+                        return hasListAdminPermission(activeListId);
                       })() && (
                       <div className="flex items-center gap-1 sm:gap-2">
-                        <button
-                          onClick={() => handleEditList(activeList)}
-                          className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
-                        >
-                          <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span>Edit</span>
-                        </button>
+                        {hasListOwnerPermission(activeListId) && (
+                          <button
+                            onClick={() => handleEditList(activeList)}
+                            className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
+                          >
+                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span>Edit</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => setShowCreateTask(!showCreateTask)}
                           className="btn bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
@@ -2001,72 +2024,61 @@ const HomeScreen = () => {
                                 </div>
                               </div>
                               <div className="flex items-center space-x-2">
-                                {/* Show dropdown and delete button only if not the current user as owner */}
-                                {!(user?.id === listUser.id && listUser.permission_level === 'owner') ? (
-                                  <>
-                                    <select
-                                      value={listUser.permission_level}
-                                      onChange={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        const newPermission = e.target.value;
-                                        
-                                        // Remove any existing changes for this user
-                                        const filteredChanges = pendingUserChanges.filter(
-                                          change => change.userId !== listUser.id
-                                        );
-                                        
-                                        // Add update change
-                                        setPendingUserChanges([...filteredChanges, {
-                                          action: 'update',
-                                          userId: listUser.id,
-                                          permissionLevel: newPermission
-                                        }]);
-                                        
-                                        // Update local display immediately with proper sorting
-                                        setListUsers(prev => {
-                                          const updatedList = prev.map(user => 
-                                            user.id === listUser.id 
-                                              ? { ...user, permission_level: newPermission }
-                                              : user
-                                          );
-                                        
-                                          // Sort by role hierarchy (owner > admin > user) then alphabetically
-                                          const roleOrder = { owner: 0, admin: 1, user: 2 };
-                                          return updatedList.sort((a, b) => {
-                                            const aRoleOrder = roleOrder[a.permission_level] ?? 999;
-                                            const bRoleOrder = roleOrder[b.permission_level] ?? 999;
-                                            
-                                            if (aRoleOrder !== bRoleOrder) {
-                                              return aRoleOrder - bRoleOrder;
-                                            }
-                                            
-                                            return a.username.localeCompare(b.username);
-                                          });
-                                        });
-                                      }}
-                                      className="bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-purple-500 focus:outline-none"
-                                    >
-                                      <option value="owner">Owner</option>
-                                      <option value="admin">Admin</option>
-                                      <option value="user">User</option>
-                                    </select>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        removeUserFromList(selectedListForUsers, listUser.id);
-                                      }}
-                                      className="text-red-400 hover:text-red-300 transition-colors"
-                                      title="Remove user"
-                                    >
-                                      <UserMinus className="h-3 w-3" />
-                                    </button>
-                                  </>
+                                {/* Show dropdown for all users except current user */}
+                                {!(user?.userId === listUser.id && listUser.permission_level === 'owner') ? (
+                                  <select
+                                    value={getEffectivePermission(listUser.id, listUser.permission_level)}
+                                    onChange={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const newPermission = e.target.value;
+                                      
+                                      // Remove any existing changes for this user
+                                      const filteredChanges = pendingUserChanges.filter(
+                                        change => change.userId !== listUser.id
+                                      );
+                                      
+                                      // Add update change
+                                      setPendingUserChanges([...filteredChanges, {
+                                        action: 'update',
+                                        userId: listUser.id,
+                                        permissionLevel: newPermission
+                                      }]);
+                                      
+                                    }}
+                                    className="bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                    disabled={user?.userId === listUser.id}
+                                  >
+                                    <option value="owner">Owner</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="user">User</option>
+                                  </select>
                                 ) : (
                                   // Show empty space for current user as owner to maintain alignment
                                   <div className="w-20"></div>
+                                )}
+                                
+                                {/* Show delete button for all users except current user */}
+                                {(() => {
+                                  console.log(`🔍 Delete button check: user?.userId=${user?.userId}, listUser.id=${listUser.id}, listUser.permission_level=${listUser.permission_level}`);
+                                  console.log(`🔍 Condition 1: !(user?.userId === listUser.id && listUser.permission_level === 'owner') = ${!(user?.userId === listUser.id && listUser.permission_level === 'owner')}`);
+                                  console.log(`🔍 Condition 2: user?.userId !== listUser.id = ${user?.userId !== listUser.id}`);
+                                  const shouldShow = !(user?.userId === listUser.id && listUser.permission_level === 'owner') && user?.userId !== listUser.id;
+                                  console.log(`🔍 Should show delete button: ${shouldShow}`);
+                                  return shouldShow;
+                                })() && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      removeUserFromList(selectedListForUsers, listUser.id);
+                                    }}
+                                    className="text-red-400 hover:text-red-300 transition-colors"
+                                    title="Remove user"
+                                  >
+                                    <UserMinus className="h-3 w-3" />
+                                  </button>
                                 )}
                               </div>
                             </div>
