@@ -1,6 +1,6 @@
 # The Nest - Chore & Task Tracking Platform
 
-A task tracking platform for housemates and families to manage chores with customizable lists, goal tracking, and progress visualization.
+A task tracking platform for housemates and families to manage chores and tasks with customizable lists, goal tracking, and progress visualization.
 
 ## Features
 
@@ -104,16 +104,13 @@ If you get locked out of your admin account, you can reset the password using en
 
 ### Step 1: Activate Emergency Reset
 
-Edit your `docker-compose.yml` and uncomment the emergency reset lines:
+Edit your `docker-compose.yml` and add the emergency reset lines:
 
 ```yaml
 environment:
   - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
   - CLIENT_URL=http://localhost:5000
   - TZ=UTC
-  # Uncomment below lines to reset password (2-step process)
-  # 1. Uncomment lines, set new password, and restart container
-  # 2. Test login, then comment out lines again and restart
   - EMERGENCY_RESET_PASSWORD=newSecurePassword123!
   - EMERGENCY_RESET_USER=admin
 ```
@@ -145,7 +142,7 @@ You should see:
 
 1. **Test login** with your new password
 2. **Edit docker-compose.yml** and comment out the emergency reset lines again
-3. **Restart container**: `docker-compose restart the-nest`
+3. **Restart container**: `docker compose restart the-nest`
 
 ### Important Notes
 
