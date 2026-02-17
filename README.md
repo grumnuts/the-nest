@@ -111,8 +111,8 @@ environment:
   - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
   - CLIENT_URL=http://localhost:5000
   - TZ=UTC
-  - EMERGENCY_RESET_PASSWORD=newSecurePassword123!
   - EMERGENCY_RESET_USER=admin
+  - EMERGENCY_RESET_PASSWORD=newSecurePassword123!
 ```
 
 ### Step 2: Restart Container

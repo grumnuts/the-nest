@@ -11,9 +11,6 @@ services:
       - PUID=1001 # Optional
       - PGID=1001 # Optional
     volumes:
-      - nest_data:/app/data
+      - ./the_nest.db:/app/data/the_nest.db
     restart: unless-stopped
 
-volumes:
-  nest_data:
-    driver: local

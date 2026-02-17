@@ -205,14 +205,6 @@ app.listen(PORT, async () => {
   // Initialize admin user on first startup - removed init-admin.js during cleanup
   // Admin initialization is now handled through the database setup
   
-  // Run list permissions migration
-  const Database = require('./database');
-  const db = new Database();
-  db.migrateListPermissions((err) => {
-    if (err) {
-      console.error('List permissions migration failed:', err);
-    }
   });
-});
 
 module.exports = app;
