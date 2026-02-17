@@ -157,6 +157,17 @@ app.listen(PORT, async () => {
   const initializeAdmin = require('./init-admin');
   await initializeAdmin();
   
+  // Run list permissions migration
+  const Database = require('./database');
+  const db = new Database();
+  db.migrateListPermissions((err) => {
+    if (err) {
+      console.error('❌ List permissions migration failed:', err);
+    } else {
+      console.log('✅ List permissions migration completed successfully');
+    }
+  });
+  
   console.log('🎉 Server startup complete!');
 });
 

@@ -7,7 +7,7 @@ const Database = require('../database');
 
 const db = new Database();
 
-// Get all users (admin only)
+// Get all users (admin or list admin)
 router.get('/', authenticateToken, (req, res) => {
   const userId = req.user.userId;
   

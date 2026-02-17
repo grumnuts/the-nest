@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat, Users, UserPlus, UserMinus, User, Crown, Star } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import ToggleSwitch from './ToggleSwitch';
@@ -117,6 +117,13 @@ const HomeScreen = () => {
   const [dragOverTask, setDragOverTask] = useState(null);
   const [goals, setGoals] = useState([]);
   const [goalDates, setGoalDates] = useState({}); // { goalId: 'YYYY-MM-DD' }
+  const [listPermissions, setListPermissions] = useState({}); // { listId: 'admin' | 'user' }
+  const [listUsers, setListUsers] = useState([]);
+  const [selectedListForUsers, setSelectedListForUsers] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedNewUser, setSelectedNewUser] = useState('');
+  const [selectedNewUserPermission, setSelectedNewUserPermission] = useState('user');
+  const [pendingUserChanges, setPendingUserChanges] = useState([]); // Stage user changes locally
   const goalDatesRef = useRef(goalDates);
   goalDatesRef.current = goalDates; // Keep ref in sync with state
   const [listDates, setListDates] = useState({}); // { listId: 'YYYY-MM-DD' }
@@ -131,6 +138,11 @@ const HomeScreen = () => {
     description: '',
     reset_period: 'daily'
   });
+  
+  // State for managing users in new list creation
+  const [newListUsers, setNewListUsers] = useState([]);
+  const [selectedNewListUser, setSelectedNewListUser] = useState('');
+  const [selectedNewListUserPermission, setSelectedNewListUserPermission] = useState('user');
   
   const activeList = lists.find(list => list.id === activeListId) || null;
 
@@ -260,9 +272,243 @@ const HomeScreen = () => {
       if (response.data.lists.length > 0 && !activeListId) {
         setActiveListId(response.data.lists[0].id);
       }
+      
+      // Fetch actual permissions for each list
+      const permissions = {};
+      console.log(`🔍 Starting permission fetch for user: ${user?.id}, username: ${user?.username}, full user:`, user);
+      for (const list of response.data.lists) {
+        try {
+          console.log(`📋 Fetching permissions for list ${list.id}`);
+          const userResponse = await axios.get(`/api/lists/${list.id}/users`);
+          console.log(`📤 Response for list ${list.id}:`, userResponse.data);
+          
+          // Try multiple ways to find the user ID
+          let userPermission = null;
+          if (user?.id) {
+            userPermission = userResponse.data.find(u => u.id === user.id);
+            console.log(`👤 Found permission by user.id ${user?.id}:`, userPermission);
+          } else if (user?.username) {
+            userPermission = userResponse.data.find(u => u.username === user.username);
+            console.log(`👤 Found permission by username ${user?.username}:`, userPermission);
+          }
+          
+          permissions[list.id] = userPermission ? userPermission.permission_level : null;
+          console.log(`✅ Set permission for list ${list.id}:`, permissions[list.id]);
+        } catch (error) {
+          console.error(`Error fetching permissions for list ${list.id}:`, error);
+          permissions[list.id] = null;
+        }
+      }
+      console.log(`🎯 Final permissions object:`, permissions);
+      setListPermissions(permissions);
     } catch (error) {
       console.error('Error fetching lists:', error);
     }
+  };
+
+  // Check if user has admin permission for a list (admin or owner)
+  const hasListAdminPermission = (listId) => {
+    const permission = listPermissions[listId] === 'admin' || listPermissions[listId] === 'owner';
+    console.log(`🔍 hasListAdminPermission(${listId}):`, permission, `User: ${user?.id} (${user?.username}), Permissions:`, listPermissions);
+    return permission;
+  };
+
+  // Check if user has owner permission for a list (only owners can edit lists)
+  const hasListOwnerPermission = (listId) => {
+    const permission = listPermissions[listId] === 'owner';
+    console.log(`🔍 hasListOwnerPermission(${listId}):`, permission, `User: ${user?.id} (${user?.username}), Permissions:`, listPermissions);
+    return permission;
+  };
+
+  // Check if user has any permission for a list
+  const hasListPermission = (listId) => {
+    return !!listPermissions[listId];
+  };
+
+  // Fetch all users for dropdown
+  const fetchAllUsers = async () => {
+    try {
+      const response = await axios.get('/api/users');
+      const users = Array.isArray(response.data) ? response.data : response.data.users || [];
+      setAllUsers(users);
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+    }
+  };
+
+  // Fetch list users for management
+  const fetchListUsers = async (listId) => {
+    try {
+      const response = await axios.get(`/api/lists/${listId}/users`);
+      // The API returns users directly in the response array, not in response.data.users
+      const users = response.data || [];
+      
+      // Sort users by role hierarchy (owner > admin > user) then alphabetically
+      const sortedUsers = [...users].sort((a, b) => {
+        // Role hierarchy
+        const roleOrder = { owner: 0, admin: 1, user: 2 };
+        const aRoleOrder = roleOrder[a.permission_level] ?? 999;
+        const bRoleOrder = roleOrder[b.permission_level] ?? 999;
+        
+        if (aRoleOrder !== bRoleOrder) {
+          return aRoleOrder - bRoleOrder;
+        }
+        
+        // Alphabetical by username if same role
+        return a.username.localeCompare(b.username);
+      });
+      
+      setListUsers(sortedUsers);
+      setSelectedListForUsers(listId);
+    } catch (error) {
+      console.error('Error fetching list users:', error);
+      setListUsers([]);
+    }
+  };
+
+  // Add user to list (stage change locally)
+  const addUserToList = (listId, userId, permissionLevel) => {
+    console.log(`🔍 Adding user locally: userId=${userId}, permissionLevel=${permissionLevel}`);
+    
+    // Convert userId to number for proper lookup
+    const numericUserId = parseInt(userId, 10);
+    console.log(`🔍 Converted userId to number: ${numericUserId}`);
+    
+    // Check if this user is already in pending changes
+    const existingChange = pendingUserChanges.find(
+      change => change.userId === numericUserId && change.action === 'add'
+    );
+    
+    if (!existingChange) {
+      // Add to pending changes
+      const newChange = {
+        action: 'add',
+        userId: numericUserId,
+        permissionLevel,
+        user: allUsers.find(u => u.id === numericUserId)
+      };
+      console.log(`📝 Staging change:`, newChange);
+      setPendingUserChanges(prev => [...prev, newChange]);
+      
+      // Update local display immediately with proper sorting
+      setListUsers(prev => {
+        const newUser = {
+          id: numericUserId,
+          username: allUsers.find(u => u.id === numericUserId)?.username,
+          permission_level: permissionLevel
+        };
+        
+        const updatedList = [...prev, newUser];
+        
+        // Sort by role hierarchy (owner > admin > user) then alphabetically
+        const roleOrder = { owner: 0, admin: 1, user: 2 };
+        return updatedList.sort((a, b) => {
+          const aRoleOrder = roleOrder[a.permission_level] ?? 999;
+          const bRoleOrder = roleOrder[b.permission_level] ?? 999;
+          
+          if (aRoleOrder !== bRoleOrder) {
+            return aRoleOrder - bRoleOrder;
+          }
+          
+          return a.username.localeCompare(b.username);
+        });
+      });
+      console.log(`✅ Updated local display with sorting, pending changes:`, pendingUserChanges.length + 1);
+    } else {
+      console.log(`⚠️ User ${numericUserId} already in pending changes`);
+    }
+  };
+
+  // Add user to list by selection
+  const addUserToListBySelection = (listId, userId, permissionLevel = 'user') => {
+    console.log(`🔍 addUserToListBySelection called: listId=${listId}, userId=${userId}, permissionLevel=${permissionLevel}`);
+    console.log(`🔍 allUsers:`, allUsers);
+    console.log(`🔍 selectedNewUser:`, selectedNewUser);
+    console.log(`🔍 selectedNewUserPermission:`, selectedNewUserPermission);
+    
+    if (!userId) {
+      alert('Please select a user');
+      return;
+    }
+    
+    addUserToList(listId, userId, permissionLevel);
+    setSelectedNewUser(''); // Clear the selection
+    setSelectedNewUserPermission('user'); // Reset permission level
+  };
+
+  // Remove user from list (stage change locally)
+  const removeUserFromList = (listId, userId) => {
+    // Remove any existing add change for this user
+    const filteredChanges = pendingUserChanges.filter(
+      change => !(change.userId === userId && change.action === 'add')
+    );
+    
+    // Add remove change
+    setPendingUserChanges([...filteredChanges, {
+      action: 'remove',
+      userId
+    }]);
+    
+    // Update local display immediately
+    setListUsers(prev => prev.filter(user => user.id !== userId));
+  };
+
+  // Add user to new list (for list creation dialog)
+  const addUserToNewList = (userId, permissionLevel) => {
+    const numericUserId = parseInt(userId, 10);
+    
+    // Check if user is already in the list
+    if (newListUsers.some(user => user.id === numericUserId)) {
+      return;
+    }
+    
+    const newUser = {
+      id: numericUserId,
+      username: allUsers.find(u => u.id === numericUserId)?.username,
+      permission_level: permissionLevel
+    };
+    
+    setNewListUsers(prev => {
+      const updatedList = [...prev, newUser];
+      
+      // Sort by role hierarchy (owner > admin > user) then alphabetically
+      const roleOrder = { owner: 0, admin: 1, user: 2 };
+      return updatedList.sort((a, b) => {
+        const aRoleOrder = roleOrder[a.permission_level] ?? 999;
+        const bRoleOrder = roleOrder[b.permission_level] ?? 999;
+        
+        if (aRoleOrder !== bRoleOrder) {
+          return aRoleOrder - bRoleOrder;
+        }
+        
+        return a.username.localeCompare(b.username);
+      });
+    });
+    
+    setSelectedNewListUser('');
+    setSelectedNewListUserPermission('user');
+  };
+
+  // Remove user from new list (for list creation dialog)
+  const removeUserFromNewList = (userId) => {
+    setNewListUsers(prev => prev.filter(user => user.id !== userId));
+  };
+
+  // Handle opening create list dialog
+  const handleOpenCreateList = async () => {
+    await fetchAllUsers();
+    
+    // Add current user as owner by default
+    const currentUser = {
+      id: user?.id,
+      username: user?.username,
+      permission_level: 'owner'
+    };
+    
+    setNewListUsers([currentUser]);
+    setSelectedNewListUser('');
+    setSelectedNewListUserPermission('user');
+    setShowCreateList(true);
   };
 
   const fetchGoals = async () => {
@@ -427,7 +673,7 @@ const HomeScreen = () => {
 
   // Drag and drop functions for list reordering
   const handleDragStart = (e, list) => {
-    if (!isAdmin) {
+    if (!hasListAdminPermission(list.id)) {
       e.preventDefault();
       return;
     }
@@ -455,7 +701,7 @@ const HomeScreen = () => {
     e.preventDefault();
     setDragOverList(null);
     
-    if (!isAdmin || !draggedList || draggedList.id === targetList.id) {
+    if (!hasListAdminPermission(targetList.id) || !draggedList || draggedList.id === targetList.id) {
       setDraggedList(null);
       return;
     }
@@ -511,7 +757,7 @@ const HomeScreen = () => {
 
   // Drag and drop functions for task reordering
   const handleTaskDragStart = (e, task) => {
-    if (!isAdmin) {
+    if (!hasListAdminPermission(activeListId)) {
       e.preventDefault();
       return;
     }
@@ -539,7 +785,7 @@ const HomeScreen = () => {
     e.preventDefault();
     setDragOverTask(null);
     
-    if (!isAdmin || !draggedTask || draggedTask.id === targetTask.id) {
+    if (!hasListAdminPermission(activeListId) || !draggedTask || draggedTask.id === targetTask.id) {
       setDraggedTask(null);
       return;
     }
@@ -637,6 +883,12 @@ const HomeScreen = () => {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     
+    // Check if user has admin permission for the current list
+    if (!hasListAdminPermission(activeListId)) {
+      alert('Only list admins can create tasks');
+      return;
+    }
+    
     try {
       const taskData = {
         title: newTask.title.trim(),
@@ -709,17 +961,39 @@ const HomeScreen = () => {
   const handleCreateList = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/lists', {
+      // Create the list first
+      const response = await axios.post('/api/lists', {
         name: newList.name,
         description: newList.description,
         reset_period: newList.reset_period
       });
       
+      const listId = response.data.listId;
+      
+      // Add users to the new list (excluding current user who is automatically added as owner)
+      for (const userListUser of newListUsers) {
+        // Skip the current user since they're automatically added as owner by the backend
+        if (userListUser.id === user?.id) {
+          console.log(`⏭️ Skipping current user ${user?.id} (automatically added as owner)`);
+          continue;
+        }
+        
+        console.log(`👤 Adding user ${userListUser.id} with permission ${userListUser.permission_level}`);
+        await axios.post(`/api/lists/${listId}/users`, {
+          userId: userListUser.id,
+          permissionLevel: userListUser.permission_level
+        });
+      }
+      
+      // Reset form state
       setNewList({
         name: '',
         description: '',
         reset_period: 'daily'
       });
+      setNewListUsers([]);
+      setSelectedNewListUser('');
+      setSelectedNewListUserPermission('user');
       setShowCreateList(false);
       fetchLists();
     } catch (error) {
@@ -745,6 +1019,13 @@ const HomeScreen = () => {
 
   const confirmDeleteTask = async () => {
     if (!taskToDelete) return;
+    
+    // Check if user has admin permission for the current list
+    if (!hasListAdminPermission(activeListId)) {
+      alert('Only list admins can delete tasks');
+      setTaskToDelete(null);
+      return;
+    }
     
     try {
       await axios.delete(`/api/tasks/${taskToDelete.id}`);
@@ -773,6 +1054,13 @@ const HomeScreen = () => {
 
   const handleUpdateTask = async (e) => {
     e.preventDefault();
+    
+    // Check if user has admin permission for the current list
+    if (!hasListAdminPermission(activeListId)) {
+      alert('Only list admins can edit tasks');
+      return;
+    }
+    
     try {
       const response = await axios.patch(`/api/tasks/${editingTask.id}`, {
         title: editingTask.title,
@@ -797,21 +1085,70 @@ const HomeScreen = () => {
       description: list.description,
       reset_period: list.reset_period
     });
+    // Fetch list users and all users when opening edit modal
+    fetchListUsers(list.id);
+    fetchAllUsers();
+    // Reset pending changes
+    setPendingUserChanges([]);
+    setSelectedNewUserPermission('user');
     setShowEditList(true);
   };
 
   const handleUpdateList = async (e) => {
     e.preventDefault();
     try {
+      console.log('🔄 Applying pending changes:', pendingUserChanges);
+      
+      // Apply all pending user changes first
+      for (const change of pendingUserChanges) {
+        console.log(`📝 Applying change:`, change);
+        if (change.action === 'add') {
+          await axios.post(`/api/lists/${editingList.id}/users`, {
+            userId: change.userId,
+            permissionLevel: change.permissionLevel
+          });
+          console.log(`✅ Added user ${change.userId} with permission ${change.permissionLevel}`);
+        } else if (change.action === 'remove') {
+          await axios.delete(`/api/lists/${editingList.id}/users/${change.userId}`);
+          console.log(`✅ Removed user ${change.userId}`);
+        } else if (change.action === 'update') {
+          await axios.post(`/api/lists/${editingList.id}/users`, {
+            userId: change.userId,
+            permissionLevel: change.permissionLevel
+          });
+          console.log(`✅ Updated user ${change.userId} to ${change.permissionLevel}`);
+        }
+      }
+      
+      // Verify the changes were applied by fetching current list users
+      console.log(`🔍 Verifying changes for list ${editingList.id}`);
+      try {
+        const verifyResponse = await axios.get(`/api/lists/${editingList.id}/users`);
+        console.log(`📋 Current list users after update:`, verifyResponse.data);
+        
+        // Check if test1 has the expected permissions
+        const test1User = verifyResponse.data.find(u => u.username === 'test1');
+        if (test1User) {
+          console.log(`👤 test1 permissions: ${test1User.permission_level}`);
+        } else {
+          console.log(`⚠️ test1 not found in list users`);
+        }
+      } catch (error) {
+        console.error('❌ Error verifying changes:', error);
+      }
+
+      // Update list details
       const response = await axios.patch(`/api/lists/${editingList.id}`, {
         name: editingList.name,
         description: editingList.description,
         reset_period: editingList.reset_period
       });
       console.log('List updated:', response.data);
-      fetchLists();
+      fetchLists(); 
       setShowEditList(false);
       setEditingList(null);
+      setPendingUserChanges([]);
+      setSelectedNewUserPermission('user');
     } catch (error) {
       console.error('Error updating list:', error);
       const errorMsg = error.response?.data?.error || error.message;
@@ -986,15 +1323,13 @@ const HomeScreen = () => {
             </div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
-              {isAdmin && (
-                <button
-                  onClick={() => setShowCreateList(!showCreateList)}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Create List</span>
-                </button>
-              )}
+              <button
+                onClick={handleOpenCreateList}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Create List</span>
+              </button>
               
               <button
                 onClick={() => navigate('/admin/reset-password')}
@@ -1061,6 +1396,124 @@ const HomeScreen = () => {
                 />
               </div>
               
+              {/* List Users Section */}
+              <div className="border-t border-gray-700 pt-4">
+                <h4 className="text-lg font-medium text-white flex items-center mb-4">
+                  <Users className="h-5 w-5 mr-2 text-purple-400" />
+                  List Permissions
+                </h4>
+                
+                <div className="space-y-3 mb-4">
+                  {newListUsers.map((listUser) => (
+                    <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          {listUser.permission_level === 'owner' ? (
+                            <Crown className="h-4 w-4 text-yellow-400" />
+                          ) : listUser.permission_level === 'admin' ? (
+                            <Settings className="h-4 w-4 text-orange-400" />
+                          ) : (
+                            <User className="h-4 w-4 text-blue-400" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-white font-medium text-sm">{listUser.username}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {/* Show dropdown and delete button only if not the current user as owner */}
+                        {!(user?.id === listUser.id && listUser.permission_level === 'owner') ? (
+                          <>
+                            <select
+                              value={listUser.permission_level}
+                              onChange={(e) => {
+                                const newPermission = e.target.value;
+                                setNewListUsers(prev => {
+                                  const updatedList = prev.map(user => 
+                                    user.id === listUser.id 
+                                      ? { ...user, permission_level: newPermission }
+                                      : user
+                                  );
+                                  
+                                  // Sort by role hierarchy (owner > admin > user) then alphabetically
+                                  const roleOrder = { owner: 0, admin: 1, user: 2 };
+                                  return updatedList.sort((a, b) => {
+                                    const aRoleOrder = roleOrder[a.permission_level] ?? 999;
+                                    const bRoleOrder = roleOrder[b.permission_level] ?? 999;
+                                    
+                                    if (aRoleOrder !== bRoleOrder) {
+                                      return aRoleOrder - bRoleOrder;
+                                    }
+                                    
+                                    return a.username.localeCompare(b.username);
+                                  });
+                                });
+                              }}
+                              className="bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-purple-500 focus:outline-none"
+                            >
+                              <option value="owner">Owner</option>
+                              <option value="admin">Admin</option>
+                              <option value="user">User</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => removeUserFromNewList(listUser.id)}
+                              className="text-red-400 hover:text-red-300 transition-colors"
+                              title="Remove user"
+                            >
+                              <UserMinus className="h-3 w-3" />
+                            </button>
+                          </>
+                        ) : (
+                          // Show empty space for current user as owner to maintain alignment
+                          <div className="w-20"></div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="border-t border-gray-700 pt-3">
+                  <p className="text-xs text-gray-400 mb-2">Add new user:</p>
+                  <div className="space-y-2">
+                    <select
+                      value={selectedNewListUser}
+                      onChange={(e) => setSelectedNewListUser(e.target.value)}
+                      className="input w-full"
+                    >
+                      <option value="">Select a user...</option>
+                      {allUsers
+                        .filter(user => !newListUsers.some(listUser => listUser.id === user.id))
+                        .map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.username}
+                          </option>
+                        ))
+                      }
+                    </select>
+                    <select
+                      value={selectedNewListUserPermission}
+                      onChange={(e) => setSelectedNewListUserPermission(e.target.value)}
+                      className="input w-full"
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addUserToNewList(selectedNewListUser, selectedNewListUserPermission);
+                      }}
+                      className="btn-primary w-full flex items-center justify-center"
+                    >
+                      <UserPlus className="h-3 w-3 mr-2" />
+                      Add User
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
               <div className="flex space-x-3">
                 <button type="submit" className="btn-primary">
                   Create List
@@ -1084,14 +1537,12 @@ const HomeScreen = () => {
           <div className="text-center py-8 sm:py-12">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">No Lists Yet</h2>
             <p className="text-sm sm:text-base text-gray-300 mb-4 sm:mb-6">Create your first list to get started!</p>
-            {isAdmin && (
-              <button
-                onClick={() => setShowCreateList(true)}
-                className="btn-primary text-sm sm:text-base px-4 sm:px-6 py-2"
-              >
-                Create Your First List
-              </button>
-            )}
+            <button
+              onClick={handleOpenCreateList}
+              className="btn-primary text-sm sm:text-base px-4 sm:px-6 py-2"
+            >
+              Create Your First List
+            </button>
           </div>
         ) : (
           <div>
@@ -1100,7 +1551,7 @@ const HomeScreen = () => {
               {lists.map((list) => (
                 <div
                   key={list.id}
-                  draggable={isAdmin}
+                  draggable={hasListAdminPermission(list.id)}
                   onDragStart={(e) => handleDragStart(e, list)}
                   onDragOver={(e) => handleDragOver(e, list)}
                   onDragLeave={handleDragLeave}
@@ -1299,7 +1750,10 @@ const HomeScreen = () => {
                       </div>
                     )}
                     {activeList.reset_period === 'static' && <div />}
-                    {isAdmin && (
+                    {(() => {
+                        console.log(`🎯 Rendering admin buttons - activeListId: ${activeListId}, hasAdmin: ${hasListAdminPermission(activeListId)}, hasOwner: ${hasListOwnerPermission(activeListId)}`);
+                        return hasListOwnerPermission(activeListId);
+                      })() && (
                       <div className="flex items-center gap-1 sm:gap-2">
                         <button
                           onClick={() => handleEditList(activeList)}
@@ -1519,6 +1973,148 @@ const HomeScreen = () => {
                           <option value="static">None - do not reset</option>
                         </select>
                       </div>
+
+                      {/* List Permissions Section */}
+                      <div className="border-t border-gray-700 pt-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-medium text-white flex items-center">
+                            <Users className="h-5 w-5 mr-2 text-purple-400" />
+                            List Permissions
+                          </h4>
+                        </div>
+                        
+                        <div className="space-y-3 mb-4">
+                          {(listUsers || []).map((listUser) => (
+                            <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                <div className="relative">
+                                  {listUser.permission_level === 'owner' ? (
+                                    <Crown className="h-4 w-4 text-yellow-400" />
+                                  ) : listUser.permission_level === 'admin' ? (
+                                    <Settings className="h-4 w-4 text-orange-400" />
+                                  ) : (
+                                    <User className="h-4 w-4 text-blue-400" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-white font-medium text-sm">{listUser.username}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {/* Show dropdown and delete button only if not the current user as owner */}
+                                {!(user?.id === listUser.id && listUser.permission_level === 'owner') ? (
+                                  <>
+                                    <select
+                                      value={listUser.permission_level}
+                                      onChange={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const newPermission = e.target.value;
+                                        
+                                        // Remove any existing changes for this user
+                                        const filteredChanges = pendingUserChanges.filter(
+                                          change => change.userId !== listUser.id
+                                        );
+                                        
+                                        // Add update change
+                                        setPendingUserChanges([...filteredChanges, {
+                                          action: 'update',
+                                          userId: listUser.id,
+                                          permissionLevel: newPermission
+                                        }]);
+                                        
+                                        // Update local display immediately with proper sorting
+                                        setListUsers(prev => {
+                                          const updatedList = prev.map(user => 
+                                            user.id === listUser.id 
+                                              ? { ...user, permission_level: newPermission }
+                                              : user
+                                          );
+                                        
+                                          // Sort by role hierarchy (owner > admin > user) then alphabetically
+                                          const roleOrder = { owner: 0, admin: 1, user: 2 };
+                                          return updatedList.sort((a, b) => {
+                                            const aRoleOrder = roleOrder[a.permission_level] ?? 999;
+                                            const bRoleOrder = roleOrder[b.permission_level] ?? 999;
+                                            
+                                            if (aRoleOrder !== bRoleOrder) {
+                                              return aRoleOrder - bRoleOrder;
+                                            }
+                                            
+                                            return a.username.localeCompare(b.username);
+                                          });
+                                        });
+                                      }}
+                                      className="bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-purple-500 focus:outline-none"
+                                    >
+                                      <option value="owner">Owner</option>
+                                      <option value="admin">Admin</option>
+                                      <option value="user">User</option>
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        removeUserFromList(selectedListForUsers, listUser.id);
+                                      }}
+                                      className="text-red-400 hover:text-red-300 transition-colors"
+                                      title="Remove user"
+                                    >
+                                      <UserMinus className="h-3 w-3" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  // Show empty space for current user as owner to maintain alignment
+                                  <div className="w-20"></div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="border-t border-gray-700 pt-3">
+                          <p className="text-xs text-gray-400 mb-2">Add new user:</p>
+                          <div className="space-y-2">
+                            <select
+                              value={selectedNewUser}
+                              onChange={(e) => setSelectedNewUser(e.target.value)}
+                              className="input w-full"
+                            >
+                              <option value="">Select a user...</option>
+                              {allUsers
+                                .filter(user => !(listUsers || []).some(listUser => listUser.id === user.id))
+                                .map(user => (
+                                  <option key={user.id} value={user.id}>
+                                    {user.username}
+                                  </option>
+                                ))
+                              }
+                            </select>
+                            <select
+                              value={selectedNewUserPermission}
+                              onChange={(e) => setSelectedNewUserPermission(e.target.value)}
+                              className="input w-full"
+                            >
+                              <option value="user">User</option>
+                              <option value="admin">Admin</option>
+                              <option value="owner">Owner</option>
+                            </select>
+                            <button
+                              type="button" // Prevent form submission
+                              onClick={() => {
+                                addUserToListBySelection(selectedListForUsers, selectedNewUser, selectedNewUserPermission);
+                                setSelectedNewUser('');
+                                setSelectedNewUserPermission('user');
+                              }}
+                              className="btn-primary w-full flex items-center justify-center"
+                            >
+                              <UserPlus className="h-3 w-3 mr-2" />
+                              Add User
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                       
                       <div className="flex space-x-2">
                         <button type="submit" className="btn-primary">
@@ -1607,7 +2203,7 @@ const HomeScreen = () => {
                         .map((task) => (
                         <div
                           key={task.id}
-                          draggable={isAdmin}
+                          draggable={hasListAdminPermission(activeListId)}
                           onDragStart={(e) => handleTaskDragStart(e, task)}
                           onDragOver={(e) => handleTaskDragOver(e, task)}
                           onDragLeave={handleTaskDragLeave}
@@ -1665,7 +2261,7 @@ const HomeScreen = () => {
                                   {task.assigned_username}
                                 </span>
                               )}
-                              {isAdmin && (
+                              {hasListAdminPermission(activeListId) && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

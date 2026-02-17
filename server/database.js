@@ -268,10 +268,10 @@ class Database {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id INTEGER NOT NULL,
           list_id INTEGER NOT NULL,
-          permission_level TEXT NOT NULL CHECK (permission_level IN ('owner', 'editor', 'viewer')),
+          permission_level TEXT NOT NULL CHECK (permission_level IN ('admin', 'owner', 'user')),
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id),
-          FOREIGN KEY (list_id) REFERENCES users (id),
+          FOREIGN KEY (list_id) REFERENCES lists (id),
           UNIQUE(user_id, list_id)
         )
       `);
@@ -737,6 +737,141 @@ class Database {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();
+  }
+
+  // Get user's permission level for a specific list
+  getUserListPermission(userId, listId, callback) {
+    const stmt = this.db.prepare('SELECT permission_level FROM user_list_permissions WHERE user_id = ? AND list_id = ?');
+    stmt.get([userId, listId], (err, row) => {
+      callback(err, row ? row.permission_level : null);
+    });
+    stmt.finalize();
+  }
+
+  // Get all users with permissions for a specific list
+  getListUsers(listId, callback) {
+    const stmt = this.db.prepare(`
+      SELECT u.id, u.username, ulp.permission_level 
+      FROM users u 
+      JOIN user_list_permissions ulp ON u.id = ulp.user_id 
+      WHERE ulp.list_id = ?
+      ORDER BY ulp.created_at ASC
+    `);
+    stmt.all([listId], (err, rows) => {
+      callback(err, rows);
+    });
+    stmt.finalize();
+  }
+
+  // Remove user from list
+  removeUserFromList(userId, listId, callback) {
+    const stmt = this.db.prepare('DELETE FROM user_list_permissions WHERE user_id = ? AND list_id = ?');
+    stmt.run([userId, listId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  // Migration function to update existing permissions
+  migrateListPermissions(callback) {
+    console.log('🔄 Starting list permissions migration...');
+    
+    // Step 1: Drop the old table and recreate with new schema
+    this.db.run('DROP TABLE IF EXISTS user_list_permissions', (err) => {
+      if (err) {
+        console.error('❌ Error dropping old permissions table:', err);
+        return callback(err);
+      }
+      console.log('✅ Dropped old permissions table');
+      
+      // Step 2: Create new table with updated schema
+      this.db.run(`
+        CREATE TABLE user_list_permissions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          list_id INTEGER NOT NULL,
+          permission_level TEXT NOT NULL CHECK (permission_level IN ('admin', 'owner', 'user')),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id),
+          FOREIGN KEY (list_id) REFERENCES lists (id),
+          UNIQUE(user_id, list_id)
+        )
+      `, (err) => {
+        if (err) {
+          console.error('❌ Error creating new permissions table:', err);
+          return callback(err);
+        }
+        console.log('✅ Created new permissions table');
+        
+        // Step 3: Add admin users and list creators to all existing lists
+        this.db.all('SELECT id, created_by FROM lists WHERE is_active = 1', (err, lists) => {
+          if (err) {
+            console.error('❌ Error fetching lists:', err);
+            return callback(err);
+          }
+          
+          // Get all admin users
+          this.db.all('SELECT id FROM users WHERE is_admin = 1', (err, adminUsers) => {
+            if (err) {
+              console.error('❌ Error fetching admin users:', err);
+              return callback(err);
+            }
+            
+            let completed = 0;
+            let total = 0;
+            
+            // Calculate total operations
+            lists.forEach(list => {
+              // Admin users to all lists
+              total += adminUsers.length;
+              // List creator as owner (if not already admin)
+              if (!adminUsers.some(admin => admin.id === list.created_by)) {
+                total += 1;
+              }
+            });
+            
+            if (total === 0) {
+              console.log('✅ No users or lists to migrate');
+              return callback(null);
+            }
+            
+            console.log(`📋 Adding permissions for ${lists.length} lists...`);
+            
+            lists.forEach(list => {
+              // Add admin users to this list
+              adminUsers.forEach(adminUser => {
+                this.addUserToList(adminUser.id, list.id, 'admin', (err) => {
+                  if (err) {
+                    console.error(`❌ Error adding admin ${adminUser.id} to list ${list.id}:`, err);
+                  }
+                  
+                  completed++;
+                  if (completed === total) {
+                    console.log('✅ List permissions migration completed');
+                    callback(null);
+                  }
+                });
+              });
+              
+              // Add list creator as owner (if not already admin)
+              if (!adminUsers.some(admin => admin.id === list.created_by)) {
+                this.addUserToList(list.created_by, list.id, 'owner', (err) => {
+                  if (err) {
+                    console.error(`❌ Error adding creator ${list.created_by} to list ${list.id}:`, err);
+                  }
+                  
+                  completed++;
+                  if (completed === total) {
+                    console.log('✅ List permissions migration completed');
+                    callback(null);
+                  }
+                });
+              }
+            });
+          });
+        });
+      });
+    });
   }
 
   // List snapshots for history

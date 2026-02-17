@@ -15,8 +15,13 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/?source=pwa",
   "display": "standalone",
   "theme_color": "#7c3aed",
-  "background_color": "#1e1b4b"
+  "background_color": "#1e1b4b",
+  "orientation": "portrait",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "description": "The Nest - Chore and task tracking platform",
+  "categories": ["productivity", "utilities"]
 }

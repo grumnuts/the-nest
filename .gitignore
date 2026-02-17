@@ -14,6 +14,12 @@ node_modules/
 *.db
 *.sqlite
 *.sqlite3
+**/data/
+**/the_nest.db
+**/sample.db
+server/data/
+server/the_nest.db
+server/sample.db
 
 # Logs
 logs
@@ -44,7 +50,7 @@ coverage/
 Thumbs.db
 
 # Docker
-.dockerignore
+docker-compose.override.yml
 
 # Backup files
 *.bak
@@ -53,3 +59,31 @@ Thumbs.db
 # Temporary folders
 tmp/
 temp/
+
+# Development files
+*.dev.js
+*.dev.ts
+dev-*
+development/
+dev/
+
+# Build artifacts
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# Lock files (keep package-lock.json but exclude others)
+yarn.lock
+pnpm-lock.yaml
+
+# Test files
+test/
+tests/
+__tests__/
+*.test.js
+*.test.ts
+coverage/
+
+# Documentation build
+docs/build/

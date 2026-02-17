@@ -6,7 +6,7 @@ const Database = require('../database');
 const router = express.Router();
 const db = new Database();
 
-// Get all lists for authenticated users (shared across all users)
+// Get all lists for authenticated users based on permissions
 router.get('/', authenticateToken, (req, res) => {
   console.log('📋 Fetching lists for user:', req.user.username);
   
@@ -16,20 +16,29 @@ router.get('/', authenticateToken, (req, res) => {
     return res.status(500).json({ error: 'Database not available' });
   }
   
-  // Get all active lists (shared across all users) ordered by sort_order
-  db.db.all('SELECT * FROM lists WHERE is_active = 1 ORDER BY sort_order ASC, created_at ASC', [], (err, lists) => {
+  // Get lists that the user has permission to access
+  const userId = req.user.userId;
+  const query = `
+    SELECT l.* 
+    FROM lists l
+    JOIN user_list_permissions ulp ON l.id = ulp.list_id
+    WHERE ulp.user_id = ? AND l.is_active = 1
+    ORDER BY l.sort_order ASC, l.created_at ASC
+  `;
+  
+  db.db.all(query, [userId], (err, lists) => {
     if (err) {
       console.error('❌ Error fetching lists:', err);
       return res.status(500).json({ error: 'Error fetching lists', details: err.message });
     }
 
-    console.log(`✅ Successfully fetched ${lists.length} lists`);
+    console.log(`✅ Successfully fetched ${lists.length} lists for user ${req.user.username}`);
     res.json({ lists });
   });
 });
 
 // Create a new list
-router.post('/', authenticateToken, checkAdmin, validateList, (req, res) => {
+router.post('/', authenticateToken, validateList, (req, res) => {
   
   const { name, description, reset_period } = req.body;
   const createdBy = req.user.userId;
@@ -136,16 +145,14 @@ router.patch('/:id', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Error checking permissions' });
     }
 
-    // Admins can edit any list, other users must be owners or editors
-    if (!req.user.is_admin) {
-      const listAccess = userLists.find(list => 
-        list.id === parseInt(listId) && 
-        ['owner', 'editor'].includes(list.permission_level)
-      );
+    // Only owners can edit lists (including admin users - they must be owners of the specific list)
+    const listAccess = userLists.find(list => 
+      list.id === parseInt(listId) && 
+      list.permission_level === 'owner'
+    );
 
-      if (!listAccess) {
-        return res.status(403).json({ error: 'Only list owners and editors can update lists' });
-      }
+    if (!listAccess) {
+      return res.status(403).json({ error: 'Only list owners can edit lists' });
     }
 
     // Update the list
@@ -176,16 +183,14 @@ router.delete('/:id', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Error checking permissions' });
     }
 
-    // Admins can delete any list, other users must be owners
-    if (!req.user.is_admin) {
-      const listAccess = userLists.find(list => 
-        list.id === parseInt(listId) && 
-        ['owner'].includes(list.permission_level)
-      );
+    // Only owners can delete lists (including admin users - they must be owners of the specific list)
+    const listAccess = userLists.find(list => 
+      list.id === parseInt(listId) && 
+      list.permission_level === 'owner'
+    );
 
-      if (!listAccess) {
-        return res.status(403).json({ error: 'Only list owners can delete lists' });
-      }
+    if (!listAccess) {
+      return res.status(403).json({ error: 'Only list owners can delete lists' });
     }
 
     // Delete the list (this will also delete related tasks and completions due to foreign key constraints)
@@ -201,6 +206,121 @@ router.delete('/:id', authenticateToken, (req, res) => {
       res.json({
         message: 'List deleted successfully'
       });
+    });
+  });
+});
+
+// Get users with permissions for a specific list
+router.get('/:id/users', authenticateToken, (req, res) => {
+  const listId = req.params.id;
+  const userId = req.user.userId;
+
+  const hasListAdminPermission = (userId, listId, callback) => {
+    db.getUserListPermission(userId, listId, (err, permission) => {
+      if (err) {
+        return callback(err);
+      }
+      callback(null, permission === 'admin' || permission === 'owner');
+    });
+  };
+
+  hasListAdminPermission(userId, listId, (err, isAdmin) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking permissions' });
+    }
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'No permission to access this list' });
+    }
+
+    // If user is admin, return all users. If user is regular user, return only their own permission
+    if (isAdmin) {
+      // Get all users with permissions for this list
+      db.getListUsers(listId, (err, users) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching list users' });
+        }
+
+        res.json(users);
+      });
+    } else {
+      // Return only the current user's permission
+      db.getListUsers(listId, (err, users) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching list users' });
+        }
+
+        const currentUserPermission = users.find(u => u.id === userId);
+        res.json([currentUserPermission]);
+      });
+    }
+  });
+});
+
+// Add user to list
+router.post('/:id/users', authenticateToken, (req, res) => {
+  const listId = req.params.id;
+  const { userId, permissionLevel } = req.body;
+  const currentUserId = req.user.userId;
+
+  // Validate permission level
+  if (!['admin', 'owner', 'user'].includes(permissionLevel)) {
+    return res.status(400).json({ error: 'Invalid permission level' });
+  }
+
+  // Check if current user has admin permission for this list
+  db.getUserListPermission(currentUserId, listId, (err, permission) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking permissions' });
+    }
+
+    if (permission !== 'admin' && permission !== 'owner') {
+      return res.status(403).json({ error: 'Only list admins can add users' });
+    }
+
+    // Add user to list
+    db.addUserToList(userId, listId, permissionLevel, (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error adding user to list' });
+      }
+
+      res.json({ message: 'User added to list successfully' });
+    });
+  });
+});
+
+// Remove user from list
+router.delete('/:id/users/:userId', authenticateToken, (req, res) => {
+  const listId = req.params.id;
+  const targetUserId = req.params.userId;
+  const currentUserId = req.user.userId;
+
+  // Check if current user has admin permission for this list
+  db.getUserListPermission(currentUserId, listId, (err, permission) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking permissions' });
+    }
+
+    if (permission !== 'admin' && permission !== 'owner') {
+      return res.status(403).json({ error: 'Only list admins can remove users' });
+    }
+
+    // Don't allow removing yourself if you're the only admin
+    if (targetUserId == currentUserId) {
+      return res.status(400).json({ error: 'Cannot remove yourself from the list' });
+    }
+
+    // Remove user from list
+    db.removeUserFromList(targetUserId, listId, (err, changes) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error removing user from list' });
+      }
+
+      if (changes === 0) {
+        return res.status(404).json({ error: 'User not found in list' });
+      }
+
+      res.json({ message: 'User removed from list successfully' });
     });
   });
 });

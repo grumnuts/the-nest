@@ -6,16 +6,14 @@ import ListView from './components/ListView';
 import Settings from './components/Settings';
 import Navbar from './components/Navbar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import LoadingScreen from './components/LoadingScreen';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -52,11 +50,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <AppRoutes />
-      </div>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+          <AppRoutes />
+        </div>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

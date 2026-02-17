@@ -1,0 +1,131 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production builds
+/client/build
+/server/dist
+/server/.next
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database - CRITICAL: Exclude all database files to prevent deployment issues
+*.db
+*.sqlite
+*.sqlite3
+database.sqlite
+database.db
+**/data/
+**/the_nest.db
+**/sample.db
+server/data/
+server/the_nest.db
+server/sample.db
+sample.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+
+# Test files
+test-results/
+coverage/
+
+# Temporary folders
+tmp/
+temp/
+
+# Development files
+*.dev.js
+*.dev.ts
+dev-*
+development/
+dev/
+
+# Build artifacts (additional)
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# Lock files
+yarn.lock
+pnpm-lock.yaml
+
+# Test files
+test/
+tests/
+__tests__/
+*.test.js
+*.test.ts
+
+# Shell scripts
+*.sh
+docker-entrypoint.sh
+build-multi-arch.sh
+
+# Sample files
+sample.*
+
+# Development configuration
+webpack.config.js
+.babelrc
+.eslintrc*
+.prettierrc*
+
+# Windsurf workspace
+.windsurft/
