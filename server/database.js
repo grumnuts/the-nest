@@ -275,6 +275,23 @@ class Database {
       this.db.run('CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to)');
       this.db.run('CREATE INDEX IF NOT EXISTS idx_user_goals_user_id ON user_goals(user_id)');
       this.db.run('CREATE INDEX IF NOT EXISTS idx_list_snapshots_list_id ON list_snapshots(list_id)');
+
+      // Create default admin user if no users exist
+      this.db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
+        if (!err && row.count === 0) {
+          const bcrypt = require('bcryptjs');
+          const defaultPassword = 'admin123';
+          bcrypt.hash(defaultPassword, 10, (hashErr, hash) => {
+            if (!hashErr) {
+              const now = localNow();
+              this.db.run(
+                'INSERT INTO users (username, email, password_hash, is_admin, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                ['admin', 'admin@thenest.local', hash, 1, 'owner', now, now]
+              );
+            }
+          });
+        }
+      });
     });
   }
 
