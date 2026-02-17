@@ -49,7 +49,8 @@ router.post('/login', validateLogin, (req, res) => {
         message: 'Login successful',
         token,
         user: { 
-          userId: user.id, 
+          id: user.id, 
+          userId: user.id, // Keep for backward compatibility
           username: user.username, 
           email: user.email, 
           role: user.role || (user.is_admin ? 'admin' : 'user'),
@@ -66,7 +67,8 @@ router.post('/login', validateLogin, (req, res) => {
 router.get('/verify', authenticateToken, (req, res) => {
   res.json({
     user: {
-      userId: req.user.userId,
+      id: req.user.userId,
+      userId: req.user.userId, // Keep for backward compatibility
       username: req.user.username,
       email: req.user.email,
       role: req.user.role || (req.user.is_admin ? 'admin' : 'user'),
