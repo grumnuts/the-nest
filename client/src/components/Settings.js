@@ -553,8 +553,15 @@ const Settings = () => {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {/* Only show edit button for admins/owners, but hide for owners when current user is not owner */}
-                          {(currentUser?.is_admin === 1 || currentUser?.role === 'admin' || currentUser?.role === 'owner') && user.id !== currentUser.userId && !(user.role === 'owner' && currentUser?.role !== 'owner') && (
+                          {/* Show edit button based on user role and current user permissions */}
+                          {user.id !== currentUser.userId && (
+                            // Owner accounts: only owners can edit owners
+                            (user.role === 'owner' ? currentUser?.role === 'owner' :
+                            // Admin accounts: owners and admins can edit admins
+                            (user.role === 'admin' ? (currentUser?.role === 'owner' || currentUser?.role === 'admin') :
+                            // User accounts: owners and admins can edit users
+                            (currentUser?.role === 'owner' || currentUser?.role === 'admin'))
+                          ) && (
                             <button
                               onClick={() => {
                                 console.log('Edit button clicked for user:', user);
@@ -566,7 +573,7 @@ const Settings = () => {
                             >
                               <Edit className="h-4 w-4" />
                             </button>
-                          )}
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -619,8 +626,12 @@ const Settings = () => {
                         onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                       >
                         <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                        <option value="owner">Owner</option>
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
+                          <option value="admin">Admin</option>
+                        )}
+                        {currentUser?.role === 'owner' && (
+                          <option value="owner">Owner</option>
+                        )}
                       </select>
                     </div>
                     <div className="flex flex-wrap gap-2">

@@ -1441,7 +1441,7 @@ const HomeScreen = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         {/* Show dropdown for all users except current user */}
-                        {!(user?.userId === listUser.id && listUser.permission_level === 'owner') ? (
+                        {user?.id !== listUser.id ? (
                           <select
                             value={listUser.permission_level}
                             onChange={(e) => {
@@ -1479,7 +1479,7 @@ const HomeScreen = () => {
                         )}
                         
                         {/* Show delete button for all users except current user */}
-                        {!(user?.userId === listUser.id && listUser.permission_level === 'owner') && user?.userId !== listUser.id && (
+                        {user?.id !== listUser.id && (
                           <button
                             type="button"
                             onClick={() => removeUserFromNewList(listUser.id)}
@@ -2025,7 +2025,7 @@ const HomeScreen = () => {
                               </div>
                               <div className="flex items-center space-x-2">
                                 {/* Show dropdown for all users except current user */}
-                                {!(user?.userId === listUser.id && listUser.permission_level === 'owner') ? (
+                                {user?.userId !== listUser.id ? (
                                   <select
                                     value={getEffectivePermission(listUser.id, listUser.permission_level)}
                                     onChange={(e) => {
@@ -2059,14 +2059,7 @@ const HomeScreen = () => {
                                 )}
                                 
                                 {/* Show delete button for all users except current user */}
-                                {(() => {
-                                  console.log(`🔍 Delete button check: user?.userId=${user?.userId}, listUser.id=${listUser.id}, listUser.permission_level=${listUser.permission_level}`);
-                                  console.log(`🔍 Condition 1: !(user?.userId === listUser.id && listUser.permission_level === 'owner') = ${!(user?.userId === listUser.id && listUser.permission_level === 'owner')}`);
-                                  console.log(`🔍 Condition 2: user?.userId !== listUser.id = ${user?.userId !== listUser.id}`);
-                                  const shouldShow = !(user?.userId === listUser.id && listUser.permission_level === 'owner') && user?.userId !== listUser.id;
-                                  console.log(`🔍 Should show delete button: ${shouldShow}`);
-                                  return shouldShow;
-                                })() && (
+                                {user?.userId !== listUser.id && (
                                   <button
                                     type="button"
                                     onClick={(e) => {

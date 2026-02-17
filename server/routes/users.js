@@ -99,9 +99,9 @@ router.put('/:id', authenticateToken, (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    // Don't allow editing admin account
-    if (parseInt(id) === 1) {
-      return res.status(403).json({ error: 'Cannot edit admin account' });
+    // Don't allow editing admin account unless current user is owner
+    if (parseInt(id) === 1 && !hasOwnerPrivileges(adminUser)) {
+      return res.status(403).json({ error: 'Only owners can edit admin account' });
     }
     
     // Don't allow admins to edit owners (only owners can edit owners)
