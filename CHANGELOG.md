@@ -2,6 +2,34 @@
 
 All notable changes to The Nest will be documented in this file.
 
+## [Unreleased]
+
+### ✨ New Features
+- **User Names System** - Added first name and last name fields to user profiles
+- **Enhanced User Display** - Show user's full name in User Management section
+- **Personalized Welcome Message** - Display user's first name in welcome message
+- **First Name in Completions** - Task completions now show user's first name instead of username
+
+### 🗄️ Database Changes
+- **User Table Updates** - Added `first_name` and `last_name` columns to users table
+- **Migration Support** - Automatic database schema migration for existing installations
+
+### 🔧 Backend Updates
+- **API Enhancements** - Updated user creation and update endpoints to handle first/last names
+- **Auth Token Updates** - JWT tokens now include user's first and last name
+- **Task Query Updates** - Completion data now includes user first names for proper display
+
+### 🎨 Frontend Updates
+- **User Form Enhancements** - Added first name and last name fields to user creation/edit forms
+- **Form Field Reordering** - First/last name fields now appear above username field
+- **Display Logic Updates** - Smart fallback system (first name → username) for all user displays
+- **User Editor Fixes** - Fixed form population when editing existing users
+
+### 🐛 Bug Fixes
+- **Form Population Issue** - Fixed user editor not pre-populating first/last name fields
+- **Completion Display Issue** - Fixed task completions showing usernames instead of first names
+- **Cache Issues** - Resolved browser caching problems preventing first name display
+
 ## [v1.0.0] - 2026-02-17
 
 ### 🎉 Initial Release
