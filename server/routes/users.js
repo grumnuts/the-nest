@@ -8,8 +8,8 @@ const db = new Database();
 
 // Get all users (any authenticated user)
 router.get('/', authenticateToken, (req, res) => {
-  // Get all users with role field
-  db.db.all('SELECT id, username, email, is_admin, role, created_at FROM users', [], (err, users) => {
+  // Get all users with role field and names
+  db.db.all('SELECT id, username, email, first_name, last_name, is_admin, role, created_at FROM users', [], (err, users) => {
     if (err) {
       return res.status(500).json({ error: 'Error fetching users' });
     }

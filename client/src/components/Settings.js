@@ -49,6 +49,22 @@ const Settings = () => {
   const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'user', firstName: '', lastName: '' });
   const [userToDelete, setUserToDelete] = useState(null);
 
+  // Helper function to get user's full name
+  const getUserFullName = (user) => {
+    if (!user) return '';
+    
+    const firstName = user.first_name;
+    const lastName = user.last_name;
+    
+    // If user has first name or last name, use them
+    if (firstName || lastName) {
+      return `${firstName || ''} ${lastName || ''}`.trim();
+    }
+    
+    // Fallback to username if no names are set
+    return user.username;
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'goals', label: 'Goals', icon: Target },
@@ -536,7 +552,7 @@ const Settings = () => {
                         <div className="flex-1">
                           <div className="flex items-center space-x-3">
                             <div>
-                              <h3 className="font-medium text-white">{user.username}</h3>
+                              <h3 className="font-medium text-white">{getUserFullName(user)}</h3>
                               <p className="text-sm text-gray-400">{user.email}</p>
                             </div>
                             <div className="mt-2">
