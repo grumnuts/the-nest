@@ -1577,10 +1577,10 @@ const HomeScreen = () => {
                   onDrop={(e) => handleDrop(e, list)}
                   data-draggable="true"
                   data-list-id={list.id}
-                  className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-t-lg text-xs sm:text-sm font-medium transition-all cursor-move relative whitespace-nowrap ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors cursor-move relative whitespace-nowrap ${
                     activeListId === list.id
-                      ? 'bg-purple-600 text-white shadow-lg'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
                   } ${
                     draggedList?.id === list.id ? 'opacity-50' : ''
                   }`}
