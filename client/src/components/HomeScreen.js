@@ -11,19 +11,14 @@ import logoImage from '../assets/TheNestLogo.png';
 const getCompletionDisplayName = (completion) => {
   if (!completion) return '';
   
-  // Debug: Log the completion object
-  console.log('Completion object:', completion);
-  
   const firstName = completion.first_name;
   
   // If completion has first name, use it
   if (firstName) {
-    console.log('Using first name:', firstName);
     return firstName;
   }
   
   // Fallback to username if no first name is set
-  console.log('Using username fallback:', completion.username);
   return completion.username || '';
 };
 

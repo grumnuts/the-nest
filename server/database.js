@@ -486,11 +486,7 @@ class Database {
       WHERE t.list_id = ? 
       GROUP BY t.id
       ORDER BY t.sort_order ASC, t.created_at ASC
-    `, [listId], (err, rows) => {
-      // Debug: Log the raw query results
-      console.log('Raw query results for list', listId, ':', rows);
-      callback(err, rows);
-    });
+    `, [listId], callback);
   }
 
   getTasksByListForDate(listId, dateStart, dateEnd, callback) {
@@ -502,6 +498,7 @@ class Database {
                  'id', tc.id,
                  'completed_by', tc.completed_by,
                  'username', cu.username,
+                 'first_name', cu.first_name,
                  'completed_at', tc.completed_at
                )
              ) as completions

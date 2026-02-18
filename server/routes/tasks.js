@@ -308,9 +308,7 @@ router.get('/list/:listId', authenticateToken, (req, res) => {
       if (err) {
         return res.status(500).json({ error: 'Error fetching tasks' });
       }
-      // Debug: Log the tasks being returned for single date
-      console.log('Tasks returned from DB for single date:', JSON.stringify(tasks, null, 2));
-      res.json({ tasks });
+            res.json({ tasks });
     });
   } else {
     // No date filter - return all completions (legacy/static lists)
@@ -318,9 +316,7 @@ router.get('/list/:listId', authenticateToken, (req, res) => {
       if (err) {
         return res.status(500).json({ error: 'Error fetching tasks' });
       }
-      // Debug: Log the tasks being returned
-      console.log('Tasks returned from DB:', JSON.stringify(tasks, null, 2));
-      res.json({ tasks });
+            res.json({ tasks });
     });
   }
 });
