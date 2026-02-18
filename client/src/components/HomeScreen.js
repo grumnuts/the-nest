@@ -7,6 +7,36 @@ import ToggleSwitch from './ToggleSwitch';
 import ConfirmDialog from './ConfirmDialog';
 import logoImage from '../assets/TheNestLogo.png';
 
+// Helper function to get completion display name
+const getCompletionDisplayName = (completion) => {
+  if (!completion) return '';
+  
+  const firstName = completion.first_name;
+  
+  // If completion has first name, use it
+  if (firstName) {
+    return firstName;
+  }
+  
+  // Fallback to username if no first name is set
+  return completion.username || '';
+};
+
+// Helper function to get task completion display name
+const getTaskCompletionDisplayName = (task) => {
+  if (!task) return '';
+  
+  const firstName = task.completed_by_firstname;
+  
+  // If task has first name, use it
+  if (firstName) {
+    return firstName;
+  }
+  
+  // Fallback to username if no first name is set
+  return task.completed_by_username || '';
+};
+
 const TaskCompletionInfo = ({ task, isDailyList }) => {
   if (task.is_completed !== true && task.is_completed !== 1) {
     return null;
@@ -111,36 +141,7 @@ const HomeScreen = () => {
     return user.username;
   };
 
-  // Helper function to get completion display name
-  const getCompletionDisplayName = (completion) => {
-    if (!completion) return '';
     
-    const firstName = completion.first_name;
-    
-    // If completion has first name, use it
-    if (firstName) {
-      return firstName;
-    }
-    
-    // Fallback to username if no first name is set
-    return completion.username || '';
-  };
-
-  // Helper function to get task completion display name
-  const getTaskCompletionDisplayName = (task) => {
-    if (!task) return '';
-    
-    const firstName = task.completed_by_firstname;
-    
-    // If task has first name, use it
-    if (firstName) {
-      return firstName;
-    }
-    
-    // Fallback to username if no first name is set
-    return task.completed_by_username || '';
-  };
-  
   const [lists, setLists] = useState([]);
   const [activeListId, setActiveListId] = useState(null);
   const [tasks, setTasks] = useState([]);
