@@ -588,16 +588,6 @@ const Settings = () => {
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
-                      <input
-                        type="text"
-                        className="input w-full"
-                        value={newUser.username}
-                        onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                        placeholder="Enter username"
-                      />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
                       <input
                         type="text"
@@ -615,6 +605,16 @@ const Settings = () => {
                         value={newUser.lastName || ''}
                         onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
                         placeholder="Enter last name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        value={newUser.username}
+                        onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                        placeholder="Enter username"
                       />
                     </div>
                     <div>

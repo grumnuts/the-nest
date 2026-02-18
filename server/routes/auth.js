@@ -36,6 +36,8 @@ router.post('/login', validateLogin, (req, res) => {
           userId: user.id, 
           username: user.username, 
           email: user.email, 
+          first_name: user.first_name,
+          last_name: user.last_name,
           role: user.role || (user.is_admin ? 'admin' : 'user'), // Use new role field or fallback to is_admin
           is_admin: user.is_admin, // Keep for backward compatibility
           hide_goals: user.hide_goals, 
@@ -53,6 +55,8 @@ router.post('/login', validateLogin, (req, res) => {
           userId: user.id, // Keep for backward compatibility
           username: user.username, 
           email: user.email, 
+          first_name: user.first_name,
+          last_name: user.last_name,
           role: user.role || (user.is_admin ? 'admin' : 'user'),
           is_admin: user.is_admin, // Keep for backward compatibility
           hide_goals: user.hide_goals, 
@@ -71,6 +75,8 @@ router.get('/verify', authenticateToken, (req, res) => {
       userId: req.user.userId, // Keep for backward compatibility
       username: req.user.username,
       email: req.user.email,
+      first_name: req.user.first_name,
+      last_name: req.user.last_name,
       role: req.user.role || (req.user.is_admin ? 'admin' : 'user'),
       is_admin: req.user.is_admin, // Keep for backward compatibility
       hide_goals: req.user.hide_goals,

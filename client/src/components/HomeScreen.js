@@ -95,6 +95,22 @@ const HomeScreen = () => {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.is_admin === 1;
+
+  // Helper function to get user's display name
+  const getUserDisplayName = (user) => {
+    if (!user) return '';
+    
+    const firstName = user.first_name;
+    const lastName = user.last_name;
+    
+    // If user has first name or last name, use them
+    if (firstName || lastName) {
+      return `${firstName || ''} ${lastName || ''}`.trim();
+    }
+    
+    // Fallback to username if no names are set
+    return user.username;
+  };
   
   const [lists, setLists] = useState([]);
   const [activeListId, setActiveListId] = useState(null);
@@ -1288,7 +1304,7 @@ const HomeScreen = () => {
               <div className="flex flex-col justify-center">
                 <h1 className="text-lg sm:text-2xl font-bold text-white leading-tight">The Nest</h1>
                 <div className="text-xs sm:text-sm text-gray-300 hidden sm:block">
-                  Welcome, {user?.username}
+                  Welcome, {getUserDisplayName(user)}
                 </div>
               </div>
             </div>
