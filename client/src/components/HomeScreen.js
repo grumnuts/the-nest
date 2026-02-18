@@ -101,14 +101,13 @@ const HomeScreen = () => {
     if (!user) return '';
     
     const firstName = user.first_name;
-    const lastName = user.last_name;
     
-    // If user has first name or last name, use them
-    if (firstName || lastName) {
-      return `${firstName || ''} ${lastName || ''}`.trim();
+    // If user has first name, use it
+    if (firstName) {
+      return firstName;
     }
     
-    // Fallback to username if no names are set
+    // Fallback to username if no first name is set
     return user.username;
   };
   
