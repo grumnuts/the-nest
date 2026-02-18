@@ -1551,7 +1551,7 @@ const HomeScreen = () => {
       )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 pt-2 pb-4 sm:pb-6 lg:pb-8">
         {lists.length === 0 ? (
           <div className="text-center py-8 sm:py-12">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">No Lists Yet</h2>
