@@ -9,7 +9,7 @@ All notable changes to The Nest will be documented in this file.
 - Display user's first name in welcome message
 - Task completions now show user's first name instead of username
 
-### � Bug Fixes
+### 🐛 Bug Fixes
 - Fixed user editor not pre-populating first/last name fields
 - Fixed task completions showing usernames instead of first names
 - Resolved browser caching problems preventing first name display
@@ -18,6 +18,9 @@ All notable changes to The Nest will be documented in this file.
 - Users are now referenced by their first name rather than username
 - First/last name fields now appear above username field
 - Added automatic database schema migration for existing installations
+- Made list tabs consistent with settings tabs styling
+- Reduced tab padding for better mobile space utilization
+- Tightened spacing between header and list tabs
 
 ## [v1.0.0] - 2026-02-17
 
