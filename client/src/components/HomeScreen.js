@@ -11,9 +11,6 @@ import logoImage from '../assets/TheNestLogo.png';
 const getCompletionDisplayName = (completion) => {
   if (!completion) return '';
   
-  // Debug logging
-  console.log('Completion data:', completion);
-  
   const firstName = completion.first_name;
   
   // If completion has first name, use it
@@ -28,9 +25,6 @@ const getCompletionDisplayName = (completion) => {
 // Helper function to get task completion display name
 const getTaskCompletionDisplayName = (task) => {
   if (!task) return '';
-  
-  // Debug logging
-  console.log('Task completion data:', task);
   
   const firstName = task.completed_by_firstname;
   
@@ -52,9 +46,6 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
   let completions = [];
   if (task.completions) {
     try {
-      // Debug: Log raw completions data
-      console.log('Raw completions data:', task.completions);
-      
       // Check if it's multiple completions (contains },{) or single completion
       if (task.completions.includes('},{')) {
         // Multiple completions - split and parse each
@@ -63,16 +54,10 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
           if (index === arr.length - 1) return '{' + str;
           return '{' + str + '}';
         });
-        completions = completionStrings.map(str => {
-          const parsed = JSON.parse(str);
-          console.log('Parsed completion:', parsed);
-          return parsed;
-        });
+        completions = completionStrings.map(str => JSON.parse(str));
       } else {
         // Single completion - parse directly
-        const parsed = JSON.parse(task.completions);
-        console.log('Parsed single completion:', parsed);
-        completions = [parsed];
+        completions = [JSON.parse(task.completions)];
       }
     } catch (e) {
       console.error('Error parsing completions:', e);
