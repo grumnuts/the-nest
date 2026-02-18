@@ -11,14 +11,19 @@ import logoImage from '../assets/TheNestLogo.png';
 const getCompletionDisplayName = (completion) => {
   if (!completion) return '';
   
+  // Debug: Log the completion object
+  console.log('Completion object:', completion);
+  
   const firstName = completion.first_name;
   
   // If completion has first name, use it
   if (firstName) {
+    console.log('Using first name:', firstName);
     return firstName;
   }
   
   // Fallback to username if no first name is set
+  console.log('Using username fallback:', completion.username);
   return completion.username || '';
 };
 
@@ -650,15 +655,15 @@ const HomeScreen = () => {
         const range = getPeriodDateRange(list, dateStr);
         if (range.start === range.end) {
           // Single day (daily)
-          const tasksResponse = await axios.get(`/api/tasks/list/${listId}?date=${range.start}`);
+          const tasksResponse = await axios.get(`/api/tasks/list/${listId}?date=${range.start}&_t=${Date.now()}`);
           setTasks(tasksResponse.data.tasks || []);
         } else {
           // Date range (weekly/monthly/quarterly/annually)
-          const tasksResponse = await axios.get(`/api/tasks/list/${listId}?dateStart=${range.start}&dateEnd=${range.end}`);
+          const tasksResponse = await axios.get(`/api/tasks/list/${listId}?dateStart=${range.start}&dateEnd=${range.end}&_t=${Date.now()}`);
           setTasks(tasksResponse.data.tasks || []);
         }
       } else {
-        const tasksResponse = await axios.get(`/api/tasks/list/${listId}`);
+        const tasksResponse = await axios.get(`/api/tasks/list/${listId}?_t=${Date.now()}`);
         setTasks(tasksResponse.data.tasks || []);
       }
     } catch (error) {
