@@ -55,7 +55,9 @@ router.post('/', authenticateToken, (req, res) => {
         }
         
         // Create user with hashed password
-        db.createUser(username, email, hash, (err, newUserId) => {
+        const firstName = req.body.firstName || null;
+        const lastName = req.body.lastName || null;
+        db.createUser(username, email, hash, firstName, lastName, (err, newUserId) => {
           if (err) {
             return res.status(500).json({ error: 'Error creating user' });
           }
@@ -83,7 +85,7 @@ router.post('/', authenticateToken, (req, res) => {
 // Update user (admin only)
 router.put('/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
-  const { username, email, password, role } = req.body;
+  const { username, email, password, role, firstName, lastName } = req.body;
   const adminUserId = req.user.userId;
   
   // Check if user has admin privileges
@@ -134,8 +136,6 @@ router.put('/:id', authenticateToken, (req, res) => {
         // Update user
         const userRole = (role === 'owner' || role === 'admin' || role === 'user') ? role : 'user';
         const isAdmin = (userRole === 'admin' || userRole === 'owner') ? 1 : 0;
-        let query = 'UPDATE users SET username = ?, email = ?, role = ?, is_admin = ?';
-        let params = [username, email, userRole, isAdmin];
         
         if (password) {
           // Hash new password
@@ -144,27 +144,44 @@ router.put('/:id', authenticateToken, (req, res) => {
               return res.status(500).json({ error: 'Error hashing password' });
             }
             
-            query += ', password_hash = ? WHERE id = ?';
-            params.push(hash, id);
-            
-            db.db.run(query, params, function(err) {
+            // Update user with new password
+            db.updateUser(parseInt(id), username, email, firstName || null, lastName || null, (err) => {
               if (err) {
                 return res.status(500).json({ error: 'Error updating user' });
               }
               
-              res.json({ message: 'User updated successfully' });
+              // Update password separately
+              db.updateUserPassword(parseInt(id), hash, (err) => {
+                if (err) {
+                  return res.status(500).json({ error: 'Error updating password' });
+                }
+                
+                // Update role
+                db.db.run('UPDATE users SET role = ?, is_admin = ? WHERE id = ?', [userRole, isAdmin, id], (err) => {
+                  if (err) {
+                    return res.status(500).json({ error: 'Error updating user role' });
+                  }
+                  
+                  res.json({ message: 'User updated successfully' });
+                });
+              });
             });
           });
         } else {
-          query += ' WHERE id = ?';
-          params.push(id);
-          
-          db.db.run(query, params, function(err) {
+          // Update user without password change
+          db.updateUser(parseInt(id), username, email, firstName || null, lastName || null, (err) => {
             if (err) {
               return res.status(500).json({ error: 'Error updating user' });
             }
             
-            res.json({ message: 'User updated successfully' });
+            // Update role
+            db.db.run('UPDATE users SET role = ?, is_admin = ? WHERE id = ?', [userRole, isAdmin, id], (err) => {
+              if (err) {
+                return res.status(500).json({ error: 'Error updating user role' });
+              }
+              
+              res.json({ message: 'User updated successfully' });
+            });
           });
         }
       });

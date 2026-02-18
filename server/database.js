@@ -252,6 +252,23 @@ class Database {
         }
       });
 
+      // Add first_name and last_name columns to users table for user names feature
+      this.db.run(`ALTER TABLE users ADD COLUMN first_name TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding first_name column to users:', err);
+        } else {
+          console.log('✅ Added first_name column to users table');
+        }
+      });
+
+      this.db.run(`ALTER TABLE users ADD COLUMN last_name TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding last_name column to users:', err);
+        } else {
+          console.log('✅ Added last_name column to users table');
+        }
+      });
+
       // Task completions history
       this.db.run(`
         CREATE TABLE IF NOT EXISTS task_completions (
@@ -305,10 +322,10 @@ class Database {
   }
 
   // User methods
-  createUser(username, email, passwordHash, callback) {
+  createUser(username, email, passwordHash, firstName = null, lastName = null, callback) {
     const now = localNow();
-    const stmt = this.db.prepare('INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
-    stmt.run([username, email, passwordHash, now, now], function(err) {
+    const stmt = this.db.prepare('INSERT INTO users (username, email, password_hash, first_name, last_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    stmt.run([username, email, passwordHash, firstName, lastName, now, now], function(err) {
       callback(err, this ? this.lastID : null);
     });
     stmt.finalize();
@@ -317,6 +334,14 @@ class Database {
   updateUserPassword(userId, newPasswordHash, callback) {
     const stmt = this.db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?');
     stmt.run([newPasswordHash, localNow(), userId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateUser(userId, username, email, firstName = null, lastName = null, callback) {
+    const stmt = this.db.prepare('UPDATE users SET username = ?, email = ?, first_name = ?, last_name = ?, updated_at = ? WHERE id = ?');
+    stmt.run([username, email, firstName, lastName, localNow(), userId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();

@@ -46,7 +46,7 @@ const Settings = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'user' });
+  const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'user', firstName: '', lastName: '' });
   const [userToDelete, setUserToDelete] = useState(null);
 
   const tabs = [
@@ -220,7 +220,7 @@ const Settings = () => {
 
   const cancelEdit = () => {
     setEditingUser(null);
-    setNewUser({ username: '', email: '', password: '', role: 'user' });
+    setNewUser({ username: '', email: '', password: '', role: 'user', firstName: '', lastName: '' });
   };
 
   return (
@@ -565,7 +565,7 @@ const Settings = () => {
                             <button
                               onClick={() => {
                                 setEditingUser(user);
-                                setNewUser({ username: user.username, email: user.email, password: '', role: user.role || (user.is_admin ? 'admin' : 'user') });
+                                setNewUser({ username: user.username, email: user.email, password: '', role: user.role || (user.is_admin ? 'admin' : 'user'), firstName: user.first_name || '', lastName: user.last_name || '' });
                                 setShowAddUser(true);
                               }}
                               className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
@@ -595,6 +595,26 @@ const Settings = () => {
                         value={newUser.username}
                         onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                         placeholder="Enter username"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        value={newUser.firstName || ''}
+                        onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                        placeholder="Enter first name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        value={newUser.lastName || ''}
+                        onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                        placeholder="Enter last name"
                       />
                     </div>
                     <div>
@@ -643,7 +663,9 @@ const Settings = () => {
                                 username: newUser.username,
                                 email: newUser.email,
                                 password: newUser.password || undefined,
-                                role: newUser.role
+                                role: newUser.role,
+                                firstName: newUser.firstName || undefined,
+                                lastName: newUser.lastName || undefined
                               });
                               fetchUsers();
                               setShowAddUser(false);
@@ -660,7 +682,9 @@ const Settings = () => {
                                 username: newUser.username,
                                 email: newUser.email,
                                 password: newUser.password,
-                                role: newUser.role
+                                role: newUser.role,
+                                firstName: newUser.firstName || undefined,
+                                lastName: newUser.lastName || undefined
                               });
                               fetchUsers();
                               setShowAddUser(false);
