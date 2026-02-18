@@ -468,11 +468,13 @@ class Database {
       SELECT t.*, 
              u.username as assigned_username,
              c.username as completed_by_username,
+             c.first_name as completed_by_firstname,
              GROUP_CONCAT(
                json_object(
                  'id', tc.id,
                  'completed_by', tc.completed_by,
                  'username', cu.username,
+                 'first_name', cu.first_name,
                  'completed_at', tc.completed_at
                )
              ) as completions
@@ -550,7 +552,8 @@ class Database {
     this.db.get(`
       SELECT t.*, 
              u.username as assigned_username,
-             c.username as completed_by_username
+             c.username as completed_by_username,
+             c.first_name as completed_by_firstname
       FROM tasks t 
       LEFT JOIN users u ON t.assigned_to = u.id 
       LEFT JOIN users c ON t.completed_by = c.id 

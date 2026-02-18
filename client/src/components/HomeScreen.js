@@ -43,7 +43,7 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
       <>
         {completions.map((completion, index) => {
           const completionText = completion.username ? 
-            `Completed by ${completion.username}` : 
+            `Completed by ${getCompletionDisplayName(completion)}` : 
             'Completed';
           
           let timeText = '';
@@ -68,7 +68,7 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
     // Show single completion for regular tasks
     if (task.completed_by_username || task.completed_at) {
       const completionText = task.completed_by_username ? 
-        `Completed by ${task.completed_by_username}` : 
+        `Completed by ${getTaskCompletionDisplayName(task)}` : 
         'Completed';
       
       let timeText = '';
@@ -109,6 +109,36 @@ const HomeScreen = () => {
     
     // Fallback to username if no first name is set
     return user.username;
+  };
+
+  // Helper function to get completion display name
+  const getCompletionDisplayName = (completion) => {
+    if (!completion) return '';
+    
+    const firstName = completion.first_name;
+    
+    // If completion has first name, use it
+    if (firstName) {
+      return firstName;
+    }
+    
+    // Fallback to username if no first name is set
+    return completion.username || '';
+  };
+
+  // Helper function to get task completion display name
+  const getTaskCompletionDisplayName = (task) => {
+    if (!task) return '';
+    
+    const firstName = task.completed_by_firstname;
+    
+    // If task has first name, use it
+    if (firstName) {
+      return firstName;
+    }
+    
+    // Fallback to username if no first name is set
+    return task.completed_by_username || '';
   };
   
   const [lists, setLists] = useState([]);
