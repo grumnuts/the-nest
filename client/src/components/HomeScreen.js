@@ -11,6 +11,9 @@ import logoImage from '../assets/TheNestLogo.png';
 const getCompletionDisplayName = (completion) => {
   if (!completion) return '';
   
+  // Debug logging
+  console.log('Completion data:', completion);
+  
   const firstName = completion.first_name;
   
   // If completion has first name, use it
@@ -25,6 +28,9 @@ const getCompletionDisplayName = (completion) => {
 // Helper function to get task completion display name
 const getTaskCompletionDisplayName = (task) => {
   if (!task) return '';
+  
+  // Debug logging
+  console.log('Task completion data:', task);
   
   const firstName = task.completed_by_firstname;
   
