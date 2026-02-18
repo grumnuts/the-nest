@@ -90,6 +90,20 @@ const Settings = () => {
     }
   }, [activeTab, currentUser]);
 
+  // Populate form when editing user changes
+  useEffect(() => {
+    if (editingUser) {
+      setNewUser({ 
+        username: editingUser.username, 
+        email: editingUser.email, 
+        password: '', 
+        role: editingUser.role || (editingUser.is_admin ? 'admin' : 'user'), 
+        firstName: editingUser.first_name || '', 
+        lastName: editingUser.last_name || '' 
+      });
+    }
+  }, [editingUser]);
+
   const handlePasswordReset = async () => {
     if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
       setPasswordMessage('All fields are required');
@@ -581,7 +595,6 @@ const Settings = () => {
                             <button
                               onClick={() => {
                                 setEditingUser(user);
-                                setNewUser({ username: user.username, email: user.email, password: '', role: user.role || (user.is_admin ? 'admin' : 'user'), firstName: user.first_name || '', lastName: user.last_name || '' });
                                 setShowAddUser(true);
                               }}
                               className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
