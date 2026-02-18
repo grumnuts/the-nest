@@ -1566,7 +1566,7 @@ const HomeScreen = () => {
         ) : (
           <div>
             {/* List Tabs */}
-            <div className="flex space-x-1 mb-2 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex space-x-1 mb-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {lists.map((list) => (
                 <div
                   key={list.id}
