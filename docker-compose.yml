@@ -5,7 +5,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
+      - JWT_SECRET=CHANGE_ME_TO_RANDOM_32_CHAR_SECRET
       - CLIENT_URL=http://localhost:5000
       - TZ=UTC
       - PUID=1001 # Optional

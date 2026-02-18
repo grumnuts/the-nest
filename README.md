@@ -39,7 +39,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
+      - JWT_SECRET=CHANGE_ME_TO_RANDOM_32_CHAR_SECRET
       - CLIENT_URL=http://localhost:5000
       - TZ=UTC
       - PUID=1001 # Optional
@@ -74,7 +74,7 @@ On first run, an admin account is created automatically:
 | Field | Value |
 |-------|-------|
 | Username | `admin` |
-| Password | `admin123` |
+| Password | `CHANGE_ME_IMMEDIATELY` |
 
 **Change the password immediately after first login.**
 
@@ -108,11 +108,11 @@ Edit your `docker-compose.yml` and add the emergency reset lines:
 
 ```yaml
 environment:
-  - JWT_SECRET=your-random-jwt-secret-key-here-min-32-characters
+  - JWT_SECRET=CHANGE_ME_TO_RANDOM_32_CHAR_SECRET
   - CLIENT_URL=http://localhost:5000
   - TZ=UTC
-  - EMERGENCY_RESET_USER=admin
-  - EMERGENCY_RESET_PASSWORD=newSecurePassword123!
+  - EMERGENCY_RESET_USER=YOUR_USERNAME
+  - EMERGENCY_RESET_PASSWORD=YOUR_NEW_PASSWORD
 ```
 
 ### Step 2: Restart Container
@@ -130,8 +130,8 @@ docker logs the-nest
 You should see:
 ```
 🚨 🚨 🚨 EMERGENCY PASSWORD RESET 🚨 🚨 🚨
-🔐 User: admin
-✅ Password reset successful for: admin
+🔐 User: YOUR_USERNAME
+✅ Password reset successful for: YOUR_USERNAME
 🔑 New password is now active
 ⚠️  IMPORTANT: Remove EMERGENCY_RESET_* environment variables
 ⚠️  Then restart the server to clear this message
@@ -146,7 +146,7 @@ You should see:
 
 ### Important Notes
 
-- **Username Changes**: If you changed the admin username, update `EMERGENCY_RESET_USER` accordingly
+- **Username Changes**: If you changed your username, update `EMERGENCY_RESET_USER` accordingly
 - **Security**: The password is hashed immediately on startup
 - **One-Time Use**: The reset only happens when both environment variables are present
 - **No API Endpoint**: This is a server-side only process for security
