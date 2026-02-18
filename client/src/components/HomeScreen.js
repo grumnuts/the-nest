@@ -52,6 +52,9 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
   let completions = [];
   if (task.completions) {
     try {
+      // Debug: Log raw completions data
+      console.log('Raw completions data:', task.completions);
+      
       // Check if it's multiple completions (contains },{) or single completion
       if (task.completions.includes('},{')) {
         // Multiple completions - split and parse each
@@ -60,10 +63,16 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
           if (index === arr.length - 1) return '{' + str;
           return '{' + str + '}';
         });
-        completions = completionStrings.map(str => JSON.parse(str));
+        completions = completionStrings.map(str => {
+          const parsed = JSON.parse(str);
+          console.log('Parsed completion:', parsed);
+          return parsed;
+        });
       } else {
         // Single completion - parse directly
-        completions = [JSON.parse(task.completions)];
+        const parsed = JSON.parse(task.completions);
+        console.log('Parsed single completion:', parsed);
+        completions = [parsed];
       }
     } catch (e) {
       console.error('Error parsing completions:', e);
