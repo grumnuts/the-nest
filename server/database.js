@@ -486,7 +486,11 @@ class Database {
       WHERE t.list_id = ? 
       GROUP BY t.id
       ORDER BY t.sort_order ASC, t.created_at ASC
-    `, [listId], callback);
+    `, [listId], (err, rows) => {
+      // Debug: Log the raw query results
+      console.log('Raw query results for list', listId, ':', rows);
+      callback(err, rows);
+    });
   }
 
   getTasksByListForDate(listId, dateStart, dateEnd, callback) {
