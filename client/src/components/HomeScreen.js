@@ -1771,7 +1771,7 @@ const HomeScreen = () => {
                                     <ChevronRight className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
-                                <div className="flex items-baseline justify-end gap-0.5 flex-nowrap">
+                                <div className="flex items-baseline justify-end gap-0 flex-nowrap">
                                   <div className="text-xs text-gray-400 text-right w-[60px] whitespace-nowrap" title="Goal status">
                                     {statusStr}
                                   </div>
