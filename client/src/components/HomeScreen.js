@@ -1738,7 +1738,7 @@ const HomeScreen = () => {
                                    'Fixed Count'}
                                 </span>
                               </div>
-                              <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-center gap-1">
                                 {/* Goal Period Navigation */}
                                 <div className="flex items-center gap-0.5">
                                   <button
