@@ -1728,8 +1728,14 @@ const HomeScreen = () => {
                             <div className="flex items-baseline space-x-2 min-w-0">
                               <Target className="h-4 w-4 text-purple-400 flex-shrink-0" />
                               <span className="text-sm font-medium text-white truncate">{goal.name}</span>
+                              <span className="sm:hidden text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
+                                {goal.calculation_type === 'percentage_time' ? '% Time' :
+                                 goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
+                                 goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
+                                 'Fixed Count'}
+                              </span>
                             </div>
-                            <div className="flex justify-between items-center mt-1">
+                            <div className="hidden sm:flex justify-between items-center mt-1">
                               <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
                                 {goal.calculation_type === 'percentage_time' ? '% Time' :
                                  goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
@@ -1776,6 +1782,47 @@ const HomeScreen = () => {
                                   <div className="text-sm font-bold text-white w-[48px] text-right whitespace-nowrap" title="Goal percentage">
                                     {`${percentage || 0}%`}
                                   </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="sm:hidden flex justify-between items-center mt-1">
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  onClick={() => navigateGoalDate(goal, 'prev')}
+                                  className="p-1 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                                  title="Previous period"
+                                >
+                                  <ChevronLeft className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => goToCurrentGoalPeriod(goal)}
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors min-w-[100px] text-center ${
+                                    isCurrentGoalPeriod(goal)
+                                      ? 'bg-purple-600 text-white'
+                                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                                  }`}
+                                >
+                                  {getGoalPeriodLabel(goal)}
+                                </button>
+                                <button
+                                  onClick={() => navigateGoalDate(goal, 'next')}
+                                  disabled={isCurrentGoalPeriod(goal)}
+                                  className={`p-1 rounded-lg transition-colors ${
+                                    isCurrentGoalPeriod(goal)
+                                      ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                                  }`}
+                                  title="Next period"
+                                >
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <div className="flex items-baseline justify-end gap-0 flex-nowrap">
+                                <div className="text-xs text-gray-400 text-right w-[60px] whitespace-nowrap" title="Goal status">
+                                  {statusStr}
+                                </div>
+                                <div className="text-sm font-bold text-white w-[48px] text-right whitespace-nowrap" title="Goal percentage">
+                                  {`${percentage || 0}%`}
                                 </div>
                               </div>
                             </div>
