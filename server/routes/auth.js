@@ -339,15 +339,25 @@ router.post('/update-profile', authenticateToken, async (req, res) => {
   try {
     const { firstName, lastName, username, email } = req.body;
     const userId = req.user.userId;
+    
+    let hasResponded = false;
+
+    // Helper to safely send response only once
+    const sendResponse = (statusCode, data) => {
+      if (!hasResponded) {
+        hasResponded = true;
+        res.status(statusCode).json(data);
+      }
+    };
 
     // Get current user data
-    db.getUserById(userId, async (err, user) => {
+    db.getUserById(userId, (err, user) => {
       if (err) {
-        return res.status(500).json({ error: 'Error fetching user data' });
+        return sendResponse(500, { error: 'Error fetching user data' });
       }
 
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return sendResponse(404, { error: 'User not found' });
       }
 
       // Use current values if not provided
@@ -356,20 +366,28 @@ router.post('/update-profile', authenticateToken, async (req, res) => {
       const newFirstName = firstName !== undefined ? firstName : user.first_name;
       const newLastName = lastName !== undefined ? lastName : user.last_name;
 
+      // Validate first name and last name length
+      if (newFirstName && newFirstName.length > 50) {
+        return sendResponse(400, { error: 'First name is too long (maximum 50 characters)' });
+      }
+      if (newLastName && newLastName.length > 50) {
+        return sendResponse(400, { error: 'Last name is too long (maximum 50 characters)' });
+      }
+
       // Validate username if changed
       if (newUsername !== user.username) {
         if (newUsername.length < 3) {
-          return res.status(400).json({ error: 'Username must be at least 3 characters long' });
+          return sendResponse(400, { error: 'Username must be at least 3 characters long' });
         }
 
         // Check if new username is already taken
         db.getUserByUsername(newUsername, (err, existingUser) => {
           if (err) {
-            return res.status(500).json({ error: 'Error checking username availability' });
+            return sendResponse(500, { error: 'Error checking username availability' });
           }
 
           if (existingUser && existingUser.id !== userId) {
-            return res.status(400).json({ error: 'Username is already taken' });
+            return sendResponse(400, { error: 'Username is already taken' });
           }
 
           // Continue with email check
@@ -385,17 +403,17 @@ router.post('/update-profile', authenticateToken, async (req, res) => {
         if (newEmail !== user.email) {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(newEmail)) {
-            return res.status(400).json({ error: 'Please enter a valid email address' });
+            return sendResponse(400, { error: 'Please enter a valid email address' });
           }
 
           // Check if new email is already taken
           db.getUserByEmail(newEmail, (err, existingUser) => {
             if (err) {
-              return res.status(500).json({ error: 'Error checking email availability' });
+              return sendResponse(500, { error: 'Error checking email availability' });
             }
 
             if (existingUser && existingUser.id !== userId) {
-              return res.status(400).json({ error: 'Email is already taken' });
+              return sendResponse(400, { error: 'Email is already taken' });
             }
 
             // Both username and email are valid, proceed with update
@@ -411,59 +429,70 @@ router.post('/update-profile', authenticateToken, async (req, res) => {
         // Update all profile fields
         db.updateUser(userId, newUsername, newEmail, newFirstName, newLastName, (err, changes) => {
           if (err) {
-            return res.status(500).json({ error: 'Error updating profile' });
+            return sendResponse(500, { error: 'Error updating profile' });
           }
 
           if (changes === 0) {
-            return res.status(404).json({ error: 'User not found' });
+            return sendResponse(404, { error: 'User not found' });
           }
 
           // Get updated user data
           db.getUserById(userId, (err, updatedUser) => {
             if (err) {
-              return res.status(500).json({ error: 'Error fetching updated user data' });
+              return sendResponse(500, { error: 'Error fetching updated user data' });
             }
 
-            // Generate new JWT token with updated profile
-            const token = jwt.sign(
-              { 
-                userId: updatedUser.id, 
-                username: updatedUser.username, 
-                email: updatedUser.email,
-                first_name: updatedUser.first_name,
-                last_name: updatedUser.last_name,
-                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
-                is_admin: updatedUser.is_admin, 
-                hide_goals: updatedUser.hide_goals,
-                hide_completed_tasks: updatedUser.hide_completed_tasks
-              },
-              JWT_SECRET,
-              { expiresIn: '24h' }
-            );
+            if (!updatedUser) {
+              return sendResponse(404, { error: 'User not found after update' });
+            }
 
-            res.json({
-              message: 'Profile updated successfully',
-              token,
-              user: { 
-                id: updatedUser.id,
-                userId: updatedUser.id, 
-                username: updatedUser.username, 
-                email: updatedUser.email,
-                first_name: updatedUser.first_name,
-                last_name: updatedUser.last_name,
-                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
-                is_admin: updatedUser.is_admin,
-                hide_goals: updatedUser.hide_goals,
-                hide_completed_tasks: updatedUser.hide_completed_tasks
-              }
-            });
+            try {
+              // Generate new JWT token with updated profile
+              const token = jwt.sign(
+                { 
+                  userId: updatedUser.id, 
+                  username: updatedUser.username, 
+                  email: updatedUser.email,
+                  first_name: updatedUser.first_name,
+                  last_name: updatedUser.last_name,
+                  role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
+                  is_admin: updatedUser.is_admin, 
+                  hide_goals: updatedUser.hide_goals,
+                  hide_completed_tasks: updatedUser.hide_completed_tasks
+                },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+              );
+
+              sendResponse(200, {
+                message: 'Profile updated successfully',
+                token,
+                user: { 
+                  id: updatedUser.id,
+                  userId: updatedUser.id, 
+                  username: updatedUser.username, 
+                  email: updatedUser.email,
+                  first_name: updatedUser.first_name,
+                  last_name: updatedUser.last_name,
+                  role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
+                  is_admin: updatedUser.is_admin,
+                  hide_goals: updatedUser.hide_goals,
+                  hide_completed_tasks: updatedUser.hide_completed_tasks
+                }
+              });
+            } catch (jwtError) {
+              console.error('JWT signing error:', jwtError);
+              sendResponse(500, { error: 'Error generating authentication token' });
+            }
           });
         });
       }
     });
   } catch (error) {
     console.error('Error updating profile:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 

@@ -116,9 +116,9 @@ const Settings = () => {
 
     try {
       // Basic email validation if email is provided
-      if (profileData.email) {
+      if (profileData.email && profileData.email.trim()) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(profileData.email)) {
+        if (!emailRegex.test(profileData.email.trim())) {
           setProfileStatus('error');
           setProfileMessage('Please enter a valid email address');
           setTimeout(() => setProfileMessage(''), 2500);
@@ -128,7 +128,7 @@ const Settings = () => {
       }
 
       // Validate username length if changed
-      if (profileData.username && profileData.username.length < 3) {
+      if (profileData.username && profileData.username.trim() && profileData.username.trim().length < 3) {
         setProfileStatus('error');
         setProfileMessage('Username must be at least 3 characters long');
         setTimeout(() => setProfileMessage(''), 2500);
@@ -137,10 +137,10 @@ const Settings = () => {
       }
 
       const response = await axios.post('/api/auth/update-profile', {
-        firstName: profileData.firstName,
-        lastName: profileData.lastName,
-        username: profileData.username,
-        email: profileData.email
+        firstName: profileData.firstName?.trim() || '',
+        lastName: profileData.lastName?.trim() || '',
+        username: profileData.username?.trim() || '',
+        email: profileData.email?.trim() || ''
       });
       
       if (response.data.token) {
@@ -152,7 +152,12 @@ const Settings = () => {
         updateUser(response.data.user);
       }
       
-      setIsEditingProfile(false);
+      setProfileStatus('success');
+      setProfileMessage('Profile updated successfully');
+      setTimeout(() => {
+        setProfileMessage('');
+        setIsEditingProfile(false);
+      }, 1500);
       
     } catch (error) {
       setProfileStatus('error');
@@ -268,7 +273,7 @@ const Settings = () => {
                 </div>
 
                 {profileMessage && (
-                  <div className="mb-4 text-sm text-red-400">
+                  <div className={`mb-4 text-sm ${profileStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
                     {profileMessage}
                   </div>
                 )}
