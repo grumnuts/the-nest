@@ -108,6 +108,10 @@
     
     <style>
         /* Loading and error styles */
+        :root {
+            --radius: 0.5rem;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -169,7 +173,7 @@
             color: white;
             border: none;
             padding: 12px 24px;
-            border-radius: 8px;
+            border-radius: var(--radius);
             cursor: pointer;
             margin: 10px;
         }

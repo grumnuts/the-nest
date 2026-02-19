@@ -363,6 +363,14 @@ class Database {
     stmt.finalize();
   }
 
+  updateUserNames(userId, firstName, lastName, callback) {
+    const stmt = this.db.prepare('UPDATE users SET first_name = ?, last_name = ?, updated_at = ? WHERE id = ?');
+    stmt.run([firstName || null, lastName || null, localNow(), userId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
   getUserByEmail(email, callback) {
     this.db.get('SELECT * FROM users WHERE email = ?', [email], callback);
   }

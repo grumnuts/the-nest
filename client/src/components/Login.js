@@ -33,7 +33,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+      <div className="max-w-md w-full stack">
         <div className="glass rounded-xl p-8 border border-purple-500/20">
           <div className="flex flex-col items-center">
             <img 
@@ -45,14 +45,14 @@ const Login = () => {
               Sign in to The Nest
             </h2>
           </div>  
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <form className="mt-8 stack" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-900/50 border border-red-500/30 text-red-300 px-4 py-3 rounded">
                 {error}
               </div>
             )}
           
-          <div className="space-y-4">
+          <div className="stack">
               <div>
                 <label htmlFor="username" className="label">
                   Username

@@ -148,7 +148,10 @@ router.post('/change-username', authenticateToken, async (req, res) => {
               { 
                 userId: updatedUser.id, 
                 username: updatedUser.username, 
-                email: updatedUser.email, 
+                email: updatedUser.email,
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
                 is_admin: updatedUser.is_admin, 
                 hide_goals: updatedUser.hide_goals,
                 hide_completed_tasks: updatedUser.hide_completed_tasks
@@ -161,9 +164,13 @@ router.post('/change-username', authenticateToken, async (req, res) => {
               message: 'Username updated successfully',
               token,
               user: { 
+                id: updatedUser.id,
                 userId: updatedUser.id, 
                 username: updatedUser.username, 
-                email: updatedUser.email, 
+                email: updatedUser.email,
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
                 is_admin: updatedUser.is_admin,
                 hide_goals: updatedUser.hide_goals,
                 hide_completed_tasks: updatedUser.hide_completed_tasks
@@ -289,7 +296,10 @@ router.post('/change-email', authenticateToken, async (req, res) => {
               { 
                 userId: updatedUser.id, 
                 username: updatedUser.username, 
-                email: updatedUser.email, 
+                email: updatedUser.email,
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
                 is_admin: updatedUser.is_admin, 
                 hide_goals: updatedUser.hide_goals,
                 hide_completed_tasks: updatedUser.hide_completed_tasks
@@ -302,9 +312,13 @@ router.post('/change-email', authenticateToken, async (req, res) => {
               message: 'Email updated successfully',
               token,
               user: { 
+                id: updatedUser.id,
                 userId: updatedUser.id, 
                 username: updatedUser.username, 
-                email: updatedUser.email, 
+                email: updatedUser.email,
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
                 is_admin: updatedUser.is_admin,
                 hide_goals: updatedUser.hide_goals,
                 hide_completed_tasks: updatedUser.hide_completed_tasks
@@ -316,6 +330,139 @@ router.post('/change-email', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error changing email:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update profile (first name, last name, username, and email)
+router.post('/update-profile', authenticateToken, async (req, res) => {
+  try {
+    const { firstName, lastName, username, email } = req.body;
+    const userId = req.user.userId;
+
+    // Get current user data
+    db.getUserById(userId, async (err, user) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching user data' });
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Use current values if not provided
+      const newUsername = username || user.username;
+      const newEmail = email || user.email;
+      const newFirstName = firstName !== undefined ? firstName : user.first_name;
+      const newLastName = lastName !== undefined ? lastName : user.last_name;
+
+      // Validate username if changed
+      if (newUsername !== user.username) {
+        if (newUsername.length < 3) {
+          return res.status(400).json({ error: 'Username must be at least 3 characters long' });
+        }
+
+        // Check if new username is already taken
+        db.getUserByUsername(newUsername, (err, existingUser) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error checking username availability' });
+          }
+
+          if (existingUser && existingUser.id !== userId) {
+            return res.status(400).json({ error: 'Username is already taken' });
+          }
+
+          // Continue with email check
+          checkEmailAndUpdate();
+        });
+      } else {
+        // Username not changed, check email
+        checkEmailAndUpdate();
+      }
+
+      function checkEmailAndUpdate() {
+        // Validate email if changed
+        if (newEmail !== user.email) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(newEmail)) {
+            return res.status(400).json({ error: 'Please enter a valid email address' });
+          }
+
+          // Check if new email is already taken
+          db.getUserByEmail(newEmail, (err, existingUser) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error checking email availability' });
+            }
+
+            if (existingUser && existingUser.id !== userId) {
+              return res.status(400).json({ error: 'Email is already taken' });
+            }
+
+            // Both username and email are valid, proceed with update
+            updateProfile();
+          });
+        } else {
+          // Email not changed, proceed with update
+          updateProfile();
+        }
+      }
+
+      function updateProfile() {
+        // Update all profile fields
+        db.updateUser(userId, newUsername, newEmail, newFirstName, newLastName, (err, changes) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error updating profile' });
+          }
+
+          if (changes === 0) {
+            return res.status(404).json({ error: 'User not found' });
+          }
+
+          // Get updated user data
+          db.getUserById(userId, (err, updatedUser) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error fetching updated user data' });
+            }
+
+            // Generate new JWT token with updated profile
+            const token = jwt.sign(
+              { 
+                userId: updatedUser.id, 
+                username: updatedUser.username, 
+                email: updatedUser.email,
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
+                is_admin: updatedUser.is_admin, 
+                hide_goals: updatedUser.hide_goals,
+                hide_completed_tasks: updatedUser.hide_completed_tasks
+              },
+              JWT_SECRET,
+              { expiresIn: '24h' }
+            );
+
+            res.json({
+              message: 'Profile updated successfully',
+              token,
+              user: { 
+                id: updatedUser.id,
+                userId: updatedUser.id, 
+                username: updatedUser.username, 
+                email: updatedUser.email,
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                role: updatedUser.role || (updatedUser.is_admin ? 'admin' : 'user'),
+                is_admin: updatedUser.is_admin,
+                hide_goals: updatedUser.hide_goals,
+                hide_completed_tasks: updatedUser.hide_completed_tasks
+              }
+            });
+          });
+        });
+      }
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

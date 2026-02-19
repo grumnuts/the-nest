@@ -272,4 +272,56 @@ router.patch('/hide-completed-tasks', authenticateToken, (req, res) => {
   });
 });
 
+// Update user profile information (first name, last name, username, email)
+router.patch('/profile', authenticateToken, (req, res) => {
+  const { firstName, lastName, username, email } = req.body;
+  const userId = req.user.userId;
+  
+  // Validate input
+  if (!firstName || !username || !email) {
+    return res.status(400).json({ error: 'First name, username, and email are required' });
+  }
+  
+  // Check if username or email already exists (but not for the current user)
+  db.db.get('SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?', [username, email, userId], (err, existingUser) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking existing user' });
+    }
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username or email already in use' });
+    }
+    
+    // Update the user
+    db.updateUser(userId, username, email, firstName, lastName, (err, changes) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error updating profile' });
+      }
+      
+      if (changes === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Get updated user data
+      db.getUserById(userId, (err, user) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching updated user' });
+        }
+        
+        res.json({
+          message: 'Profile updated successfully',
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            is_admin: user.is_admin
+          }
+        });
+      });
+    });
+  });
+});
+
 module.exports = router;

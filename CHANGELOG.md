@@ -16,11 +16,8 @@ All notable changes to The Nest will be documented in this file.
 
 ### ⚒️ Enhancements
 - Users are now referenced by their first name rather than username
-- First/last name fields now appear above username field
 - Added automatic database schema migration for existing installations
-- Made list tabs consistent with settings tabs styling
-- Reduced tab padding for better mobile space utilization
-- Tightened spacing between header and list tabs
+- UI Improvements
 
 ## [v1.0.0] - 2026-02-17
 

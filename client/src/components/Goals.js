@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Target, TrendingUp, Clock, CheckCircle, Plus, Edit2, Trash2, Users, Calendar, BarChart3, X, Star } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmDialog from './ConfirmDialog';
 
-const Goals = () => {
+const Goals = forwardRef(({ hideHeader = false }, ref) => {
   const { user } = useAuth();
   const isAdmin = user?.is_admin === 1;
   
@@ -13,9 +13,14 @@ const Goals = () => {
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
+  useImperativeHandle(ref, () => ({
+    openCreate: () => setShowCreateGoal(true)
+  }));
   const [editingGoal, setEditingGoal] = useState(null);
   const [selectedGoalProgress, setSelectedGoalProgress] = useState(null);
   
+  const [goalSaveMessage, setGoalSaveMessage] = useState('');
+  const [goalSaveStatus, setGoalSaveStatus] = useState('success');
     
   // State for delete confirmation
   const [goalToDelete, setGoalToDelete] = useState(null);
@@ -82,6 +87,12 @@ const Goals = () => {
     }
   };
 
+  const showGoalSaveMessage = (message, status = 'success') => {
+    setGoalSaveStatus(status);
+    setGoalSaveMessage(message);
+    setTimeout(() => setGoalSaveMessage(''), 2500);
+  };
+
   
   const handleCreateGoal = async (e) => {
     e.preventDefault();
@@ -101,7 +112,7 @@ const Goals = () => {
       fetchGoals();
     } catch (error) {
       console.error('Error creating goal:', error);
-      alert('Error creating goal: ' + (error.response?.data?.error || error.message));
+      showGoalSaveMessage(error.response?.data?.error || 'Error creating goal', 'error');
     }
   };
 
@@ -123,7 +134,7 @@ const Goals = () => {
       fetchGoals();
     } catch (error) {
       console.error('Error updating goal:', error);
-      alert('Error updating goal: ' + (error.response?.data?.error || error.message));
+      showGoalSaveMessage(error.response?.data?.error || 'Error updating goal', 'error');
     }
   };
 
@@ -141,7 +152,7 @@ const Goals = () => {
       setGoalToDelete(null);
     } catch (error) {
       console.error('Error deleting goal:', error);
-      alert('Error deleting goal: ' + (error.response?.data?.error || error.message));
+      showGoalSaveMessage(error.response?.data?.error || 'Error deleting goal', 'error');
       setGoalToDelete(null);
     }
   };
@@ -211,23 +222,30 @@ const Goals = () => {
 
   return (
     <>
-      <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Target className="h-8 w-8 text-purple-400" />
-          <h2 className="text-2xl font-bold text-white">Goals</h2>
+      <div className="stack">
+      {goalSaveMessage && (
+        <div className={`text-sm ${goalSaveStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+          {goalSaveMessage}
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => setShowCreateGoal(true)}
-            className="btn-primary flex items-center space-x-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Create Goal</span>
-          </button>
-        )}
-      </div>
+      )}
+      {/* Header */}
+      {!hideHeader && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Target className="h-8 w-8 text-purple-400" />
+            <h2 className="text-2xl font-bold text-white">Goals</h2>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={() => setShowCreateGoal(true)}
+              className="btn-primary flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Create Goal</span>
+            </button>
+          )}
+        </div>
+      )}
 
       
       {/* Goals List */}
@@ -239,9 +257,9 @@ const Goals = () => {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="stack">
           {goals && goals.map((goal) => (
-            <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-2 border border-purple-500/30 shadow-xl">
+            <div key={goal.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 shadow-xl">
               {/* Goal Header */}
               <div className="flex items-start justify-between mb-1">
                 <div className="flex-1">
@@ -272,7 +290,7 @@ const Goals = () => {
                 {isAdmin && (
                   <button
                     onClick={() => handleEditGoal(goal)}
-                    className="p-1 text-gray-400 hover:text-blue-400 transition-colors rounded hover:bg-blue-500/10"
+                    className="p-1 text-blue-400 hover:text-blue-300 transition-colors rounded hover:bg-blue-500/10"
                   >
                     <Edit2 className="h-3 w-3" />
                   </button>
@@ -281,25 +299,43 @@ const Goals = () => {
 
               {/* Progress Section */}
               <div className="mb-1">
-                <div className="flex items-center justify-between mb-0.5">
-                  <div>
-                    <span className="text-lg font-bold text-white">
-                      {Math.round(goal.progress?.percentage || 0)}%
-                    </span>
-                    <span className="text-gray-400 ml-1 text-xs">
-                      {goal.calculation_type.includes('percentage') 
-                        ? `${Math.round(goal.progress?.percentage || 0)}%`
-                        : `${goal.progress?.completed || 0} / ${goal.progress?.required || goal.target_value}${goal.calculation_type.includes('time') ? ' min' : ' tasks'}`
-                      }
-                    </span>
-                  </div>
-                  {goal.progress?.isAchieved && (
-                    <div className="flex items-center space-x-1 text-green-400">
-                      <CheckCircle className="h-3 w-3" />
-                      <span className="font-medium text-xs">Achieved!</span>
+                {(() => {
+                  // Build status string to match HomeScreen display
+                  const completedRaw = Number(goal.progress?.completed ?? 0) || 0;
+                  const requiredRaw = Number(goal.progress?.required ?? goal.target_value ?? 0) || 0;
+                  const completed = Math.ceil(completedRaw);
+                  const required = Math.ceil(requiredRaw);
+                  
+                  let statusStr = `${completed} / ${required}`;
+                  
+                  if (goal.calculation_type && goal.calculation_type.includes('percentage')) {
+                    const completedPercent = Math.ceil(Number(goal.progress?.completed ?? completedRaw) || 0);
+                    statusStr = `${completedPercent} / ${required}%`;
+                  } else if (goal.calculation_type === 'fixed_time') {
+                    statusStr = `${completed} / ${required || 0} min`;
+                  } else if (goal.calculation_type === 'percentage_task_count' || goal.calculation_type === 'fixed_count') {
+                    statusStr += ' tasks';
+                  }
+                  
+                  return (
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div>
+                        <span className="text-lg font-bold text-white">
+                          {Math.round(goal.progress?.percentage || 0)}%
+                        </span>
+                        <span className="text-gray-400 ml-1 text-xs">
+                          {statusStr}
+                        </span>
+                      </div>
+                      {goal.progress?.isAchieved && (
+                        <div className="flex items-center space-x-1 text-green-400">
+                          <CheckCircle className="h-3 w-3" />
+                          <span className="font-medium text-xs">Achieved!</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
                 <div className="w-full bg-gray-700 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(goal.progress?.percentage || 0)}`}
@@ -321,20 +357,6 @@ const Goals = () => {
                     ) : null;
                   })}
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-                <div className="text-xs text-gray-500">
-                  Period: {new Date(goal.progress?.periodStart || Date.now()).toLocaleDateString('en-AU')} - {new Date(goal.progress?.periodEnd || Date.now()).toLocaleDateString('en-AU')}
-                </div>
-                <button
-                  onClick={() => fetchGoalProgress(goal.id)}
-                  className="btn-secondary flex items-center space-x-2"
-                >
-                  <BarChart3 className="h-4 w-4" />
-                  <span>View History</span>
-                </button>
               </div>
             </div>
           ))}
@@ -369,7 +391,7 @@ const Goals = () => {
               </button>
             </div>
             
-            <form onSubmit={editingGoal ? handleUpdateGoal : handleCreateGoal} className="space-y-6">
+            <form onSubmit={editingGoal ? handleUpdateGoal : handleCreateGoal} className="stack">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {isAdmin && (
                   <div>
@@ -463,7 +485,7 @@ const Goals = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Select Lists</label>
-                <div className="space-y-2 max-h-48 overflow-y-auto p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                <div className="stack max-h-48 overflow-y-auto p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                   {Array.isArray(lists) && lists.map((list) => (
                     <label key={list.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-700/50 p-3 rounded-lg transition-colors">
                       <input
@@ -551,7 +573,7 @@ const Goals = () => {
                 <p className="text-gray-500 text-sm mt-2">Progress will appear here as goals are tracked over time.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="stack">
                 {selectedGoalProgress.map((progress, index) => (
                   <div key={progress.id} className="bg-gray-700/80 backdrop-blur-sm rounded-lg p-4 border border-purple-500/20">
                     <div className="flex items-center justify-between mb-3">
@@ -624,6 +646,6 @@ const Goals = () => {
     />
     </>
   );
-};
+});
 
 export default Goals;

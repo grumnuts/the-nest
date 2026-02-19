@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Users, Target, Plus, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, User, Users, Target, Plus, Trash2, Edit2 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import Goals from './Goals';
@@ -9,37 +9,20 @@ import ConfirmDialog from './ConfirmDialog';
 const Settings = () => {
   const navigate = useNavigate();
   const { user: currentUser, updateUser } = useAuth();
+  const goalsRef = useRef(null);
   const [activeTab, setActiveTab] = useState('profile');
   
-  // Password reset state
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+  // Profile edit state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: ''
   });
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState('');
-  
-  // Username change state
-  const [usernameData, setUsernameData] = useState({
-    newUsername: '',
-    password: ''
-  });
-  const [usernameLoading, setUsernameLoading] = useState(false);
-  const [usernameMessage, setUsernameMessage] = useState('');
-  
-  // Email change state
-  const [emailData, setEmailData] = useState({
-    newEmail: '',
-    password: ''
-  });
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailMessage, setEmailMessage] = useState('');
-  
-  // UI state for collapsible sections
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [showUsernameChange, setShowUsernameChange] = useState(false);
-  const [showEmailChange, setShowEmailChange] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileStatus, setProfileStatus] = useState('success');
   
   // User management state
   const [users, setUsers] = useState([]);
@@ -48,6 +31,8 @@ const Settings = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'user', firstName: '', lastName: '' });
   const [userToDelete, setUserToDelete] = useState(null);
+  const [userSaveMessage, setUserSaveMessage] = useState('');
+  const [userSaveStatus, setUserSaveStatus] = useState('success');
 
   // Helper function to get user's full name
   const getUserFullName = (user) => {
@@ -104,115 +89,77 @@ const Settings = () => {
     }
   }, [editingUser]);
 
-  const handlePasswordReset = async () => {
-    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      setPasswordMessage('All fields are required');
-      return;
-    }
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordMessage('New passwords do not match');
-      return;
-    }
-
-    setPasswordLoading(true);
-    setPasswordMessage('');
-
-    try {
-      const response = await axios.post('/api/auth/change-password', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      });
-      
-      setPasswordMessage('Password updated successfully');
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-      
-      setTimeout(() => setPasswordMessage(''), 3000);
-      
-    } catch (error) {
-      setPasswordMessage(error.response?.data?.error || 'Error updating password');
-    } finally {
-      setPasswordLoading(false);
-    }
+  const handleEditProfile = () => {
+    setProfileData({
+      firstName: currentUser?.first_name || '',
+      lastName: currentUser?.last_name || '',
+      username: currentUser?.username || '',
+      email: currentUser?.email || ''
+    });
+    setIsEditingProfile(true);
   };
 
-  const handleUsernameChange = async () => {
-    if (!usernameData.newUsername || !usernameData.password) {
-      setUsernameMessage('New username and current password are required');
-      return;
-    }
+  const handleCancelEditProfile = () => {
+    setIsEditingProfile(false);
+    setProfileData({
+      firstName: '',
+      lastName: '',
+      username: '',
+      email: ''
+    });
+    setProfileMessage('');
+  };
 
-    if (usernameData.newUsername.length < 3) {
-      setUsernameMessage('Username must be at least 3 characters long');
-      return;
-    }
-
-    setUsernameLoading(true);
-    setUsernameMessage('');
+  const handleSaveProfile = async () => {
+    setProfileLoading(true);
+    setProfileMessage('');
 
     try {
-      const response = await axios.post('/api/auth/change-username', {
-        newUsername: usernameData.newUsername,
-        password: usernameData.password
+      // Basic email validation if email is provided
+      if (profileData.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(profileData.email)) {
+          setProfileStatus('error');
+          setProfileMessage('Please enter a valid email address');
+          setTimeout(() => setProfileMessage(''), 2500);
+          setProfileLoading(false);
+          return;
+        }
+      }
+
+      // Validate username length if changed
+      if (profileData.username && profileData.username.length < 3) {
+        setProfileStatus('error');
+        setProfileMessage('Username must be at least 3 characters long');
+        setTimeout(() => setProfileMessage(''), 2500);
+        setProfileLoading(false);
+        return;
+      }
+
+      const response = await axios.post('/api/auth/update-profile', {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        username: profileData.username,
+        email: profileData.email
       });
       
-      setUsernameMessage('Username updated successfully');
-      setUsernameData({ newUsername: '', password: '' });
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      }
       
-      // Update user context with new username
       if (response.data.user && updateUser) {
         updateUser(response.data.user);
       }
       
-      setTimeout(() => setUsernameMessage(''), 3000);
+      setIsEditingProfile(false);
       
     } catch (error) {
-      setUsernameMessage(error.response?.data?.error || 'Error updating username');
+      setProfileStatus('error');
+      setProfileMessage(error.response?.data?.error || 'Error updating profile');
+      setTimeout(() => setProfileMessage(''), 2500);
     } finally {
-      setUsernameLoading(false);
-    }
-  };
-
-  const handleEmailChange = async () => {
-    if (!emailData.newEmail || !emailData.password) {
-      setEmailMessage('New email and current password are required');
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailData.newEmail)) {
-      setEmailMessage('Please enter a valid email address');
-      return;
-    }
-
-    setEmailLoading(true);
-    setEmailMessage('');
-
-    try {
-      const response = await axios.post('/api/auth/change-email', {
-        newEmail: emailData.newEmail,
-        password: emailData.password
-      });
-      
-      setEmailMessage('Email updated successfully');
-      setEmailData({ newEmail: '', password: '' });
-      
-      // Update user context with new email
-      if (response.data.user && updateUser) {
-        updateUser(response.data.user);
-      }
-      
-      setTimeout(() => setEmailMessage(''), 3000);
-      
-    } catch (error) {
-      setEmailMessage(error.response?.data?.error || 'Error updating email');
-    } finally {
-      setEmailLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -226,7 +173,7 @@ const Settings = () => {
     
     // Don't allow deleting yourself
     if (userToDelete.id === currentUser.userId) {
-      alert('You cannot delete your own account');
+      showUserSaveMessage('You cannot delete your own account', 'error');
       setUserToDelete(null);
       return;
     }
@@ -239,7 +186,7 @@ const Settings = () => {
       setEditingUser(null);
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Error deleting user: ' + (error.response?.data?.error || 'Unknown error'));
+      showUserSaveMessage(error.response?.data?.error || 'Error deleting user', 'error');
       setUserToDelete(null);
     }
   };
@@ -253,10 +200,20 @@ const Settings = () => {
     setNewUser({ username: '', email: '', password: '', role: 'user', firstName: '', lastName: '' });
   };
 
+  const showUserSaveMessage = (message, status = 'error') => {
+    if (!message) {
+      setUserSaveMessage('');
+      return;
+    }
+    setUserSaveStatus(status);
+    setUserSaveMessage(message);
+    setTimeout(() => setUserSaveMessage(''), 2500);
+  };
+
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-4xl mx-auto px-2 sm:px-4 py-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
@@ -271,7 +228,7 @@ const Settings = () => {
           </div>
 
           {/* Tabs */}
-          <div className="flex space-x-1 mb-8 bg-slate-800/50 p-1 rounded-lg">
+          <div className="flex space-x-1 mb-1 bg-slate-800/50 p-1 rounded-lg">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -293,257 +250,136 @@ const Settings = () => {
 
           {/* Tab Content */}
           {activeTab === 'profile' && (
-            <div className="space-y-6">
-              <div className="glass rounded-xl p-6 border border-purple-500/20">
-                <h2 className="text-xl font-semibold text-white mb-4">Profile Information</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
-                    <input
-                      type="text"
-                      value={currentUser?.username || ''}
-                      disabled
-                      className="input bg-gray-700 text-gray-300"
-                    />
+            <div className="stack">
+              <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-white flex items-center">
+                    <User className="h-5 w-5 mr-2 text-purple-400" />
+                    Profile Information
+                  </h2>
+                  {!isEditingProfile && (
+                    <button
+                      onClick={handleEditProfile}
+                      className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {profileMessage && (
+                  <div className="mb-4 text-sm text-red-400">
+                    {profileMessage}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={currentUser?.email || ''}
-                      disabled
-                      className="input bg-gray-700 text-gray-300"
-                    />
+                )}
+
+                <div className="stack">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
+                      <input
+                        type="text"
+                        value={isEditingProfile ? profileData.firstName : (currentUser?.first_name || '')}
+                        onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                        disabled={!isEditingProfile}
+                        className={`input ${isEditingProfile ? 'bg-slate-700 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
+                      <input
+                        type="text"
+                        value={isEditingProfile ? profileData.lastName : (currentUser?.last_name || '')}
+                        onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                        disabled={!isEditingProfile}
+                        className={`input ${isEditingProfile ? 'bg-slate-700 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                      <input
+                        type="text"
+                        value={isEditingProfile ? profileData.username : (currentUser?.username || '')}
+                        onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
+                        disabled={!isEditingProfile}
+                        className={`input ${isEditingProfile ? 'bg-slate-700 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={isEditingProfile ? profileData.email : (currentUser?.email || '')}
+                        onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                        disabled={!isEditingProfile}
+                        className={`input ${isEditingProfile ? 'bg-slate-700 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Role</label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={currentUser?.is_admin ? 'Administrator' : 'User'}
-                        disabled
-                        className="input bg-gray-700 text-gray-300"
-                      />
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        currentUser?.is_admin 
-                          ? 'bg-red-500/20 text-red-300' 
-                          : 'bg-blue-500/20 text-blue-300'
-                      }`}>
-                        {currentUser?.is_admin ? 'Admin' : 'User'}
-                      </span>
-                    </div>
+                    <input
+                      type="text"
+                      value={currentUser?.is_admin ? 'Administrator' : 'User'}
+                      disabled
+                      className="input bg-gray-700 text-gray-300"
+                    />
                   </div>
-                </div>
-              </div>
 
-              <div className="glass rounded-xl p-6 border border-purple-500/20">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-white">Reset Password</h2>
-                  <button
-                    onClick={() => setShowPasswordReset(!showPasswordReset)}
-                    className="btn-primary w-[140px]"
-                  >
-                    {showPasswordReset ? 'Cancel' : 'Change Password'}
-                  </button>
+                  {isEditingProfile && (
+                    <div className="flex space-x-2 mt-2">
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={profileLoading}
+                        className="btn-primary flex-1"
+                      >
+                        {profileLoading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                      <button
+                        onClick={handleCancelEditProfile}
+                        disabled={profileLoading}
+                        className="btn-secondary flex-1"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {showPasswordReset && (
-                  <div className="mt-6 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
-                      <input
-                        type="password"
-                        value={passwordData.currentPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                        className="input"
-                        placeholder="Enter current password"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">New Password</label>
-                      <input
-                        type="password"
-                        value={passwordData.newPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                        className="input"
-                        placeholder="Enter new password"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
-                      <input
-                        type="password"
-                        value={passwordData.confirmPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                        className="input"
-                        placeholder="Confirm new password"
-                      />
-                    </div>
-                    {passwordMessage && (
-                      <div className={`p-3 rounded-md text-sm ${
-                        passwordMessage.includes('successfully') 
-                          ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-                          : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                      }`}>
-                        {passwordMessage}
-                      </div>
-                    )}
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={handlePasswordReset}
-                        disabled={passwordLoading}
-                        className="btn-primary"
-                      >
-                        {passwordLoading ? 'Updating...' : 'Update Password'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                          setShowPasswordReset(false);
-                        }}
-                        className="btn-secondary"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="glass rounded-xl p-6 border border-purple-500/20">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-white">Change Username</h2>
-                  <button
-                    onClick={() => setShowUsernameChange(!showUsernameChange)}
-                    className="btn-primary w-[140px]"
-                  >
-                    {showUsernameChange ? 'Cancel' : 'Change Username'}
-                  </button>
-                </div>
-                {showUsernameChange && (
-                  <div className="mt-6 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">New Username</label>
-                      <input
-                        type="text"
-                        value={usernameData.newUsername}
-                        onChange={(e) => setUsernameData({ ...usernameData, newUsername: e.target.value })}
-                        className="input"
-                        placeholder="Enter new username"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
-                      <input
-                        type="password"
-                        value={usernameData.password}
-                        onChange={(e) => setUsernameData({ ...usernameData, password: e.target.value })}
-                        className="input"
-                        placeholder="Enter current password"
-                      />
-                    </div>
-                    {usernameMessage && (
-                      <div className={`p-3 rounded-md text-sm ${
-                        usernameMessage.includes('successfully') 
-                          ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-                          : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                      }`}>
-                        {usernameMessage}
-                      </div>
-                    )}
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={handleUsernameChange}
-                        disabled={usernameLoading}
-                        className="btn-primary"
-                      >
-                        {usernameLoading ? 'Updating...' : 'Update Username'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setUsernameData({ newUsername: '', password: '' });
-                          setShowUsernameChange(false);
-                        }}
-                        className="btn-secondary"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="glass rounded-xl p-6 border border-purple-500/20">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-white">Change Email</h2>
-                  <button
-                    onClick={() => setShowEmailChange(!showEmailChange)}
-                    className="btn-primary w-[140px]"
-                  >
-                    {showEmailChange ? 'Cancel' : 'Change Email'}
-                  </button>
-                </div>
-                {showEmailChange && (
-                  <div className="mt-6 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">New Email</label>
-                      <input
-                        type="email"
-                        value={emailData.newEmail}
-                        onChange={(e) => setEmailData({ ...emailData, newEmail: e.target.value })}
-                        className="input"
-                        placeholder="Enter new email"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
-                      <input
-                        type="password"
-                        value={emailData.password}
-                        onChange={(e) => setEmailData({ ...emailData, password: e.target.value })}
-                        className="input"
-                        placeholder="Enter current password"
-                      />
-                    </div>
-                    {emailMessage && (
-                      <div className={`p-3 rounded-md text-sm ${
-                        emailMessage.includes('successfully') 
-                          ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-                          : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                      }`}>
-                        {emailMessage}
-                      </div>
-                    )}
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={handleEmailChange}
-                        disabled={emailLoading}
-                        className="btn-primary"
-                      >
-                        {emailLoading ? 'Updating...' : 'Update Email'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEmailData({ newEmail: '', password: '' });
-                          setShowEmailChange(false);
-                        }}
-                        className="btn-secondary"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
-          {activeTab === 'goals' && <Goals />}
+          {activeTab === 'goals' && (
+            <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-white flex items-center">
+                  <Target className="h-5 w-5 mr-2 text-purple-400" />
+                  Goals
+                </h2>
+                {(currentUser?.is_admin === 1 || currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
+                  <button
+                    onClick={() => goalsRef.current?.openCreate()}
+                    className="btn-primary flex items-center space-x-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Add Goal</span>
+                  </button>
+                )}
+              </div>
+              <Goals ref={goalsRef} hideHeader={true} />
+            </div>
+          )}
 
           {activeTab === 'users' && (
-            <div className="space-y-6">
-              <div className="glass rounded-xl p-6 border border-purple-500/20">
+            <div className="stack">
+              <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-white">User Management</h2>
+                  <h2 className="text-xl font-semibold text-white flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-purple-400" />
+                    User Management
+                  </h2>
                   {(currentUser?.is_admin === 1 || currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
                     <button
                       onClick={() => setShowAddUser(true)}
@@ -554,13 +390,18 @@ const Settings = () => {
                     </button>
                   )}
                 </div>
+                  {userSaveMessage && (
+                    <div className="text-sm mb-2 text-red-400">
+                      {userSaveMessage}
+                    </div>
+                  )}
 
                 {usersLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="stack">
                     {users.map((user) => (
                       <div key={user.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
                         <div className="flex-1">
@@ -597,9 +438,9 @@ const Settings = () => {
                                 setEditingUser(user);
                                 setShowAddUser(true);
                               }}
-                              className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                              className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit2 className="h-4 w-4" />
                             </button>
                           ))}
                         </div>
@@ -615,7 +456,7 @@ const Settings = () => {
                   <h3 className="text-lg font-semibold text-white mb-4">
                     {editingUser ? 'Edit User' : 'Add New User'}
                   </h3>
-                  <div className="space-y-4">
+                  <div className="stack">
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
                       <input
@@ -682,6 +523,11 @@ const Settings = () => {
                         )}
                       </select>
                     </div>
+                    {userSaveMessage && (
+                      <div className="p-2 rounded-md text-sm text-red-400">
+                        {userSaveMessage}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={async () => {
@@ -699,10 +545,10 @@ const Settings = () => {
                               fetchUsers();
                               setShowAddUser(false);
                               cancelEdit();
-                              alert('User updated successfully');
+                              showUserSaveMessage('');
                             } catch (error) {
                               console.error('Error updating user:', error);
-                              alert('Error updating user: ' + (error.response?.data?.error || 'Unknown error'));
+                              showUserSaveMessage(error.response?.data?.error || 'Error updating user', 'error');
                             }
                           } else {
                             // Handle add logic
@@ -718,10 +564,10 @@ const Settings = () => {
                               fetchUsers();
                               setShowAddUser(false);
                               cancelEdit();
-                              alert('User created successfully');
+                              showUserSaveMessage('');
                             } catch (error) {
                               console.error('Error creating user:', error);
-                              alert('Error creating user: ' + (error.response?.data?.error || 'Unknown error'));
+                              showUserSaveMessage(error.response?.data?.error || 'Error creating user', 'error');
                             }
                           }
                         }}
