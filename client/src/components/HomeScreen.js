@@ -1779,6 +1779,7 @@ const HomeScreen = () => {
                                 </div>
                               </div>
                             </div>
+                          </div>
                           <div className="px-3 sm:px-4 pb-2 sm:pb-3">
                             <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
                               <div
