@@ -1725,19 +1725,17 @@ const HomeScreen = () => {
                       return (
                         <div key={goal.id} className="bg-gray-800/50 rounded-lg transition-all overflow-hidden border-0">
                           <div className="py-2 sm:py-3 px-3 sm:px-4 border-b-0">
-                            <div className="flex justify-between">
-                              <div className="flex flex-col min-w-0">
-                                <div className="flex items-baseline space-x-2 min-w-0">
-                                  <Target className="h-4 w-4 text-purple-400 flex-shrink-0" />
-                                  <span className="text-sm font-medium text-white truncate">{goal.name}</span>
-                                </div>
-                                <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap mt-1">
-                                  {goal.calculation_type === 'percentage_time' ? '% Time' :
-                                   goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
-                                   goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
-                                   'Fixed Count'}
-                                </span>
-                              </div>
+                            <div className="flex items-baseline space-x-2 min-w-0">
+                              <Target className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                              <span className="text-sm font-medium text-white truncate">{goal.name}</span>
+                            </div>
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
+                                {goal.calculation_type === 'percentage_time' ? '% Time' :
+                                 goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
+                                 goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
+                                 'Fixed Count'}
+                              </span>
                               <div className="flex items-center gap-1">
                                 {/* Goal Period Navigation */}
                                 <div className="flex items-center gap-0.5">
@@ -1781,7 +1779,6 @@ const HomeScreen = () => {
                                 </div>
                               </div>
                             </div>
-                          </div>
                           <div className="px-3 sm:px-4 pb-2 sm:pb-3">
                             <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
                               <div
