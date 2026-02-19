@@ -1779,7 +1779,6 @@ const HomeScreen = () => {
                                     {`${percentage || 0}%`}
                                   </div>
                                 </div>
-                                </div>
                               </div>
                             </div>
                           </div>
