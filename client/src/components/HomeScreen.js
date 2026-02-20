@@ -2271,7 +2271,7 @@ const HomeScreen = () => {
                       />
                     </div>
                   </div>
-                  <div className="flex items-center justify-end gap-2 mb-1">
+                  <div className="flex items-center justify-center sm:justify-end gap-2 mb-1">
                     {activeList.reset_period !== 'static' && (
                       <div className="flex items-center gap-1 sm:gap-2">
                         <button
