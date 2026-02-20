@@ -1630,6 +1630,47 @@ const HomeScreen = () => {
           </div>
         ) : (
           <div>
+            {/* List Tabs */}
+            <div className="flex space-x-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', marginBottom: '5px' }}>
+              {lists.map((list) => (
+                <div
+                  key={list.id}
+                  draggable={hasListAdminPermission(list.id)}
+                  onDragStart={(e) => handleDragStart(e, list)}
+                  onDragOver={(e) => handleDragOver(e, list)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, list)}
+                  data-draggable="true"
+                  data-list-id={list.id}
+                  className={`flex items-center space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-colors cursor-move relative whitespace-nowrap ${
+                    activeListId === list.id
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  } ${
+                    draggedList?.id === list.id ? 'opacity-50' : ''
+                  }`}
+                  onClick={() => setActiveListId(list.id)}
+                >
+                  {/* Left indicator - insert before */}
+                  {dragOverList?.id === list.id && dragOverList?.insertBefore && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-400 rounded-l-lg"></div>
+                  )}
+                  
+                  {/* Right indicator - insert after */}
+                  {dragOverList?.id === list.id && !dragOverList?.insertBefore && (
+                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-purple-400 rounded-r-lg"></div>
+                  )}
+                  
+                  {list.name}
+                </div>
+              ))}
+            </div>
+            {actionMessage && (
+              <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                {actionMessage}
+              </div>
+            )}
+
             {goals.length > 0 && (
               <div className={`glass rounded-xl px-2 sm:px-4 border border-purple-500/20 mb-1 ${
                 user?.hide_goals ? 'pt-1.5 pb-2' : 'pt-1.5 pb-4 sm:pt-2 sm:pb-6'
@@ -1810,57 +1851,11 @@ const HomeScreen = () => {
               </div>
             )}
 
-            {/* List Tabs */}
-            <div className="flex space-x-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', marginBottom: '5px' }}>
-              {lists.map((list) => (
-                <div
-                  key={list.id}
-                  draggable={hasListAdminPermission(list.id)}
-                  onDragStart={(e) => handleDragStart(e, list)}
-                  onDragOver={(e) => handleDragOver(e, list)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, list)}
-                  data-draggable="true"
-                  data-list-id={list.id}
-                  className={`flex items-center space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-colors cursor-move relative whitespace-nowrap ${
-                    activeListId === list.id
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  } ${
-                    draggedList?.id === list.id ? 'opacity-50' : ''
-                  }`}
-                  onClick={() => setActiveListId(list.id)}
-                >
-                  {/* Left indicator - insert before */}
-                  {dragOverList?.id === list.id && dragOverList?.insertBefore && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-400 rounded-l-lg"></div>
-                  )}
-                  
-                  {/* Right indicator - insert after */}
-                  {dragOverList?.id === list.id && !dragOverList?.insertBefore && (
-                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-purple-400 rounded-r-lg"></div>
-                  )}
-                  
-                  {list.name}
-                </div>
-              ))}
-            </div>
-            {actionMessage && (
-              <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                {actionMessage}
-              </div>
-            )}
-
             {/* Active List Content */}
             {activeList && (
               <div className="stack">
                 {/* List Header */}
                 <div className="glass rounded-xl pt-1 px-3 pb-3 sm:pt-1.5 sm:px-4 sm:pb-4 border border-purple-500/20 relative">
-                  {tasks.length > 0 && (
-                    <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-sm font-medium bg-gray-700 text-gray-300">
-                      {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
-                    </span>
-                  )}
                   <div className="flex flex-col gap-2">
                     <div className="flex-1 min-w-0">
                       <h2 className="text-lg sm:text-3xl font-bold text-white">{activeList.name}</h2>
@@ -2315,7 +2310,12 @@ const HomeScreen = () => {
                 )}
 
                 {/* Tasks List */}
-                <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20">
+                <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20 relative">
+                  {tasks.length > 0 && (
+                    <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-sm font-medium bg-gray-700 text-gray-300">
+                      {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
+                    </span>
+                  )}
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-lg sm:text-xl font-semibold text-white">Tasks</h3>
                     <ToggleSwitch
