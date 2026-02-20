@@ -1856,68 +1856,11 @@ const HomeScreen = () => {
               <div className="stack">
                 {/* List Header */}
                 <div className="glass rounded-xl pt-1 px-3 pb-3 sm:pt-1.5 sm:px-4 sm:pb-4 border border-purple-500/20 relative">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-lg sm:text-3xl font-bold text-white">{activeList.name}</h2>
-                      {activeList.description && (
-                        <p className="text-gray-400 text-xs mt-1">{activeList.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-end gap-2">
-                      {activeList.reset_period !== 'static' && (
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          <button
-                            onClick={() => navigateDate(activeListId, 'prev')}
-                            className="p-1 sm:p-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
-                            title="Previous period"
-                          >
-                            <ChevronLeft className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                          </button>
-                          <button
-                            onClick={() => goToToday(activeListId)}
-                            className={`px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-colors w-[100px] sm:w-[140px] text-center ${
-                              isToday(getSelectedDate(activeListId))
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                            }`}
-                          >
-                            {getPeriodLabel(activeList, getSelectedDate(activeListId))}
-                          </button>
-                          <button
-                            onClick={() => navigateDate(activeListId, 'next')}
-                            disabled={isToday(getSelectedDate(activeListId))}
-                            className={`p-1 sm:p-1.5 rounded-lg transition-colors ${
-                              isToday(getSelectedDate(activeListId))
-                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                            }`}
-                            title="Next period"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                          </button>
-                        </div>
-                      )}
-                      {hasListAdminPermission(activeListId) && (
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          {hasListOwnerPermission(activeListId) && (
-                            <button
-                              onClick={() => handleEditList(activeList)}
-                              className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
-                            >
-                              <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span>Edit</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setShowCreateTask(!showCreateTask)}
-                            className="btn bg-gradient-to-r from-green-600 to-green-500 text-white hover:from-green-700 hover:to-green-600 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
-                          >
-                            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                            <span>Add Task</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg sm:text-3xl font-bold text-white">{activeList.name}</h2>
+                    {activeList.description && (
+                      <p className="text-gray-400 text-xs mt-1">{activeList.description}</p>
+                    )}
                   </div>
                 </div>
 
@@ -2327,12 +2270,68 @@ const HomeScreen = () => {
                         size="small"
                       />
                     </div>
-                    {actionMessage && (
-                      <div className={`text-sm mt-1 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                        {actionMessage}
+                  </div>
+                  <div className="flex items-center justify-end gap-2 mb-1">
+                    {activeList.reset_period !== 'static' && (
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <button
+                          onClick={() => navigateDate(activeListId, 'prev')}
+                          className="p-1 sm:p-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                          title="Previous period"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                        </button>
+                        <button
+                          onClick={() => goToToday(activeListId)}
+                          className={`px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-colors w-[100px] sm:w-[140px] text-center ${
+                            isToday(getSelectedDate(activeListId))
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                          }`}
+                        >
+                          {getPeriodLabel(activeList, getSelectedDate(activeListId))}
+                        </button>
+                        <button
+                          onClick={() => navigateDate(activeListId, 'next')}
+                          disabled={isToday(getSelectedDate(activeListId))}
+                          className={`p-1 sm:p-1.5 rounded-lg transition-colors ${
+                            isToday(getSelectedDate(activeListId))
+                              ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                          }`}
+                          title="Next period"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                        </button>
+                      </div>
+                    )}
+                    {hasListAdminPermission(activeListId) && (
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        {hasListOwnerPermission(activeListId) && (
+                          <button
+                            onClick={() => handleEditList(activeList)}
+                            className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
+                          >
+                            <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowCreateTask(!showCreateTask)}
+                          className="btn bg-gradient-to-r from-green-600 to-green-500 text-white hover:from-green-700 hover:to-green-600 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
+                        >
+                          <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>Add Task</span>
+                        </button>
                       </div>
                     )}
                   </div>
+                  {actionMessage && (
+                    <div className={`text-sm mb-1 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                      {actionMessage}
+                    </div>
+                  )}
+                  <div className="border-t border-gray-700 pt-2 mt-1"></div>
                   {tasks.length === 0 ? (
                     <p className="text-gray-400 text-center py-6 text-sm">No tasks yet. Create your first task above!</p>
                   ) : user?.hide_completed_tasks && tasks.every(task => task.is_completed) ? (
