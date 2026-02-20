@@ -1854,16 +1854,6 @@ const HomeScreen = () => {
             {/* Active List Content */}
             {activeList && (
               <div className="stack">
-                {/* List Header */}
-                <div className="glass rounded-xl pt-1 px-3 pb-3 sm:pt-1.5 sm:px-4 sm:pb-4 border border-purple-500/20 relative">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg sm:text-3xl font-bold text-white">{activeList.name}</h2>
-                    {activeList.description && (
-                      <p className="text-gray-400 text-xs mt-1">{activeList.description}</p>
-                    )}
-                  </div>
-                </div>
-
                 {/* Add Task Form */}
                 {showCreateTask && (
                   <div className="glass rounded-xl pt-3 px-6 pb-6 sm:pt-4 sm:px-6 sm:pb-6 border border-purple-500/20">
