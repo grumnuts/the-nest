@@ -2411,6 +2411,8 @@ const HomeScreen = () => {
                                         setNewCompletion({ user_id: '', time: '' });
                                       } else {
                                         setAddingCompletionForTask(task);
+                                        // Fetch list users to populate dropdown
+                                        fetchListUsers(activeListId);
                                         // Set default time to now
                                         const now = new Date();
                                         const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
