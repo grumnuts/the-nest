@@ -8,6 +8,7 @@ All notable changes to The Nest will be documented in this file.
 - Added support for users first and last name
 - Display user's first name in welcome message
 - Task completions now show user's first name instead of username
+- Added help text explaining permission levels in user and list editors
 
 ### 🐛 Bug Fixes
 - Fixed user editor not pre-populating first/last name fields
