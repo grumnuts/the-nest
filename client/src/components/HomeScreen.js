@@ -2232,8 +2232,8 @@ const HomeScreen = () => {
                           </div>
                         </div>
                         
-                        <div className="flex space-x-2">
-                          <button type="submit" className="btn-primary">
+                        <div className="flex flex-wrap gap-2">
+                          <button type="submit" className="btn-primary flex-1 min-w-[100px]">
                             Update List
                           </button>
                           <button
@@ -2242,7 +2242,7 @@ const HomeScreen = () => {
                               setShowEditList(false);
                               setEditingList(null);
                             }}
-                            className="btn-secondary"
+                            className="btn-secondary flex-1 min-w-[80px]"
                           >
                             Cancel
                           </button>
@@ -2253,7 +2253,7 @@ const HomeScreen = () => {
                               setShowEditList(false);
                               setEditingList(null);
                             }}
-                            className="btn bg-red-600 text-white hover:bg-red-700 flex items-center space-x-2"
+                            className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
                           >
                             <Trash2 className="h-4 w-4" />
                             <span>Delete List</span>
