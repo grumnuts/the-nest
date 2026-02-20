@@ -1598,6 +1598,11 @@ const HomeScreen = () => {
                       <option value="admin">Admin</option>
                       <option value="owner">Owner</option>
                     </select>
+                    <div className="text-xs text-gray-400 space-y-1">
+                      <p><span className="font-medium text-gray-300">Owner:</span> Can edit list settings, manage permissions, and delete list</p>
+                      <p><span className="font-medium text-gray-300">Admin:</span> Can add/edit/delete tasks and manage list users</p>
+                      <p><span className="font-medium text-gray-300">User:</span> Can view and complete tasks</p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
@@ -2216,6 +2221,11 @@ const HomeScreen = () => {
                                 <option value="admin">Admin</option>
                                 <option value="owner">Owner</option>
                               </select>
+                              <div className="text-xs text-gray-400 space-y-1">
+                                <p><span className="font-medium text-gray-300">Owner:</span> Can edit list settings, manage permissions, and delete list</p>
+                                <p><span className="font-medium text-gray-300">Admin:</span> Can add/edit/delete tasks and manage list users</p>
+                                <p><span className="font-medium text-gray-300">User:</span> Can view and complete tasks</p>
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => {
