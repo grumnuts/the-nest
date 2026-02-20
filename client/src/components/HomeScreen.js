@@ -194,6 +194,13 @@ const HomeScreen = () => {
   const [selectedNewListUser, setSelectedNewListUser] = useState('');
   const [selectedNewListUserPermission, setSelectedNewListUserPermission] = useState('user');
   
+  // State for managing task completion dialog
+  const [addingCompletionForTask, setAddingCompletionForTask] = useState(null);
+  const [newCompletion, setNewCompletion] = useState({
+    user_id: '',
+    time: ''
+  });
+  
   const activeList = lists.find(list => list.id === activeListId) || null;
 
   // Date helpers
@@ -1174,6 +1181,36 @@ const HomeScreen = () => {
     }
   };
 
+  const handleAddCompletion = async (e) => {
+    e.preventDefault();
+    
+    // Check if user has admin permission for the current list
+    if (!hasListAdminPermission(activeListId)) {
+      showActionMessage('Only list admins can add completions', 'error');
+      return;
+    }
+    
+    try {
+      // Construct the completed_at timestamp
+      const selectedDate = getSelectedDate(activeListId);
+      const completed_at = `${selectedDate} ${newCompletion.time}:00`;
+      
+      await axios.post(`/api/tasks/${addingCompletionForTask.id}/completions`, {
+        user_id: parseInt(newCompletion.user_id),
+        completed_at
+      });
+      
+      fetchListData(activeListId);
+      setAddingCompletionForTask(null);
+      setNewCompletion({ user_id: '', time: '' });
+      showActionMessage('Completion added successfully', 'success');
+    } catch (error) {
+      console.error('Error adding completion:', error);
+      const errorMsg = error.response?.data?.error || error.message;
+      showActionMessage(`Error adding completion: ${errorMsg}`, 'error');
+    }
+  };
+
   const handleEditList = (list) => {
     // If clicking edit on the list that's already being edited, close the form
     if (showEditList && editingList?.id === list.id) {
@@ -1389,6 +1426,8 @@ const HomeScreen = () => {
       setEditingList(null);
       setShowEditTask(false);
       setEditingTask(null);
+      setAddingCompletionForTask(null);
+      setNewCompletion({ user_id: '', time: '' });
       setActiveListId(lists[newIndex].id);
     }
   };
@@ -1693,6 +1732,8 @@ const HomeScreen = () => {
                     setEditingList(null);
                     setShowEditTask(false);
                     setEditingTask(null);
+                    setAddingCompletionForTask(null);
+                    setNewCompletion({ user_id: '', time: '' });
                     setActiveListId(list.id);
                   }}
                 >
@@ -2360,15 +2401,36 @@ const HomeScreen = () => {
                                 </span>
                               )}
                               {hasListAdminPermission(activeListId) && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditTask(task);
-                                  }}
-                                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Open add completion dialog
+                                      if (addingCompletionForTask?.id === task.id) {
+                                        setAddingCompletionForTask(null);
+                                        setNewCompletion({ user_id: '', time: '' });
+                                      } else {
+                                        setAddingCompletionForTask(task);
+                                        // Set default time to now
+                                        const now = new Date();
+                                        const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                                        setNewCompletion({ user_id: '', time: timeString });
+                                      }
+                                    }}
+                                    className="text-green-400 hover:text-green-300 transition-colors"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditTask(task);
+                                    }}
+                                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </button>
+                                </>
                               )}
                               {(() => {
                                 const buttons = [];
@@ -2632,6 +2694,59 @@ const HomeScreen = () => {
                                 >
                                   <Trash2 className="h-4 w-4" />
                                   <span>Delete Task</span>
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        )}
+                        {/* Add Completion Form - shown below the task */}
+                        {addingCompletionForTask?.id === task.id && (
+                          <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-green-500/20 mt-2">
+                            <h3 className="text-xl font-semibold mb-4 text-white">Add Completion</h3>
+                            <form onSubmit={handleAddCompletion} className="stack">
+                              <div>
+                                <label className="label text-gray-200">User *</label>
+                                <select
+                                  value={newCompletion.user_id}
+                                  onChange={(e) => setNewCompletion({...newCompletion, user_id: e.target.value})}
+                                  className="input w-full"
+                                  required
+                                >
+                                  <option value="">Select user</option>
+                                  {listUsers
+                                    .filter(u => u.list_id === activeListId)
+                                    .map(u => (
+                                      <option key={u.user_id} value={u.user_id}>
+                                        {u.first_name || u.username}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                              
+                              <div>
+                                <label className="label text-gray-200">Time *</label>
+                                <input
+                                  type="time"
+                                  value={newCompletion.time}
+                                  onChange={(e) => setNewCompletion({...newCompletion, time: e.target.value})}
+                                  className="input w-full"
+                                  required
+                                />
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-2">
+                                <button type="submit" className="btn-primary flex-1 min-w-[100px]">
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAddingCompletionForTask(null);
+                                    setNewCompletion({ user_id: '', time: '' });
+                                  }}
+                                  className="btn-secondary flex-1 min-w-[80px]"
+                                >
+                                  Cancel
                                 </button>
                               </div>
                             </form>

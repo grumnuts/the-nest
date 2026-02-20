@@ -321,6 +321,92 @@ router.get('/list/:listId', authenticateToken, (req, res) => {
   }
 });
 
+// Add a new completion to a task
+router.post('/:taskId/completions', authenticateToken, (req, res) => {
+  const { taskId } = req.params;
+  const { user_id, completed_at } = req.body;
+  const currentUserId = req.user.userId;
+
+  // Get the task to check permissions
+  db.getTaskById(taskId, (err, task) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching task' });
+    }
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has admin permission for the list
+    db.getUserListPermission(currentUserId, task.list_id, (err, permission) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking permissions' });
+      }
+
+      if (permission !== 'admin' && permission !== 'owner') {
+        return res.status(403).json({ error: 'Only list admins can add task completions' });
+      }
+
+      // Add the completion
+      db.addTaskCompletion(taskId, user_id, completed_at, (err) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error adding completion' });
+        }
+
+        // Update task status to completed
+        db.updateTaskStatus(taskId, true, user_id, (err) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error updating task status' });
+          }
+
+          res.status(201).json({ message: 'Completion added successfully' });
+        });
+      });
+    });
+  });
+});
+
+// Delete a specific task completion - must be before general delete route
+router.delete('/:taskId/completions/:completionId', authenticateToken, (req, res) => {
+  const { taskId, completionId } = req.params;
+  const userId = req.user.userId;
+
+  // Get the task to check permissions
+  db.getTaskById(taskId, (err, task) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching task' });
+    }
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has admin permission for the list
+    db.getUserListPermission(userId, task.list_id, (err, permission) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking permissions' });
+      }
+
+      if (permission !== 'admin' && permission !== 'owner') {
+        return res.status(403).json({ error: 'Only list admins can delete task completions' });
+      }
+
+      // Delete the completion
+      db.removeTaskCompletion(completionId, (err, changes) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error deleting completion' });
+        }
+
+        if (changes === 0) {
+          return res.status(404).json({ error: 'Completion not found' });
+        }
+
+        res.json({ message: 'Completion deleted successfully' });
+      });
+    });
+  });
+});
+
 // Delete a task
 router.delete('/:id', authenticateToken, (req, res) => {
   
@@ -360,47 +446,6 @@ router.delete('/:id', authenticateToken, (req, res) => {
         res.json({
           message: 'Task deleted successfully'
         });
-      });
-    });
-  });
-});
-
-// Delete a specific task completion
-router.delete('/:taskId/completions/:completionId', authenticateToken, (req, res) => {
-  const { taskId, completionId } = req.params;
-  const userId = req.user.userId;
-
-  // Get the task to check permissions
-  db.getTaskById(taskId, (err, task) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error fetching task' });
-    }
-
-    if (!task) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-
-    // Check if user has admin permission for the list
-    db.getUserListPermission(userId, task.list_id, (err, permission) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error checking permissions' });
-      }
-
-      if (permission !== 'admin' && permission !== 'owner') {
-        return res.status(403).json({ error: 'Only list admins can delete task completions' });
-      }
-
-      // Delete the completion
-      db.removeTaskCompletion(completionId, (err, changes) => {
-        if (err) {
-          return res.status(500).json({ error: 'Error deleting completion' });
-        }
-
-        if (changes === 0) {
-          return res.status(404).json({ error: 'Completion not found' });
-        }
-
-        res.json({ message: 'Completion deleted successfully' });
       });
     });
   });
