@@ -1161,19 +1161,26 @@ const HomeScreen = () => {
   };
 
   const handleEditList = (list) => {
-    setEditingList({
-      id: list.id,
-      name: list.name,
-      description: list.description,
-      reset_period: list.reset_period
-    });
-    // Fetch list users and all users when opening edit modal
-    fetchListUsers(list.id);
-    fetchAllUsers();
-    // Reset pending changes
-    setPendingUserChanges([]);
-    setSelectedNewUserPermission('user');
-    setShowEditList(true);
+    // If clicking edit on the list that's already being edited, close the form
+    if (showEditList && editingList?.id === list.id) {
+      setShowEditList(false);
+      setEditingList(null);
+    } else {
+      // Open edit form for this list
+      setEditingList({
+        id: list.id,
+        name: list.name,
+        description: list.description,
+        reset_period: list.reset_period
+      });
+      // Fetch list users and all users when opening edit modal
+      fetchListUsers(list.id);
+      fetchAllUsers();
+      // Reset pending changes
+      setPendingUserChanges([]);
+      setSelectedNewUserPermission('user');
+      setShowEditList(true);
+    }
   };
 
   const handleUpdateList = async (e) => {
@@ -1930,204 +1937,7 @@ const HomeScreen = () => {
                   </div>
                 )}
 
-                {/* Edit List Modal */}
-                {showEditList && (
-                  <div className="glass rounded-xl p-6 border border-purple-500/20">
-                    <h3 className="text-xl font-semibold mb-4 text-white">Edit List</h3>
-                    <form onSubmit={handleUpdateList} className="stack">
-                      <div>
-                        <label className="label text-gray-200">List Name *</label>
-                        <input
-                          type="text"
-                          value={editingList.name}
-                          onChange={(e) => setEditingList({...editingList, name: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter list name"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="label text-gray-200">Description (optional)</label>
-                        <textarea
-                          value={editingList.description}
-                          onChange={(e) => setEditingList({...editingList, description: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter list description"
-                          rows={3}
-                        />
-                      </div>
 
-                      <div>
-                        <label className="label text-gray-200">Reset Period</label>
-                        <select
-                          value={editingList.reset_period}
-                          onChange={(e) => setEditingList({...editingList, reset_period: e.target.value})}
-                          className="input w-full"
-                        >
-                          <option value="daily">Daily</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="monthly">Monthly</option>
-                          <option value="quarterly">Quarterly</option>
-                          <option value="annually">Annually</option>
-                          <option value="static">None - do not reset</option>
-                        </select>
-                      </div>
-
-                      {/* List Permissions Section */}
-                      <div className="border-t border-gray-700 pt-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-medium text-white flex items-center">
-                            <Users className="h-5 w-5 mr-2 text-purple-400" />
-                            List Permissions
-                          </h4>
-                        </div>
-                        
-                        <div className="stack mb-4">
-                          {(listUsers || []).map((listUser) => (
-                            <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
-                              <div className="flex items-center space-x-3">
-                                <div className="relative">
-                                  {listUser.permission_level === 'owner' ? (
-                                    <Crown className="h-4 w-4 text-yellow-400" />
-                                  ) : listUser.permission_level === 'admin' ? (
-                                    <Settings className="h-4 w-4 text-orange-400" />
-                                  ) : (
-                                    <User className="h-4 w-4 text-blue-400" />
-                                  )}
-                                </div>
-                                <div>
-                                  <p className="text-white font-medium text-sm">{listUser.username}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {/* Show dropdown for all users except current user */}
-                                {user?.userId !== listUser.id ? (
-                                  <select
-                                    value={getEffectivePermission(listUser.id, listUser.permission_level)}
-                                    onChange={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      const newPermission = e.target.value;
-                                      
-                                      // Remove any existing changes for this user
-                                      const filteredChanges = pendingUserChanges.filter(
-                                        change => change.userId !== listUser.id
-                                      );
-                                      
-                                      // Add update change
-                                      setPendingUserChanges([...filteredChanges, {
-                                        action: 'update',
-                                        userId: listUser.id,
-                                        permissionLevel: newPermission
-                                      }]);
-                                      
-                                    }}
-                                    className="bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 focus:border-blue-500 focus:outline-none"
-                                    disabled={user?.userId === listUser.id}
-                                  >
-                                    <option value="owner">Owner</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="user">User</option>
-                                  </select>
-                                ) : (
-                                  // Show empty space for current user as owner to maintain alignment
-                                  <div className="w-20"></div>
-                                )}
-                                
-                                {/* Show delete button for all users except current user */}
-                                {user?.userId !== listUser.id && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      removeUserFromList(selectedListForUsers, listUser.id);
-                                    }}
-                                    className="text-red-400 hover:text-red-300 transition-colors"
-                                    title="Remove user"
-                                  >
-                                    <UserMinus className="h-3 w-3" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        <div className="border-t border-gray-700 pt-3">
-                          <p className="text-xs text-gray-400 mb-2">Add new user:</p>
-                          <div className="stack">
-                            <select
-                              value={selectedNewUser}
-                              onChange={(e) => setSelectedNewUser(e.target.value)}
-                              className="input w-full"
-                            >
-                              <option value="">Select a user...</option>
-                              {allUsers
-                                .filter(user => !(listUsers || []).some(listUser => listUser.id === user.id))
-                                .map(user => (
-                                  <option key={user.id} value={user.id}>
-                                    {user.username}
-                                  </option>
-                                ))
-                              }
-                            </select>
-                            <select
-                              value={selectedNewUserPermission}
-                              onChange={(e) => setSelectedNewUserPermission(e.target.value)}
-                              className="input w-full"
-                            >
-                              <option value="user">User</option>
-                              <option value="admin">Admin</option>
-                              <option value="owner">Owner</option>
-                            </select>
-                            <button
-                              type="button" // Prevent form submission
-                              onClick={() => {
-                                addUserToListBySelection(selectedListForUsers, selectedNewUser, selectedNewUserPermission);
-                                setSelectedNewUser('');
-                                setSelectedNewUserPermission('user');
-                              }}
-                              className="btn-primary w-full flex items-center justify-center"
-                            >
-                              <UserPlus className="h-3 w-3 mr-2" />
-                              Add User
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        <button type="submit" className="btn-primary">
-                          Update List
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowEditList(false);
-                            setEditingList(null);
-                          }}
-                          className="btn-secondary"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDeleteList(editingList);
-                            setShowEditList(false);
-                            setEditingList(null);
-                          }}
-                          className="btn bg-red-600 text-white hover:bg-red-700 flex items-center space-x-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete List</span>
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
 
                 {/* Delete List Confirmation Modal */}
                 {showDeleteListConfirm && (
@@ -2241,6 +2051,206 @@ const HomeScreen = () => {
                       {actionMessage}
                     </div>
                   )}
+
+                  {/* Edit List Form - shown below the edit button */}
+                  {showEditList && (
+                    <div className="glass rounded-xl p-6 border border-purple-500/20 mb-4">
+                      <h3 className="text-xl font-semibold mb-4 text-white">Edit List</h3>
+                      <form onSubmit={handleUpdateList} className="stack">
+                        <div>
+                          <label className="label text-gray-200">List Name *</label>
+                          <input
+                            type="text"
+                            value={editingList.name}
+                            onChange={(e) => setEditingList({...editingList, name: e.target.value})}
+                            className="input w-full"
+                            placeholder="Enter list name"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="label text-gray-200">Description (optional)</label>
+                          <textarea
+                            value={editingList.description}
+                            onChange={(e) => setEditingList({...editingList, description: e.target.value})}
+                            className="input w-full"
+                            placeholder="Enter list description"
+                            rows={3}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="label text-gray-200">Reset Period</label>
+                          <select
+                            value={editingList.reset_period}
+                            onChange={(e) => setEditingList({...editingList, reset_period: e.target.value})}
+                            className="input w-full"
+                          >
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="annually">Annually</option>
+                            <option value="static">None - do not reset</option>
+                          </select>
+                        </div>
+
+                        {/* List Permissions Section */}
+                        <div className="border-t border-gray-700 pt-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-lg font-medium text-white flex items-center">
+                              <Users className="h-5 w-5 mr-2 text-purple-400" />
+                              List Permissions
+                            </h4>
+                          </div>
+                          
+                          <div className="stack mb-4">
+                            {(listUsers || []).map((listUser) => (
+                              <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                  <div className="relative">
+                                    {listUser.permission_level === 'owner' ? (
+                                      <Crown className="h-4 w-4 text-yellow-400" />
+                                    ) : listUser.permission_level === 'admin' ? (
+                                      <Settings className="h-4 w-4 text-orange-400" />
+                                    ) : (
+                                      <User className="h-4 w-4 text-blue-400" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="text-white font-medium text-sm">{listUser.username}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {/* Show dropdown for all users except current user */}
+                                  {user?.userId !== listUser.id ? (
+                                    <select
+                                      value={getEffectivePermission(listUser.id, listUser.permission_level)}
+                                      onChange={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const newPermission = e.target.value;
+                                        
+                                        // Remove any existing changes for this user
+                                        const filteredChanges = pendingUserChanges.filter(
+                                          change => change.userId !== listUser.id
+                                        );
+                                        
+                                        // Add update change
+                                        setPendingUserChanges([...filteredChanges, {
+                                          action: 'update',
+                                          userId: listUser.id,
+                                          permissionLevel: newPermission
+                                        }]);
+                                        
+                                      }}
+                                      className="bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                      disabled={user?.userId === listUser.id}
+                                    >
+                                      <option value="owner">Owner</option>
+                                      <option value="admin">Admin</option>
+                                      <option value="user">User</option>
+                                    </select>
+                                  ) : (
+                                    // Show empty space for current user as owner to maintain alignment
+                                    <div className="w-20"></div>
+                                  )}
+                                  
+                                  {/* Show delete button for all users except current user */}
+                                  {user?.userId !== listUser.id && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        removeUserFromList(selectedListForUsers, listUser.id);
+                                      }}
+                                      className="text-red-400 hover:text-red-300 transition-colors"
+                                      title="Remove user"
+                                    >
+                                      <UserMinus className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="border-t border-gray-700 pt-3">
+                            <p className="text-xs text-gray-400 mb-2">Add new user:</p>
+                            <div className="stack">
+                              <select
+                                value={selectedNewUser}
+                                onChange={(e) => setSelectedNewUser(e.target.value)}
+                                className="input w-full"
+                              >
+                                <option value="">Select a user...</option>
+                                {allUsers
+                                  .filter(user => !(listUsers || []).some(listUser => listUser.id === user.id))
+                                  .map(user => (
+                                    <option key={user.id} value={user.id}>
+                                      {user.username}
+                                    </option>
+                                  ))
+                                }
+                              </select>
+                              <select
+                                value={selectedNewUserPermission}
+                                onChange={(e) => setSelectedNewUserPermission(e.target.value)}
+                                className="input w-full"
+                              >
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                                <option value="owner">Owner</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  addUserToListBySelection(selectedListForUsers, selectedNewUser, selectedNewUserPermission);
+                                  setSelectedNewUser('');
+                                  setSelectedNewUserPermission('user');
+                                }}
+                                className="btn-primary w-full flex items-center justify-center"
+                              >
+                                <UserPlus className="h-3 w-3 mr-2" />
+                                Add User
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <button type="submit" className="btn-primary">
+                            Update List
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowEditList(false);
+                              setEditingList(null);
+                            }}
+                            className="btn-secondary"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDeleteList(editingList);
+                              setShowEditList(false);
+                              setEditingList(null);
+                            }}
+                            className="btn bg-red-600 text-white hover:bg-red-700 flex items-center space-x-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete List</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
                   <div className="border-t border-gray-700 pt-2 mt-1"></div>
                   {tasks.length === 0 ? (
                     <p className="text-gray-400 text-center py-6 text-sm">No tasks yet. Create your first task above!</p>
