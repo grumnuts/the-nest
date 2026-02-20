@@ -21,6 +21,7 @@ All notable changes to The Nest will be documented in this file.
 - Edit list form now appears below the edit button and above tasks
 - Edit task button now toggles the edit form (clicking again closes without saving)
 - Edit task form now appears directly below the task being edited
+- Navigating between lists now automatically closes any open editors without saving
 - UI Improvements
 
 ## [v1.0.0] - 2026-02-17
