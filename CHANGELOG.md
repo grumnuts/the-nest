@@ -13,6 +13,7 @@ All notable changes to The Nest will be documented in this file.
 - Fixed user editor not pre-populating first/last name fields
 - Fixed task completions showing usernames instead of first names
 - Resolved browser caching problems preventing first name display
+- Fixed list editor buttons overflowing container on mobile devices
 
 ### ⚒️ Enhancements
 - Users are now referenced by their first name rather than username
