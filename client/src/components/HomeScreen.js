@@ -2310,21 +2310,23 @@ const HomeScreen = () => {
                 )}
 
                 {/* Tasks List */}
-                <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20 relative">
-                  {tasks.length > 0 && (
-                    <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-sm font-medium bg-gray-700 text-gray-300">
-                      {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
-                    </span>
-                  )}
+                <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-lg sm:text-xl font-semibold text-white">Tasks</h3>
-                    <ToggleSwitch
-                      isOn={!user?.hide_completed_tasks}
-                      onToggle={toggleHideCompletedTasks}
-                      labelText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
-                      mobileText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
-                      size="small"
-                    />
+                    <div className="flex items-center gap-2">
+                      {tasks.length > 0 && (
+                        <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-sm font-medium bg-gray-700 text-gray-300">
+                          {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
+                        </span>
+                      )}
+                      <ToggleSwitch
+                        isOn={!user?.hide_completed_tasks}
+                        onToggle={toggleHideCompletedTasks}
+                        labelText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
+                        mobileText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
+                        size="small"
+                      />
+                    </div>
                     {actionMessage && (
                       <div className={`text-sm mt-1 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
                         {actionMessage}
