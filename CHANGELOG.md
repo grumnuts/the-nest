@@ -9,6 +9,7 @@ All notable changes to The Nest will be documented in this file.
 - Display user's first name in welcome message
 - Task completions now show user's first name instead of username
 - Added help text explaining permission levels in user and list editors
+- Added completion management to task editor - view and delete individual completions for the current period
 
 ### 🐛 Bug Fixes
 - Fixed user editor not pre-populating first/last name fields
