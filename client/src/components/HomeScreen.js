@@ -1424,7 +1424,7 @@ const HomeScreen = () => {
                 className="btn-primary flex items-center space-x-2"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add List</span>
+                <span>Add List</span>
               </button>
               
               <button
