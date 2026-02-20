@@ -17,6 +17,8 @@ All notable changes to The Nest will be documented in this file.
 ### ⚒️ Enhancements
 - Users are now referenced by their first name rather than username
 - Added automatic database schema migration for existing installations
+- Edit list button now toggles the edit form (clicking again closes without saving)
+- Edit list form now appears below the edit button and above tasks
 - Edit task button now toggles the edit form (clicking again closes without saving)
 - Edit task form now appears directly below the task being edited
 - UI Improvements
