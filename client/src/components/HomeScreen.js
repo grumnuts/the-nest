@@ -1612,14 +1612,14 @@ const HomeScreen = () => {
                 </div>
               </div>
               
-              <div className="flex space-x-3">
-                <button type="submit" className="btn-primary">
+              <div className="flex gap-2">
+                <button type="submit" className="btn-primary flex-1">
                   Add List
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateList(false)}
-                  className="btn-secondary"
+                  className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>
@@ -1933,14 +1933,14 @@ const HomeScreen = () => {
                           Allow multiple completions
                         </label>
                       </div>
-                      <div className="flex space-x-2">
-                        <button type="submit" className="btn-primary">
+                      <div className="flex gap-2">
+                        <button type="submit" className="btn-primary flex-1">
                           Add Task
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowCreateTask(false)}
-                          className="btn-secondary"
+                          className="btn-secondary flex-1"
                         >
                           Cancel
                         </button>
