@@ -1117,14 +1117,21 @@ const HomeScreen = () => {
     setTaskToDelete(null);
   };
   const handleEditTask = (task) => {
-    setEditingTask({
-      id: task.id,
-      title: task.title,
-      description: task.description || '',
-      duration_minutes: task.duration_minutes || 0,
-      allow_multiple_completions: task.allow_multiple_completions === 1
-    });
-    setShowEditTask(true);
+    // If clicking edit on the task that's already being edited, close the form
+    if (showEditTask && editingTask?.id === task.id) {
+      setShowEditTask(false);
+      setEditingTask(null);
+    } else {
+      // Open edit form for this task
+      setEditingTask({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        duration_minutes: task.duration_minutes || 0,
+        allow_multiple_completions: task.allow_multiple_completions === 1
+      });
+      setShowEditTask(true);
+    }
   };
 
   const handleUpdateTask = async (e) => {
@@ -2244,8 +2251,8 @@ const HomeScreen = () => {
                       {tasks
                         .filter(task => !user?.hide_completed_tasks || !task.is_completed)
                         .map((task) => (
+                        <React.Fragment key={task.id}>
                         <div
-                          key={task.id}
                           draggable={hasListAdminPermission(activeListId)}
                           onDragStart={(e) => handleTaskDragStart(e, task)}
                           onDragOver={(e) => handleTaskDragOver(e, task)}
@@ -2503,6 +2510,7 @@ const HomeScreen = () => {
                             </form>
                           </div>
                         )}
+                      </React.Fragment>
                       ))}
                     </div>
                   )}
