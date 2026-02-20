@@ -1370,6 +1370,11 @@ const HomeScreen = () => {
     }
     
     if (lists[newIndex]) {
+      // Close any open editors when navigating
+      setShowEditList(false);
+      setEditingList(null);
+      setShowEditTask(false);
+      setEditingTask(null);
       setActiveListId(lists[newIndex].id);
     }
   };
@@ -1663,7 +1668,14 @@ const HomeScreen = () => {
                   } ${
                     draggedList?.id === list.id ? 'opacity-50' : ''
                   }`}
-                  onClick={() => setActiveListId(list.id)}
+                  onClick={() => {
+                    // Close any open editors when clicking on a list
+                    setShowEditList(false);
+                    setEditingList(null);
+                    setShowEditTask(false);
+                    setEditingTask(null);
+                    setActiveListId(list.id);
+                  }}
                 >
                   {/* Left indicator - insert before */}
                   {dragOverList?.id === list.id && dragOverList?.insertBefore && (
