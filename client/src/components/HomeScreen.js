@@ -2715,13 +2715,11 @@ const HomeScreen = () => {
                                   required
                                 >
                                   <option value="">Select user</option>
-                                  {listUsers
-                                    .filter(u => u.list_id === activeListId)
-                                    .map(u => (
-                                      <option key={u.user_id} value={u.user_id}>
-                                        {u.first_name || u.username}
-                                      </option>
-                                    ))}
+                                  {listUsers.map(u => (
+                                    <option key={u.user_id} value={u.user_id}>
+                                      {u.first_name || u.username}
+                                    </option>
+                                  ))}
                                 </select>
                               </div>
                               
