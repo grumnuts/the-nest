@@ -2603,11 +2603,6 @@ const HomeScreen = () => {
                                         );
                                       })}
                                     </div>
-                                    {completionsToDelete.length > 0 && (
-                                      <p className="text-xs text-red-400 mt-2">
-                                        {completionsToDelete.length} completion{completionsToDelete.length > 1 ? 's' : ''} will be deleted when you click Update Task
-                                      </p>
-                                    )}
                                   </div>
                                 );
                               })()}
