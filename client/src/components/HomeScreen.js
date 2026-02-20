@@ -1599,8 +1599,8 @@ const HomeScreen = () => {
                       <option value="owner">Owner</option>
                     </select>
                     <div className="text-xs text-gray-400 space-y-1">
-                      <p><span className="font-medium text-gray-300">Owner:</span> Can edit list settings, manage permissions, and delete list</p>
-                      <p><span className="font-medium text-gray-300">Admin:</span> Can add/edit/delete tasks and manage list users</p>
+                      <p><span className="font-medium text-gray-300">Owner:</span> Can manage settings and tasks</p>
+                      <p><span className="font-medium text-gray-300">Admin:</span> Can manage tasks</p>
                       <p><span className="font-medium text-gray-300">User:</span> Can view and complete tasks</p>
                     </div>
                     <button
@@ -2222,8 +2222,8 @@ const HomeScreen = () => {
                                 <option value="owner">Owner</option>
                               </select>
                               <div className="text-xs text-gray-400 space-y-1">
-                                <p><span className="font-medium text-gray-300">Owner:</span> Can edit list settings, manage permissions, and delete list</p>
-                                <p><span className="font-medium text-gray-300">Admin:</span> Can add/edit/delete tasks and manage list users</p>
+                                <p><span className="font-medium text-gray-300">Owner:</span> Can manage settings and tasks</p>
+                                <p><span className="font-medium text-gray-300">Admin:</span> Can manage tasks</p>
                                 <p><span className="font-medium text-gray-300">User:</span> Can view and complete tasks</p>
                               </div>
                               <button

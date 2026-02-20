@@ -528,9 +528,9 @@ const Settings = () => {
                         )}
                       </select>
                       <div className="mt-2 text-xs text-gray-400 space-y-1">
-                        <p><span className="font-medium text-gray-300">Owner:</span> Full system access and user management</p>
-                        <p><span className="font-medium text-gray-300">Admin:</span> Can manage users and all lists</p>
-                        <p><span className="font-medium text-gray-300">User:</span> Standard access to assigned lists only</p>
+                        <p><span className="font-medium text-gray-300">Owner:</span> Full system access</p>
+                        <p><span className="font-medium text-gray-300">Admin:</span> Can manage goals and users except owners</p>
+                        <p><span className="font-medium text-gray-300">User:</span> No administrator access</p>
                       </div>
                     </div>
                     {userSaveMessage && (
