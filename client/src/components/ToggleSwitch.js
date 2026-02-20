@@ -30,6 +30,14 @@ const ToggleSwitch = ({
     >
       {Icon && <Icon className={`h-4 w-4 ${size === 'small' ? 'sm:h-3 sm:w-3' : ''}`} />}
       
+      {/* Label */}
+      <span className={`${currentSize.label} hidden sm:inline`}>
+        {labelText}
+      </span>
+      <span className={`${currentSize.label} sm:hidden`}>
+        {mobileText || labelText}
+      </span>
+      
       {/* Toggle Switch */}
       <div className={`relative ${currentSize.container} bg-gray-600 rounded-full transition-colors duration-200 ${
         isOn ? 'bg-green-600' : 'bg-gray-600'
@@ -40,14 +48,6 @@ const ToggleSwitch = ({
           } ${size === 'small' ? (isOn ? 'translate-x-4' : 'translate-x-0.5') : ''}`}
         />
       </div>
-      
-      {/* Label */}
-      <span className={`${currentSize.label} hidden sm:inline`}>
-        {labelText}
-      </span>
-      <span className={`${currentSize.label} sm:hidden`}>
-        {mobileText || labelText}
-      </span>
     </button>
   );
 };

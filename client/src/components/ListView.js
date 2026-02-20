@@ -15,6 +15,8 @@ const ListView = () => {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionStatus, setActionStatus] = useState('success');
   
   const [newTask, setNewTask] = useState({
     title: '',
@@ -60,8 +62,12 @@ const ListView = () => {
       setNewTask({ title: '', description: '', assigned_to: '' });
       setShowCreateTask(false);
       fetchListData();
+      setActionMessage('');
     } catch (error) {
       console.error('Error creating task:', error);
+      setActionStatus('error');
+      setActionMessage('Error creating task');
+      setTimeout(() => setActionMessage(''), 2500);
     }
   };
 
@@ -86,8 +92,12 @@ const ListView = () => {
       setNewGoal({ tasks_per_period: 0 });
       setShowGoalForm(false);
       fetchListData();
+      setActionMessage('');
     } catch (error) {
       console.error('Error setting goal:', error);
+      setActionStatus('error');
+      setActionMessage('Error saving goal');
+      setTimeout(() => setActionMessage(''), 2500);
     }
   };
 
@@ -142,7 +152,7 @@ const ListView = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-2 sm:px-4">
         <div className="mb-6">
           <button
             onClick={() => navigate('/dashboard')}
@@ -152,6 +162,11 @@ const ListView = () => {
             <span>Back to Dashboard</span>
           </button>
         </div>
+        {actionMessage && (
+          <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {actionMessage}
+          </div>
+        )}
 
         <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
           <div className="p-6">
@@ -230,7 +245,7 @@ const ListView = () => {
           <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">Create New Task</h2>
-              <form onSubmit={handleCreateTask} className="space-y-4">
+              <form onSubmit={handleCreateTask} className="stack">
                 <div>
                   <label className="label">Task Title</label>
                   <input
@@ -283,7 +298,7 @@ const ListView = () => {
           <div className="glass rounded-xl p-6 border border-purple-500/20 mb-6">
             <div className="p-6">
               <h2 className="text-lg font-semibold mb-4">Set Goal</h2>
-              <form onSubmit={handleSetGoal} className="space-y-4">
+              <form onSubmit={handleSetGoal} className="stack">
                 <div>
                   <label className="label">Tasks per Period</label>
                   <input
@@ -320,7 +335,7 @@ const ListView = () => {
               {history.length === 0 ? (
                 <p className="text-gray-600">No history available yet.</p>
               ) : (
-                <div className="space-y-4">
+                <div className="stack">
                   {history.map((snapshot) => (
                     <div key={snapshot.id} className="border-l-4 border-gray-200 pl-4">
                       <div className="text-sm text-gray-600">
@@ -343,7 +358,7 @@ const ListView = () => {
             {tasks.length === 0 ? (
               <p className="text-gray-600">No tasks yet. Create your first task!</p>
             ) : (
-              <div className="space-y-3">
+              <div className="stack">
                 {tasks.map((task) => (
                   <div
                     key={task.id}

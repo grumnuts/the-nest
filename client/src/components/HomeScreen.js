@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Edit, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat, Users, UserPlus, UserMinus, User, Crown, Star } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat, Users, UserPlus, UserMinus, User, Crown, Star } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import ToggleSwitch from './ToggleSwitch';
@@ -87,7 +87,7 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
           }
           
           return (
-            <p key={`completion-${index}`} className="text-green-400 text-sm mt-1">
+            <p key={`completion-${index}`} className="text-green-400 text-xs mt-1">
               {completionText}{timeText}
             </p>
           );
@@ -112,7 +112,7 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
       }
       
       return (
-        <p key="completed" className="text-green-400 text-sm mt-1">
+        <p key="completed" className="text-green-400 text-xs mt-1">
           {completionText}{timeText}
         </p>
       );
@@ -163,6 +163,7 @@ const HomeScreen = () => {
   const [dragOverTask, setDragOverTask] = useState(null);
   const [goals, setGoals] = useState([]);
   const [goalDates, setGoalDates] = useState({}); // { goalId: 'YYYY-MM-DD' }
+  const [animatingTasks, setAnimatingTasks] = useState(new Set()); // Track tasks showing checkbox animation
   const [listPermissions, setListPermissions] = useState({}); // { listId: 'admin' | 'user' }
   const [listUsers, setListUsers] = useState([]);
   const [selectedListForUsers, setSelectedListForUsers] = useState(null);
@@ -170,6 +171,8 @@ const HomeScreen = () => {
   const [selectedNewUser, setSelectedNewUser] = useState('');
   const [selectedNewUserPermission, setSelectedNewUserPermission] = useState('user');
   const [pendingUserChanges, setPendingUserChanges] = useState([]); // Stage user changes locally
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionStatus, setActionStatus] = useState('success');
   const goalDatesRef = useRef(goalDates);
   goalDatesRef.current = goalDates; // Keep ref in sync with state
   const [listDates, setListDates] = useState({}); // { listId: 'YYYY-MM-DD' }
@@ -207,6 +210,12 @@ const HomeScreen = () => {
   const isToday = (dateStr) => dateStr === todayKey;
 
   const isFutureDate = (dateStr) => dateStr > todayKey;
+
+  const showActionMessage = (message, status = 'success') => {
+    setActionStatus(status);
+    setActionMessage(message);
+    setTimeout(() => setActionMessage(''), 2500);
+  };
 
   const navigateDate = (listId, direction) => {
     const current = getSelectedDate(listId);
@@ -463,7 +472,7 @@ const HomeScreen = () => {
   // Add user to list by selection
   const addUserToListBySelection = (listId, userId, permissionLevel = 'user') => {
     if (!userId) {
-      alert('Please select a user');
+      showActionMessage('Please select a user', 'error');
       return;
     }
     
@@ -589,8 +598,36 @@ const HomeScreen = () => {
 
   const getGoalPeriodLabel = (goal) => {
     const dateStr = goalDatesRef.current[goal.id];
-    if (!dateStr) return 'Current';
-    return goal.progress?.periodLabel || dateStr;
+    if (!dateStr) return 'Current Period';
+    
+    const d = new Date(dateStr + 'T12:00:00');
+    
+    switch (goal.period_type) {
+      case 'daily':
+        if (isToday(dateStr)) return 'Today';
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (dateStr === formatDateKey(yesterday)) return 'Yesterday';
+        return d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+      case 'weekly': {
+        const weekStart = new Date(d);
+        const dow = weekStart.getDay();
+        weekStart.setDate(weekStart.getDate() - (dow === 0 ? 6 : dow - 1)); // Monday
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        return `${weekStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} - ${weekEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      }
+      case 'monthly':
+        return d.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+      case 'quarterly': {
+        const q = Math.floor(d.getMonth() / 3) + 1;
+        return `Q${q} ${d.getFullYear()}`;
+      }
+      case 'annually':
+        return `${d.getFullYear()}`;
+      default:
+        return 'Current Period';
+    }
   };
 
   const navigateGoalDate = (goal, direction) => {
@@ -921,7 +958,7 @@ const HomeScreen = () => {
     
     // Check if user has admin permission for the current list
     if (!hasListAdminPermission(activeListId)) {
-      alert('Only list admins can create tasks');
+      showActionMessage('Only list admins can create tasks', 'error');
       return;
     }
     
@@ -959,14 +996,14 @@ const HomeScreen = () => {
       const errorMsg = error.response?.data?.errors 
         ? error.response.data.errors.map(e => e.msg).join(', ')
         : error.response?.data?.error || error.message;
-      alert(`Error creating task: ${errorMsg}`);
+      showActionMessage(`Error creating task: ${errorMsg}`, 'error');
     }
   };
 
   const handleSetGoal = async (e) => {
     e.preventDefault();
     // Goals functionality removed
-    alert('Goals functionality has been removed.');
+    showActionMessage('Goals functionality has been removed.', 'error');
   };
 
   const handleToggleTask = async (taskId, isCompleted) => {
@@ -979,7 +1016,7 @@ const HomeScreen = () => {
       fetchGoals(); // Immediate goal progress update
     } catch (error) {
       console.error('Error updating task:', error);
-      alert('Error updating task. Please try again.');
+      showActionMessage('Error updating task. Please try again.', 'error');
     }
   };
 
@@ -990,7 +1027,7 @@ const HomeScreen = () => {
       fetchGoals(); // Immediate goal progress update
     } catch (error) {
       console.error('Error undoing task:', error);
-      alert('Error undoing task. Please try again.');
+      showActionMessage('Error undoing task. Please try again.', 'error');
     }
   };
 
@@ -1039,7 +1076,7 @@ const HomeScreen = () => {
       const errorMsg = error.response?.data?.errors 
         ? error.response.data.errors.map(e => e.msg).join(', ')
         : error.response?.data?.error || error.message;
-      alert(`Error creating list: ${errorMsg}`);
+      showActionMessage(`Error creating list: ${errorMsg}`, 'error');
     }
   };
 
@@ -1060,7 +1097,7 @@ const HomeScreen = () => {
     
     // Check if user has admin permission for the current list
     if (!hasListAdminPermission(activeListId)) {
-      alert('Only list admins can delete tasks');
+      showActionMessage('Only list admins can delete tasks', 'error');
       setTaskToDelete(null);
       return;
     }
@@ -1071,7 +1108,7 @@ const HomeScreen = () => {
       setTaskToDelete(null);
     } catch (error) {
       console.error('Error deleting task:', error);
-      alert('Error deleting task: ' + (error.response?.data?.error || error.message));
+      showActionMessage(error.response?.data?.error || 'Error deleting task', 'error');
       setTaskToDelete(null);
     }
   };
@@ -1080,14 +1117,21 @@ const HomeScreen = () => {
     setTaskToDelete(null);
   };
   const handleEditTask = (task) => {
-    setEditingTask({
-      id: task.id,
-      title: task.title,
-      description: task.description || '',
-      duration_minutes: task.duration_minutes || 0,
-      allow_multiple_completions: task.allow_multiple_completions === 1
-    });
-    setShowEditTask(true);
+    // If clicking edit on the task that's already being edited, close the form
+    if (showEditTask && editingTask?.id === task.id) {
+      setShowEditTask(false);
+      setEditingTask(null);
+    } else {
+      // Open edit form for this task
+      setEditingTask({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        duration_minutes: task.duration_minutes || 0,
+        allow_multiple_completions: task.allow_multiple_completions === 1
+      });
+      setShowEditTask(true);
+    }
   };
 
   const handleUpdateTask = async (e) => {
@@ -1095,7 +1139,7 @@ const HomeScreen = () => {
     
     // Check if user has admin permission for the current list
     if (!hasListAdminPermission(activeListId)) {
-      alert('Only list admins can edit tasks');
+      showActionMessage('Only list admins can edit tasks', 'error');
       return;
     }
     
@@ -1112,24 +1156,31 @@ const HomeScreen = () => {
     } catch (error) {
       console.error('Error updating task:', error);
       const errorMsg = error.response?.data?.error || error.message;
-      alert(`Error updating task: ${errorMsg}`);
+      showActionMessage(`Error updating task: ${errorMsg}`, 'error');
     }
   };
 
   const handleEditList = (list) => {
-    setEditingList({
-      id: list.id,
-      name: list.name,
-      description: list.description,
-      reset_period: list.reset_period
-    });
-    // Fetch list users and all users when opening edit modal
-    fetchListUsers(list.id);
-    fetchAllUsers();
-    // Reset pending changes
-    setPendingUserChanges([]);
-    setSelectedNewUserPermission('user');
-    setShowEditList(true);
+    // If clicking edit on the list that's already being edited, close the form
+    if (showEditList && editingList?.id === list.id) {
+      setShowEditList(false);
+      setEditingList(null);
+    } else {
+      // Open edit form for this list
+      setEditingList({
+        id: list.id,
+        name: list.name,
+        description: list.description,
+        reset_period: list.reset_period
+      });
+      // Fetch list users and all users when opening edit modal
+      fetchListUsers(list.id);
+      fetchAllUsers();
+      // Reset pending changes
+      setPendingUserChanges([]);
+      setSelectedNewUserPermission('user');
+      setShowEditList(true);
+    }
   };
 
   const handleUpdateList = async (e) => {
@@ -1170,7 +1221,7 @@ const HomeScreen = () => {
       setSelectedNewUserPermission('user');
     } catch (error) {
       console.error('Error updating list:', error);
-      alert('Error updating list: ' + (error.response?.data?.error || error.message));
+      showActionMessage(error.response?.data?.error || 'Error updating list', 'error');
     }
   };
 
@@ -1199,7 +1250,7 @@ const HomeScreen = () => {
     } catch (error) {
       console.error('Error deleting list:', error);
       const errorMsg = error.response?.data?.error || error.message;
-      alert(`Error deleting list: ${errorMsg}`);
+      showActionMessage(`Error deleting list: ${errorMsg}`, 'error');
     }
   };
 
@@ -1228,7 +1279,7 @@ const HomeScreen = () => {
             fetchListData(activeListId);
     } catch (error) {
       console.error('Error marking task as done:', error);
-      alert('Error marking task as done. Please try again.');
+      showActionMessage('Error marking task as done. Please try again.', 'error');
     }
   };
 
@@ -1246,8 +1297,31 @@ const HomeScreen = () => {
       fetchListData(activeListId);
     } catch (error) {
       console.error('Error undoing task:', error);
-      alert('Error undoing task. Please try again.');
+      showActionMessage('Error undoing task. Please try again.', 'error');
     }
+  };
+
+  const handleTaskIconClick = async (task) => {
+    // Non-repeating task and already completed: undo
+    if (task.is_completed && task.allow_multiple_completions !== 1) {
+      await handleUndoCompletion(task.id);
+      return;
+    }
+
+    // For repeating tasks or uncompleted tasks: add completion/mark done
+    if (task.allow_multiple_completions === 1) {
+      // Show checkbox animation for 100ms then switch to circle
+      setAnimatingTasks(prev => new Set([...prev, task.id]));
+      setTimeout(() => {
+        setAnimatingTasks(prev => {
+          const next = new Set(prev);
+          next.delete(task.id);
+          return next;
+        });
+      }, 100);
+    }
+
+    await handleTaskClick(task.id);
   };
 
   const toggleHideGoals = async () => {
@@ -1261,7 +1335,7 @@ const HomeScreen = () => {
       }
     } catch (error) {
       console.error('Error updating hide goals preference:', error);
-      alert('Error updating preference. Please try again.');
+      showActionMessage('Error updating preference. Please try again.', 'error');
     }
   };
 
@@ -1276,7 +1350,7 @@ const HomeScreen = () => {
       }
     } catch (error) {
       console.error('Error updating hide completed tasks preference:', error);
-      alert('Error updating preference. Please try again.');
+      showActionMessage('Error updating preference. Please try again.', 'error');
     }
   };
 
@@ -1296,6 +1370,11 @@ const HomeScreen = () => {
     }
     
     if (lists[newIndex]) {
+      // Close any open editors when navigating
+      setShowEditList(false);
+      setEditingList(null);
+      setShowEditTask(false);
+      setEditingTask(null);
       setActiveListId(lists[newIndex].id);
     }
   };
@@ -1345,7 +1424,7 @@ const HomeScreen = () => {
                 className="btn-primary flex items-center space-x-2"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Create List</span>
+                <span>Add List</span>
               </button>
               
               <button
@@ -1367,12 +1446,12 @@ const HomeScreen = () => {
         </div>
       </header>
 
-      {/* Create List Form */}
+      {/* Add List Form */}
       {showCreateList && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
           <div className="glass rounded-xl p-6 border border-purple-500/20">
-            <h3 className="text-lg font-semibold mb-4 text-white">Create New List</h3>
-            <form onSubmit={handleCreateList} className="space-y-4">
+            <h3 className="text-lg font-semibold mb-4 text-white">Add New List</h3>
+            <form onSubmit={handleCreateList} className="stack">
               <div>
                 <label className="label text-gray-200">List Name *</label>
                 <input
@@ -1420,7 +1499,7 @@ const HomeScreen = () => {
                   List Permissions
                 </h4>
                 
-                <div className="space-y-3 mb-4">
+                <div className="stack mb-4">
                   {newListUsers.map((listUser) => (
                     <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -1494,7 +1573,7 @@ const HomeScreen = () => {
                 
                 <div className="border-t border-gray-700 pt-3">
                   <p className="text-xs text-gray-400 mb-2">Add new user:</p>
-                  <div className="space-y-2">
+                  <div className="stack">
                     <select
                       value={selectedNewListUser}
                       onChange={(e) => setSelectedNewListUser(e.target.value)}
@@ -1519,6 +1598,11 @@ const HomeScreen = () => {
                       <option value="admin">Admin</option>
                       <option value="owner">Owner</option>
                     </select>
+                    <div className="text-xs text-gray-400 space-y-1">
+                      <p><span className="font-medium text-gray-300">Owner:</span> Can manage settings and tasks</p>
+                      <p><span className="font-medium text-gray-300">Admin:</span> Can manage tasks</p>
+                      <p><span className="font-medium text-gray-300">User:</span> Can view and complete tasks</p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
@@ -1533,14 +1617,14 @@ const HomeScreen = () => {
                 </div>
               </div>
               
-              <div className="flex space-x-3">
-                <button type="submit" className="btn-primary">
-                  Create List
+              <div className="flex gap-2">
+                <button type="submit" className="btn-primary flex-1">
+                  Add List
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateList(false)}
-                  className="btn-secondary"
+                  className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>
@@ -1552,6 +1636,11 @@ const HomeScreen = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 pt-2 pb-4 sm:pb-6 lg:pb-8">
+        {lists.length === 0 && actionMessage && (
+          <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {actionMessage}
+          </div>
+        )}
         {lists.length === 0 ? (
           <div className="text-center py-8 sm:py-12">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">No Lists Yet</h2>
@@ -1584,7 +1673,14 @@ const HomeScreen = () => {
                   } ${
                     draggedList?.id === list.id ? 'opacity-50' : ''
                   }`}
-                  onClick={() => setActiveListId(list.id)}
+                  onClick={() => {
+                    // Close any open editors when clicking on a list
+                    setShowEditList(false);
+                    setEditingList(null);
+                    setShowEditTask(false);
+                    setEditingTask(null);
+                    setActiveListId(list.id);
+                  }}
                 >
                   {/* Left indicator - insert before */}
                   {dragOverList?.id === list.id && dragOverList?.insertBefore && (
@@ -1600,12 +1696,18 @@ const HomeScreen = () => {
                 </div>
               ))}
             </div>
+            {actionMessage && (
+              <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                {actionMessage}
+              </div>
+            )}
 
-            {/* Goals Tracker - Show header if goals exist, content only if not hidden */}
             {goals.length > 0 && (
-              <>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base sm:text-lg font-semibold text-white">Goals</h3>
+              <div className={`glass rounded-xl px-2 sm:px-4 border border-purple-500/20 mb-1 ${
+                user?.hide_goals ? 'pt-1.5 pb-2' : 'pt-1.5 pb-4 sm:pt-2 sm:pb-6'
+              }`}>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-lg sm:text-xl font-semibold text-white">Goals</h3>
                   <ToggleSwitch
                     isOn={!user?.hide_goals}
                     onToggle={toggleHideGoals}
@@ -1614,189 +1716,180 @@ const HomeScreen = () => {
                     size="small"
                   />
                 </div>
-                
+
                 {!user?.hide_goals && (
-                  <div className="space-y-2 mb-2">
-                    {goals.map((goal) => (
-                    <div key={goal.id} className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-2 sm:p-3 border border-purple-500/30">
-                      <div className="flex items-center mb-1 sm:hidden">
-                        <Target className="h-3 w-3 text-purple-400 flex-shrink-0" />
-                        <span className="text-xs font-medium text-white truncate ml-1">{goal.name}</span>
-                        <span className="text-[10px] text-gray-500 flex-shrink-0 whitespace-nowrap ml-2">
-                          {goal.calculation_type === 'percentage_time' ? '% Time' :
-                           goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
-                           goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
-                           'Fixed Count'}
-                        </span>
-                      </div>
-                      <div className="flex items-center mb-1 sm:mb-2">
-                        <div className="hidden sm:flex items-center space-x-2 min-w-0 flex-1">
-                          <Target className="h-4 w-4 text-purple-400 flex-shrink-0" />
-                          <span className="text-sm font-medium text-white truncate">{goal.name}</span>
-                          <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
-                            {goal.calculation_type === 'percentage_time' ? '% Time' :
-                             goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
-                             goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
-                             'Fixed Count'}
-                          </span>
-                        </div>
-                        <div className="flex items-center flex-shrink-0 w-full sm:w-[290px] justify-between sm:justify-end">
-                          <div className="flex items-center gap-0.5">
-                            <button
-                              onClick={() => navigateGoalDate(goal, 'prev')}
-                              className="p-0.5 rounded bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white transition-colors"
-                              title="Previous period"
-                            >
-                              <ChevronLeft className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => goToCurrentGoalPeriod(goal)}
-                              className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors w-[110px] text-center ${
-                                isCurrentGoalPeriod(goal)
-                                  ? 'bg-purple-600/50 text-purple-200'
-                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                              }`}
-                            >
-                              {getGoalPeriodLabel(goal)}
-                            </button>
-                            <button
-                              onClick={() => navigateGoalDate(goal, 'next')}
-                              disabled={isCurrentGoalPeriod(goal)}
-                              className={`p-0.5 rounded transition-colors ${
-                                isCurrentGoalPeriod(goal)
-                                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
-                              }`}
-                              title="Next period"
-                            >
-                              <ChevronRight className="h-3 w-3" />
-                            </button>
+                  <div className="stack">
+                    {goals.map((goal) => {
+                      // compute safe values and round UP to next whole number
+                      const completedRaw = Number(goal.progress?.completed ?? goal.progress?.completed_value ?? 0) || 0;
+                      const requiredRaw = Number(goal.progress?.required ?? goal.target_value ?? 0) || 0;
+                      const completed = Math.ceil(completedRaw);
+                      const required = Math.ceil(requiredRaw);
+                      let percentage = Number(goal.progress?.percentage ?? NaN);
+                      if (isNaN(percentage)) {
+                        percentage = requiredRaw > 0 ? Math.ceil((completedRaw / requiredRaw) * 100) : 0;
+                      } else {
+                        percentage = Math.ceil(percentage);
+                      }
+
+                      // status string based on type
+                      let statusStr = `${completed} / ${required}`;
+
+                      if (goal.calculation_type && goal.calculation_type.includes('percentage')) {
+                        // For percentage goals, the server returns `progress.completed` as percent-of-possible-time
+                        // Use that as the left-side metric (completed percent), and show the target as a percent.
+                        const completedPercent = Math.ceil(Number(goal.progress?.completed ?? completedRaw) || 0);
+                        statusStr = `${completedPercent} / ${required}%`;
+
+                        // Ensure `percentage` reflects percent-of-target (progress toward goal)
+                        percentage = Math.ceil(Number(goal.progress?.percentage ?? (required > 0 ? (completedPercent / required) * 100 : 0)) || 0);
+
+                        // Debug logging to help trace mismatches (only in non-production)
+                        if (process.env.NODE_ENV !== 'production' && goal.calculation_type === 'percentage_time') {
+                          // eslint-disable-next-line no-console
+                          console.debug('Goal percentage_time debug', { goalId: goal.id, completedRaw, completedPercent, requiredRaw, required, percentage, progress: goal.progress });
+                        }
+                      } else if (goal.calculation_type === 'fixed_time') {
+                        statusStr = `${completed} / ${required || 0}min`;
+                      }
+
+                      return (
+                        <div key={goal.id} className="bg-gray-800/50 rounded-lg transition-all overflow-hidden border-0">
+                          <div className="py-2 sm:py-3 px-3 sm:px-4 border-b-0">
+                            <div className="flex items-baseline space-x-2 min-w-0">
+                              <Target className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                              <span className="text-sm font-medium text-white truncate">{goal.name}</span>
+                              <span className="sm:hidden text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
+                                {goal.calculation_type === 'percentage_time' ? '% Time' :
+                                 goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
+                                 goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
+                                 'Fixed Count'}
+                              </span>
+                            </div>
+                            <div className="hidden sm:flex justify-between items-center mt-1">
+                              <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
+                                {goal.calculation_type === 'percentage_time' ? '% Time' :
+                                 goal.calculation_type === 'percentage_task_count' ? '% Tasks' :
+                                 goal.calculation_type === 'fixed_time' ? 'Fixed Time' :
+                                 'Fixed Count'}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {/* Goal Period Navigation */}
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    onClick={() => navigateGoalDate(goal, 'prev')}
+                                    className="p-1 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                                    title="Previous period"
+                                  >
+                                    <ChevronLeft className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => goToCurrentGoalPeriod(goal)}
+                                    className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors min-w-[100px] text-center ${
+                                      isCurrentGoalPeriod(goal)
+                                        ? 'bg-purple-600 text-white'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                                    }`}
+                                  >
+                                    {getGoalPeriodLabel(goal)}
+                                  </button>
+                                  <button
+                                    onClick={() => navigateGoalDate(goal, 'next')}
+                                    disabled={isCurrentGoalPeriod(goal)}
+                                    className={`p-1 rounded-lg transition-colors ${
+                                      isCurrentGoalPeriod(goal)
+                                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                                    }`}
+                                    title="Next period"
+                                  >
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex items-baseline justify-end gap-0 flex-nowrap">
+                                  <div className="text-xs text-gray-400 text-right w-[60px] whitespace-nowrap" title="Goal status">
+                                    {statusStr}
+                                  </div>
+                                  <div className="text-sm font-bold text-white w-[48px] text-right whitespace-nowrap" title="Goal percentage">
+                                    {`${percentage || 0}%`}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="sm:hidden flex justify-between items-center mt-1">
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  onClick={() => navigateGoalDate(goal, 'prev')}
+                                  className="p-1 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                                  title="Previous period"
+                                >
+                                  <ChevronLeft className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => goToCurrentGoalPeriod(goal)}
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors min-w-[100px] text-center ${
+                                    isCurrentGoalPeriod(goal)
+                                      ? 'bg-purple-600 text-white'
+                                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                                  }`}
+                                >
+                                  {getGoalPeriodLabel(goal)}
+                                </button>
+                                <button
+                                  onClick={() => navigateGoalDate(goal, 'next')}
+                                  disabled={isCurrentGoalPeriod(goal)}
+                                  className={`p-1 rounded-lg transition-colors ${
+                                    isCurrentGoalPeriod(goal)
+                                      ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                                  }`}
+                                  title="Next period"
+                                >
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <div className="flex items-baseline justify-end gap-0 flex-nowrap">
+                                <div className="text-xs text-gray-400 text-right w-[60px] whitespace-nowrap" title="Goal status">
+                                  {statusStr}
+                                </div>
+                                <div className="text-sm font-bold text-white w-[48px] text-right whitespace-nowrap" title="Goal percentage">
+                                  {`${percentage || 0}%`}
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-baseline ml-1 sm:ml-2">
-                            <span className="text-sm sm:text-lg font-bold text-white w-[55px] text-right">
-                              {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
-                                ? `${Math.round(goal.progress?.percentage || 0)}%`
-                                : goal.calculation_type === 'fixed_time' 
-                                ? `${Math.round(goal.progress?.completed || 0)}min`
-                                : `${goal.progress?.completed || 0}`
-                              }
-                            </span>
-                            <span className="text-xs sm:text-sm text-gray-400 w-[85px] text-right whitespace-nowrap">
-                              {goal.calculation_type === 'percentage_time' || goal.calculation_type === 'percentage_task_count' 
-                                ? `${Math.round(goal.progress?.completed || 0)}% /${goal.target_value}%`
-                                : goal.calculation_type === 'fixed_time' 
-                                ? `${Math.round(goal.progress?.completed || 0)} /${goal.progress?.required || goal.target_value}min`
-                                : `${goal.progress?.completed || 0} /${goal.progress?.required || goal.target_value}`
-                              }
-                            </span>
+                          <div className="px-3 sm:px-4 pb-2 sm:pb-3">
+                            <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-500 ${
+                                  (percentage || 0) >= 150 ? 'bg-purple-500' :
+                                  (percentage || 0) >= 125 ? 'bg-pink-500' :
+                                  (percentage || 0) >= 100 ? 'bg-green-500' :
+                                  (percentage || 0) >= 75 ? 'bg-blue-500' :
+                                  (percentage || 0) >= 50 ? 'bg-yellow-500' :
+                                  (percentage || 0) >= 25 ? 'bg-orange-500' :
+                                  'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(percentage || 0, 150)}%` }}
+                              ></div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2 relative overflow-hidden">
-                        <div
-                          className={`h-2 rounded-full transition-all duration-500 ${
-                            (goal.progress?.percentage || 0) >= 150 ? 'bg-purple-500' :
-                            (goal.progress?.percentage || 0) >= 125 ? 'bg-pink-500' :
-                            (goal.progress?.percentage || 0) >= 100 ? 'bg-green-500' :
-                            (goal.progress?.percentage || 0) >= 75 ? 'bg-blue-500' :
-                            (goal.progress?.percentage || 0) >= 50 ? 'bg-yellow-500' :
-                            (goal.progress?.percentage || 0) >= 25 ? 'bg-orange-500' :
-                            'bg-red-500'
-                          }`}
-                          style={{ width: `${Math.min(goal.progress?.percentage || 0, 150)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* Active List Content */}
             {activeList && (
-              <div className="space-y-2">
-                {/* List Header */}
-                <div className="glass rounded-xl p-3 sm:p-4 border border-purple-500/20 relative">
-                  {tasks.length > 0 && (
-                    <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-sm font-medium bg-gray-700 text-gray-300">
-                      {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
-                    </span>
-                  )}
-                  <div className="mb-2">
-                    <h2 className="text-lg sm:text-3xl font-bold text-white truncate pr-20 sm:pr-28">{activeList.name}</h2>
-                    {activeList.reset_period !== 'static' && (
-                      <p className="text-xs sm:text-sm text-gray-400">
-                        {new Date(getSelectedDate(activeListId) + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                      </p>
-                    )}
-                  </div>
-                  {activeList.description && (
-                    <p className="text-gray-300 text-sm mb-2">{activeList.description}</p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    {activeList.reset_period !== 'static' && (
-                      <div className="flex items-center gap-0.5">
-                        <button
-                          onClick={() => navigateDate(activeListId, 'prev')}
-                          className="p-1 sm:p-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
-                          title="Previous period"
-                        >
-                          <ChevronLeft className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                        </button>
-                        <button
-                          onClick={() => goToToday(activeListId)}
-                          className={`px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-colors w-[100px] sm:w-[200px] text-center ${
-                            isToday(getSelectedDate(activeListId))
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                          }`}
-                        >
-                          {getPeriodLabel(activeList, getSelectedDate(activeListId))}
-                        </button>
-                        <button
-                          onClick={() => navigateDate(activeListId, 'next')}
-                          disabled={isToday(getSelectedDate(activeListId))}
-                          className={`p-1 sm:p-1.5 rounded-lg transition-colors ${
-                            isToday(getSelectedDate(activeListId))
-                              ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                          }`}
-                          title="Next period"
-                        >
-                          <ChevronRight className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                        </button>
-                      </div>
-                    )}
-                    {activeList.reset_period === 'static' && <div />}
-                    {hasListAdminPermission(activeListId) && (
-                      <div className="flex items-center gap-1 sm:gap-2">
-                        {hasListOwnerPermission(activeListId) && (
-                          <button
-                            onClick={() => handleEditList(activeList)}
-                            className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
-                          >
-                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                            <span>Edit</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setShowCreateTask(!showCreateTask)}
-                          className="btn bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 flex items-center space-x-1 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
-                        >
-                          <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span>Add</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Create Task Form */}
+              <div className="stack">
+                {/* Add Task Form */}
                 {showCreateTask && (
-                  <div className="glass rounded-xl p-6 border border-purple-500/20">
-                    <h3 className="text-xl font-semibold mb-4 text-white">Create New Task</h3>
-                    <form onSubmit={handleCreateTask} className="space-y-4">
+                  <div className="glass rounded-xl pt-3 px-6 pb-6 sm:pt-4 sm:px-6 sm:pb-6 border border-purple-500/20">
+                    <h3 className="text-xl font-semibold mb-4 text-white">Add New Task</h3>
+                    <form onSubmit={handleCreateTask} className="stack">
                       <div>
                         <label className="label text-gray-200">Task Title *</label>
                         <input
@@ -1845,14 +1938,14 @@ const HomeScreen = () => {
                           Allow multiple completions
                         </label>
                       </div>
-                      <div className="flex space-x-2">
-                        <button type="submit" className="btn-primary">
-                          Create Task
+                      <div className="flex gap-2">
+                        <button type="submit" className="btn-primary flex-1">
+                          Add Task
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowCreateTask(false)}
-                          className="btn-secondary"
+                          className="btn-secondary flex-1"
                         >
                           Cancel
                         </button>
@@ -1861,291 +1954,7 @@ const HomeScreen = () => {
                   </div>
                 )}
 
-                {/* Edit Task Modal */}
-                {showEditTask && (
-                  <div className="glass rounded-xl p-6 border border-purple-500/20">
-                    <h3 className="text-xl font-semibold mb-4 text-white">Edit Task</h3>
-                    <form onSubmit={handleUpdateTask} className="space-y-4">
-                      <div>
-                        <label className="label text-gray-200">Task Title *</label>
-                        <input
-                          type="text"
-                          value={editingTask.title}
-                          onChange={(e) => setEditingTask({...editingTask, title: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter task title"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="label text-gray-200">Description or instructions (optional)</label>
-                        <textarea
-                          value={editingTask.description}
-                          onChange={(e) => setEditingTask({...editingTask, description: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter description or instructions (optional)"
-                          rows={3}
-                        />
-                      </div>
 
-                      <div>
-                        <label className="label text-gray-200">Duration (minutes)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={editingTask.duration_minutes}
-                          onChange={(e) => {
-                          const value = e.target.value;
-                          setEditingTask({...editingTask, duration_minutes: value === '' ? '' : parseInt(value) || 0 });
-                        }}
-                          className="input w-full"
-                          placeholder="0"
-                        />
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="edit_allow_multiple"
-                          checked={editingTask.allow_multiple_completions}
-                          onChange={(e) => setEditingTask({...editingTask, allow_multiple_completions: e.target.checked})}
-                          className="rounded"
-                        />
-                        <label htmlFor="edit_allow_multiple" className="text-gray-200">
-                          Allow multiple completions
-                        </label>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        <button type="submit" className="btn-primary flex-1 min-w-[100px]">
-                          Update Task
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowEditTask(false);
-                            setEditingTask(null);
-                          }}
-                          className="btn-secondary flex-1 min-w-[80px]"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDeleteTask(editingTask.id);
-                            setShowEditTask(false);
-                            setEditingTask(null);
-                          }}
-                          className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete Task</span>
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
-
-                {/* Edit List Modal */}
-                {showEditList && (
-                  <div className="glass rounded-xl p-6 border border-purple-500/20">
-                    <h3 className="text-xl font-semibold mb-4 text-white">Edit List</h3>
-                    <form onSubmit={handleUpdateList} className="space-y-4">
-                      <div>
-                        <label className="label text-gray-200">List Name *</label>
-                        <input
-                          type="text"
-                          value={editingList.name}
-                          onChange={(e) => setEditingList({...editingList, name: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter list name"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="label text-gray-200">Description (optional)</label>
-                        <textarea
-                          value={editingList.description}
-                          onChange={(e) => setEditingList({...editingList, description: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter list description"
-                          rows={3}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="label text-gray-200">Reset Period</label>
-                        <select
-                          value={editingList.reset_period}
-                          onChange={(e) => setEditingList({...editingList, reset_period: e.target.value})}
-                          className="input w-full"
-                        >
-                          <option value="daily">Daily</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="monthly">Monthly</option>
-                          <option value="quarterly">Quarterly</option>
-                          <option value="annually">Annually</option>
-                          <option value="static">None - do not reset</option>
-                        </select>
-                      </div>
-
-                      {/* List Permissions Section */}
-                      <div className="border-t border-gray-700 pt-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-medium text-white flex items-center">
-                            <Users className="h-5 w-5 mr-2 text-purple-400" />
-                            List Permissions
-                          </h4>
-                        </div>
-                        
-                        <div className="space-y-3 mb-4">
-                          {(listUsers || []).map((listUser) => (
-                            <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
-                              <div className="flex items-center space-x-3">
-                                <div className="relative">
-                                  {listUser.permission_level === 'owner' ? (
-                                    <Crown className="h-4 w-4 text-yellow-400" />
-                                  ) : listUser.permission_level === 'admin' ? (
-                                    <Settings className="h-4 w-4 text-orange-400" />
-                                  ) : (
-                                    <User className="h-4 w-4 text-blue-400" />
-                                  )}
-                                </div>
-                                <div>
-                                  <p className="text-white font-medium text-sm">{listUser.username}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {/* Show dropdown for all users except current user */}
-                                {user?.userId !== listUser.id ? (
-                                  <select
-                                    value={getEffectivePermission(listUser.id, listUser.permission_level)}
-                                    onChange={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      const newPermission = e.target.value;
-                                      
-                                      // Remove any existing changes for this user
-                                      const filteredChanges = pendingUserChanges.filter(
-                                        change => change.userId !== listUser.id
-                                      );
-                                      
-                                      // Add update change
-                                      setPendingUserChanges([...filteredChanges, {
-                                        action: 'update',
-                                        userId: listUser.id,
-                                        permissionLevel: newPermission
-                                      }]);
-                                      
-                                    }}
-                                    className="bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 focus:border-blue-500 focus:outline-none"
-                                    disabled={user?.userId === listUser.id}
-                                  >
-                                    <option value="owner">Owner</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="user">User</option>
-                                  </select>
-                                ) : (
-                                  // Show empty space for current user as owner to maintain alignment
-                                  <div className="w-20"></div>
-                                )}
-                                
-                                {/* Show delete button for all users except current user */}
-                                {user?.userId !== listUser.id && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      removeUserFromList(selectedListForUsers, listUser.id);
-                                    }}
-                                    className="text-red-400 hover:text-red-300 transition-colors"
-                                    title="Remove user"
-                                  >
-                                    <UserMinus className="h-3 w-3" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        <div className="border-t border-gray-700 pt-3">
-                          <p className="text-xs text-gray-400 mb-2">Add new user:</p>
-                          <div className="space-y-2">
-                            <select
-                              value={selectedNewUser}
-                              onChange={(e) => setSelectedNewUser(e.target.value)}
-                              className="input w-full"
-                            >
-                              <option value="">Select a user...</option>
-                              {allUsers
-                                .filter(user => !(listUsers || []).some(listUser => listUser.id === user.id))
-                                .map(user => (
-                                  <option key={user.id} value={user.id}>
-                                    {user.username}
-                                  </option>
-                                ))
-                              }
-                            </select>
-                            <select
-                              value={selectedNewUserPermission}
-                              onChange={(e) => setSelectedNewUserPermission(e.target.value)}
-                              className="input w-full"
-                            >
-                              <option value="user">User</option>
-                              <option value="admin">Admin</option>
-                              <option value="owner">Owner</option>
-                            </select>
-                            <button
-                              type="button" // Prevent form submission
-                              onClick={() => {
-                                addUserToListBySelection(selectedListForUsers, selectedNewUser, selectedNewUserPermission);
-                                setSelectedNewUser('');
-                                setSelectedNewUserPermission('user');
-                              }}
-                              className="btn-primary w-full flex items-center justify-center"
-                            >
-                              <UserPlus className="h-3 w-3 mr-2" />
-                              Add User
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        <button type="submit" className="btn-primary">
-                          Update List
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowEditList(false);
-                            setEditingList(null);
-                          }}
-                          className="btn-secondary"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDeleteList(editingList);
-                            setShowEditList(false);
-                            setEditingList(null);
-                          }}
-                          className="btn bg-red-600 text-white hover:bg-red-700 flex items-center space-x-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete List</span>
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
 
                 {/* Delete List Confirmation Modal */}
                 {showDeleteListConfirm && (
@@ -2181,28 +1990,301 @@ const HomeScreen = () => {
                 )}
 
                 {/* Tasks List */}
-                <div className="glass rounded-xl p-4 sm:p-6 border border-purple-500/20">
+                <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-lg sm:text-xl font-semibold text-white">Tasks</h3>
-                    <ToggleSwitch
-                      isOn={!user?.hide_completed_tasks}
-                      onToggle={toggleHideCompletedTasks}
-                      labelText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
-                      mobileText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
-                      size="small"
-                    />
+                    <div className="flex items-center gap-2">
+                      {tasks.length > 0 && (
+                        <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-[10px] sm:text-sm font-medium bg-gray-700 text-gray-300">
+                          {tasks.filter(t => t.is_completed).length}/{tasks.length} Done
+                        </span>
+                      )}
+                      <ToggleSwitch
+                        isOn={!user?.hide_completed_tasks}
+                        onToggle={toggleHideCompletedTasks}
+                        labelText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
+                        mobileText={!user?.hide_completed_tasks ? 'Hide Complete' : 'Show Complete'}
+                        size="small"
+                      />
+                    </div>
                   </div>
+                  <div className="flex items-center justify-center sm:justify-end gap-2 mb-1">
+                    {activeList.reset_period !== 'static' && (
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <button
+                          onClick={() => navigateDate(activeListId, 'prev')}
+                          className="p-2 sm:p-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                          title="Previous period"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                        </button>
+                        <button
+                          onClick={() => goToToday(activeListId)}
+                          className={`px-1.5 py-2 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-colors w-[100px] sm:w-[140px] text-center ${
+                            isToday(getSelectedDate(activeListId))
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                          }`}
+                        >
+                          {getPeriodLabel(activeList, getSelectedDate(activeListId))}
+                        </button>
+                        <button
+                          onClick={() => navigateDate(activeListId, 'next')}
+                          disabled={isToday(getSelectedDate(activeListId))}
+                          className={`p-2 sm:p-1.5 rounded-lg transition-colors ${
+                            isToday(getSelectedDate(activeListId))
+                              ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                          }`}
+                          title="Next period"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                        </button>
+                      </div>
+                    )}
+                    {hasListAdminPermission(activeListId) && (
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        {hasListOwnerPermission(activeListId) && (
+                          <button
+                            onClick={() => handleEditList(activeList)}
+                            className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-1 px-2 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm"
+                          >
+                            <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowCreateTask(!showCreateTask)}
+                          className="btn bg-gradient-to-r from-green-600 to-green-500 text-white hover:from-green-700 hover:to-green-600 flex items-center space-x-1 px-2 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm"
+                        >
+                          <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>Add Task</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {actionMessage && (
+                    <div className={`text-sm mb-1 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                      {actionMessage}
+                    </div>
+                  )}
+
+                  {/* Edit List Form - shown below the edit button */}
+                  {showEditList && (
+                    <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-purple-500/20 mb-4">
+                      <h3 className="text-xl font-semibold mb-4 text-white">Edit List</h3>
+                      <form onSubmit={handleUpdateList} className="stack">
+                        <div>
+                          <label className="label text-gray-200">List Name *</label>
+                          <input
+                            type="text"
+                            value={editingList.name}
+                            onChange={(e) => setEditingList({...editingList, name: e.target.value})}
+                            className="input w-full"
+                            placeholder="Enter list name"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="label text-gray-200">Description (optional)</label>
+                          <textarea
+                            value={editingList.description}
+                            onChange={(e) => setEditingList({...editingList, description: e.target.value})}
+                            className="input w-full"
+                            placeholder="Enter list description"
+                            rows={3}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="label text-gray-200">Reset Period</label>
+                          <select
+                            value={editingList.reset_period}
+                            onChange={(e) => setEditingList({...editingList, reset_period: e.target.value})}
+                            className="input w-full"
+                          >
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="annually">Annually</option>
+                            <option value="static">None - do not reset</option>
+                          </select>
+                        </div>
+
+                        {/* List Permissions Section */}
+                        <div className="border-t border-gray-700 pt-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-lg font-medium text-white flex items-center">
+                              <Users className="h-5 w-5 mr-2 text-purple-400" />
+                              List Permissions
+                            </h4>
+                          </div>
+                          
+                          <div className="stack mb-4">
+                            {(listUsers || []).map((listUser) => (
+                              <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                  <div className="relative">
+                                    {listUser.permission_level === 'owner' ? (
+                                      <Crown className="h-4 w-4 text-yellow-400" />
+                                    ) : listUser.permission_level === 'admin' ? (
+                                      <Settings className="h-4 w-4 text-orange-400" />
+                                    ) : (
+                                      <User className="h-4 w-4 text-blue-400" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="text-white font-medium text-sm">{listUser.username}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {/* Show dropdown for all users except current user */}
+                                  {user?.userId !== listUser.id ? (
+                                    <select
+                                      value={getEffectivePermission(listUser.id, listUser.permission_level)}
+                                      onChange={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const newPermission = e.target.value;
+                                        
+                                        // Remove any existing changes for this user
+                                        const filteredChanges = pendingUserChanges.filter(
+                                          change => change.userId !== listUser.id
+                                        );
+                                        
+                                        // Add update change
+                                        setPendingUserChanges([...filteredChanges, {
+                                          action: 'update',
+                                          userId: listUser.id,
+                                          permissionLevel: newPermission
+                                        }]);
+                                        
+                                      }}
+                                      className="bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                      disabled={user?.userId === listUser.id}
+                                    >
+                                      <option value="owner">Owner</option>
+                                      <option value="admin">Admin</option>
+                                      <option value="user">User</option>
+                                    </select>
+                                  ) : (
+                                    // Show empty space for current user as owner to maintain alignment
+                                    <div className="w-20"></div>
+                                  )}
+                                  
+                                  {/* Show delete button for all users except current user */}
+                                  {user?.userId !== listUser.id && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        removeUserFromList(selectedListForUsers, listUser.id);
+                                      }}
+                                      className="text-red-400 hover:text-red-300 transition-colors"
+                                      title="Remove user"
+                                    >
+                                      <UserMinus className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="border-t border-gray-700 pt-3">
+                            <p className="text-xs text-gray-400 mb-2">Add new user:</p>
+                            <div className="stack">
+                              <select
+                                value={selectedNewUser}
+                                onChange={(e) => setSelectedNewUser(e.target.value)}
+                                className="input w-full"
+                              >
+                                <option value="">Select a user...</option>
+                                {allUsers
+                                  .filter(user => !(listUsers || []).some(listUser => listUser.id === user.id))
+                                  .map(user => (
+                                    <option key={user.id} value={user.id}>
+                                      {user.username}
+                                    </option>
+                                  ))
+                                }
+                              </select>
+                              <select
+                                value={selectedNewUserPermission}
+                                onChange={(e) => setSelectedNewUserPermission(e.target.value)}
+                                className="input w-full"
+                              >
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                                <option value="owner">Owner</option>
+                              </select>
+                              <div className="text-xs text-gray-400 space-y-1">
+                                <p><span className="font-medium text-gray-300">Owner:</span> Can manage settings and tasks</p>
+                                <p><span className="font-medium text-gray-300">Admin:</span> Can manage tasks</p>
+                                <p><span className="font-medium text-gray-300">User:</span> Can view and complete tasks</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  addUserToListBySelection(selectedListForUsers, selectedNewUser, selectedNewUserPermission);
+                                  setSelectedNewUser('');
+                                  setSelectedNewUserPermission('user');
+                                }}
+                                className="btn-primary w-full flex items-center justify-center"
+                              >
+                                <UserPlus className="h-3 w-3 mr-2" />
+                                Add User
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          <button type="submit" className="btn-primary flex-1 min-w-[100px]">
+                            Update List
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowEditList(false);
+                              setEditingList(null);
+                            }}
+                            className="btn-secondary flex-1 min-w-[80px]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDeleteList(editingList);
+                              setShowEditList(false);
+                              setEditingList(null);
+                            }}
+                            className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete List</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  <div className="border-t border-gray-700 pt-2 mt-1"></div>
                   {tasks.length === 0 ? (
                     <p className="text-gray-400 text-center py-6 text-sm">No tasks yet. Create your first task above!</p>
                   ) : user?.hide_completed_tasks && tasks.every(task => task.is_completed) ? (
                     <p className="text-gray-400 text-center py-6 text-sm">All tasks are completed. Toggle to show completed tasks.</p>
                   ) : (
-                    <div className="space-y-2 sm:space-y-3">
+                    <div className="stack">
                       {tasks
                         .filter(task => !user?.hide_completed_tasks || !task.is_completed)
                         .map((task) => (
+                        <React.Fragment key={task.id}>
                         <div
-                          key={task.id}
                           draggable={hasListAdminPermission(activeListId)}
                           onDragStart={(e) => handleTaskDragStart(e, task)}
                           onDragOver={(e) => handleTaskDragOver(e, task)}
@@ -2227,15 +2309,23 @@ const HomeScreen = () => {
                           {dragOverTask?.id === task.id && !dragOverTask?.insertBefore && (
                             <div className="absolute left-0 right-0 bottom-0 h-1 bg-purple-400 rounded-b-lg"></div>
                           )}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center space-x-3 flex-1 min-w-0">
                               <div className="min-w-0">
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-end space-x-3 mb-1">
                                   <h4 className={`font-medium ${
                                     (task.is_completed === true || task.is_completed === 1) ? 'text-gray-400 line-through' : 'text-white'
                                   }`}>
                                     {task.title}
                                   </h4>
+                                  {task.duration_minutes !== null && task.duration_minutes !== undefined && Number(task.duration_minutes) > 0 && (
+                                    <div className="flex items-end gap-0.5">
+                                      <Clock className="h-3 w-3 text-gray-500 self-center flex-shrink-0" />
+                                      <p className="text-gray-500 text-sm whitespace-nowrap flex-shrink-0">
+                                        {task.duration_minutes}m
+                                      </p>
+                                    </div>
+                                  )}
                                   {(task.allow_multiple_completions === true || task.allow_multiple_completions === 1) && (
                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30" title="Repeating task">
                                       <Repeat className="h-3.5 w-3.5 text-purple-400" />
@@ -2245,16 +2335,10 @@ const HomeScreen = () => {
                                 {task.description && (
                                   <p className="text-gray-400 text-sm mt-1">{task.description}</p>
                                 )}
-                                {task.duration_minutes !== null && task.duration_minutes !== undefined && Number(task.duration_minutes) > 0 && (
-                                  <p className="text-gray-500 text-sm mt-1">
-                                    <Clock className="h-3 w-3 inline mr-1" />
-                                    {task.duration_minutes} minutes
-                                  </p>
-                                )}
                                 {(task.is_completed === true || task.is_completed === 1) && <TaskCompletionInfo task={task} isDailyList={isDailyList} />}
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0 self-end sm:self-auto">
+                            <div className="flex items-center space-x-2 flex-shrink-0">
                               {task.assigned_username && (
                                 <span className="text-sm text-gray-400">
                                   <User className="h-3 w-3 inline mr-1" />
@@ -2269,22 +2353,19 @@ const HomeScreen = () => {
                                   }}
                                   className="text-blue-400 hover:text-blue-300 transition-colors"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Edit2 className="h-4 w-4" />
                                 </button>
                               )}
                               {(() => {
                                 const buttons = [];
+                                let canUndo = false;
+                                let completions = [];
+                                const isAnimating = animatingTasks.has(task.id);
                                 
                                 if (task.is_completed) {
-                                  // Check if current user can undo this task
-                                  let canUndo = false;
-                                  let completions = [];
-                                  
                                   if (task.completions) {
                                     try {
-                                      // Parse completions to get the last completion
                                       if (task.completions.includes('},{')) {
-                                        // Multiple completions - split and parse each
                                         const completionStrings = task.completions.split('},{').map((str, index, arr) => {
                                           if (index === 0) return str + '}';
                                           if (index === arr.length - 1) return '{' + str;
@@ -2292,20 +2373,15 @@ const HomeScreen = () => {
                                         });
                                         completions = completionStrings.map(str => JSON.parse(str));
                                       } else {
-                                        // Single completion - parse directly
                                         completions = [JSON.parse(task.completions)];
                                       }
                                     } catch (e) {
-                                      console.error('Error parsing completions for undo check:', e);
+                                      console.error('Error parsing completions:', e);
                                     }
                                   }
                                   
                                   if (completions.length > 0) {
                                     const lastCompletion = completions[completions.length - 1];
-                                    
-                                    // User can undo if:
-                                    // 1. The task was completed by the current user (any of their completions), OR
-                                    // 2. The task was completed by null (legacy system) and user is admin
                                     const userCompletions = completions.filter(c => c.completed_by === user.userId);
                                     
                                     if (userCompletions.length > 0) {
@@ -2314,45 +2390,60 @@ const HomeScreen = () => {
                                       canUndo = true;
                                     }
                                   }
-                                  
-                                  if (canUndo) {
-                                    buttons.push(
-                                      <button
-                                        key="undo"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleUndoCompletion(task.id);
-                                        }}
-                                        className="btn bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center space-x-1 px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm"
-                                        title="Undo last completion"
-                                      >
-                                        <RotateCcw className="h-3 w-3" />
-                                        <span className="text-xs">Undo</span>
-                                      </button>
-                                    );
-                                  }
                                 }
                                 
+                                // Undo button (only for repeating tasks or if can undo) - add first so it appears on the left
+                                if (task.allow_multiple_completions === 1 && task.is_completed && canUndo) {
+                                  buttons.push(
+                                    <button
+                                      key="undo"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUndoCompletion(task.id);
+                                      }}
+                                      className="flex items-center justify-center rounded-full h-6 w-6 bg-orange-500 hover:bg-orange-600 transition-colors"
+                                      title="Undo last completion"
+                                    >
+                                      <RotateCcw className="h-4 w-4 text-white" />
+                                    </button>
+                                  );
+                                }
+                                
+                                // Icon button
                                 buttons.push(
                                   <button
-                                    key="main"
+                                    key="icon"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleTaskClick(task.id);
+                                      handleTaskIconClick(task);
                                     }}
-                                    className={`btn flex items-center justify-center space-x-1 sm:space-x-2 px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm min-w-[100px] sm:min-w-[140px] ${
-                                      task.is_completed
-                                        ? 'bg-green-500 text-white hover:bg-green-600'
-                                        : 'bg-gray-500 text-white hover:bg-gray-600'
-                                    }`}
+                                    className="flex-shrink-0 transition-all"
+                                    title={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
                                   >
-                                    {task.is_completed ? <Check className="h-4 w-4" /> : null}
-                                    <span>
-                                      {task.is_completed ? 
-                                        (task.allow_multiple_completions === 1 ? 'Done Again?' : 'Done') : 
-                                        'Mark Done'
-                                      }
-                                    </span>
+                                    {!task.is_completed ? (
+                                      // Uncompleted: Grey circle
+                                      <Circle className="h-6 w-6 text-gray-400 hover:text-gray-300" />
+                                    ) : task.allow_multiple_completions === 1 && isAnimating ? (
+                                      // Repeating task animating: Green filled circle with white checkmark
+                                      <div className="relative flex items-center justify-center">
+                                        <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                                          <Check className="h-4 w-4 text-white" />
+                                        </div>
+                                      </div>
+                                    ) : task.allow_multiple_completions === 1 ? (
+                                      // Repeating task completed: Green unfilled circle with green checkmark
+                                      <div className="relative flex items-center justify-center">
+                                        <Circle className="h-6 w-6 text-green-500" />
+                                        <Check className="h-3 w-3 text-green-500 absolute" />
+                                      </div>
+                                    ) : (
+                                      // Non-repeating task completed: Green filled circle with white checkmark
+                                      <div className="relative flex items-center justify-center">
+                                        <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                                          <Check className="h-4 w-4 text-white" />
+                                        </div>
+                                      </div>
+                                    )}
                                   </button>
                                 );
                                 
@@ -2365,6 +2456,93 @@ const HomeScreen = () => {
                             </div>
                           </div>
                         </div>
+                        {/* Edit Task Form - shown below the task being edited */}
+                        {showEditTask && editingTask?.id === task.id && (
+                          <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-purple-500/20 mt-2">
+                            <h3 className="text-xl font-semibold mb-4 text-white">Edit Task</h3>
+                            <form onSubmit={handleUpdateTask} className="stack">
+                              <div>
+                                <label className="label text-gray-200">Task Title *</label>
+                                <input
+                                  type="text"
+                                  value={editingTask.title}
+                                  onChange={(e) => setEditingTask({...editingTask, title: e.target.value})}
+                                  className="input w-full"
+                                  placeholder="Enter task title"
+                                  required
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="label text-gray-200">Description or instructions (optional)</label>
+                                <textarea
+                                  value={editingTask.description}
+                                  onChange={(e) => setEditingTask({...editingTask, description: e.target.value})}
+                                  className="input w-full"
+                                  placeholder="Enter description or instructions (optional)"
+                                  rows={3}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-gray-200">Duration (minutes)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editingTask.duration_minutes}
+                                  onChange={(e) => {
+                                  const value = e.target.value;
+                                  setEditingTask({...editingTask, duration_minutes: value === '' ? '' : parseInt(value) || 0 });
+                                }}
+                                  className="input w-full"
+                                  placeholder="0"
+                                />
+                              </div>
+
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="edit_allow_multiple"
+                                  checked={editingTask.allow_multiple_completions}
+                                  onChange={(e) => setEditingTask({...editingTask, allow_multiple_completions: e.target.checked})}
+                                  className="rounded"
+                                />
+                                <label htmlFor="edit_allow_multiple" className="text-gray-200">
+                                  Allow multiple completions
+                                </label>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-2">
+                                <button type="submit" className="btn-primary flex-1 min-w-[100px]">
+                                  Update Task
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowEditTask(false);
+                                    setEditingTask(null);
+                                  }}
+                                  className="btn-secondary flex-1 min-w-[80px]"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleDeleteTask(editingTask.id);
+                                    setShowEditTask(false);
+                                    setEditingTask(null);
+                                  }}
+                                  className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Delete Task</span>
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        )}
+                      </React.Fragment>
                       ))}
                     </div>
                   )}

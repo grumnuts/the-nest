@@ -196,6 +196,8 @@ const checkEmergencyReset = async () => {
 
 // Start server
 app.listen(PORT, async () => {
+  console.log(`Server listening on port ${PORT}`);
+  
   // Wait a moment for database to be fully ready
   await new Promise(resolve => setTimeout(resolve, 1000));
   
@@ -204,7 +206,7 @@ app.listen(PORT, async () => {
   
   // Initialize admin user on first startup - removed init-admin.js during cleanup
   // Admin initialization is now handled through the database setup
-  
-  });
+  console.log(`Server ready at http://localhost:${PORT}`);
+});
 
 module.exports = app;

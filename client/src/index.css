@@ -6,9 +6,13 @@
   * {
     @apply border-border;
   }
+  html {
+    background-color: #000;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: #000;
   }
 }
 
@@ -28,7 +32,7 @@
   }
   
   .btn-primary {
-    @apply btn bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-lg;
+    @apply btn bg-gradient-to-r from-green-600 to-green-500 text-white hover:from-green-700 hover:to-green-600 shadow-lg;
   }
   
   .btn-secondary {
@@ -57,6 +61,16 @@
   
   .glass {
     @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+
+  /* Standardise vertical spacing inside panel-like containers */
+  .glass > * + * {
+    margin-top: 5px !important;
+  }
+
+  /* Reusable stack utility for other containers: use class `stack` to apply 5px vertical gaps */
+  .stack > * + * {
+    margin-top: 5px !important;
   }
 
   .no-pseudo::before,

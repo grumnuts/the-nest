@@ -205,6 +205,7 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
 
   let completed = 0;
   let required = goal.target_value;
+  let percentage = 0;
 
   // Calculate completed value based on calculation type
   switch (goal.calculation_type) {
@@ -227,9 +228,16 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
         totalExpectedTasks += taskCount * fullReps;
       }
       
-      // For completed tasks, we only count what's actually done (completions already handle this)
-      completed = totalExpectedTasks > 0 ? (relevantCompletions.length / totalExpectedTasks) * 100 : 0;
-      required = goal.target_value;
+      // Compute completed as percent-of-possible (completed tasks / total expected)
+      const completedPercent = totalExpectedTasks > 0 ? (relevantCompletions.length / totalExpectedTasks) * 100 : 0;
+      const requiredPercent = Number(goal.target_value) || 0;
+      const progressToTarget = requiredPercent > 0 ? (completedPercent / requiredPercent) * 100 : 0;
+      
+      completed = Math.round(completedPercent);
+      required = requiredPercent;
+      percentage = Math.min(Math.round(progressToTarget), 100);
+      
+      console.log(`[Goal] percentage_task_count "${goal.name}": totalExpectedTasks=${totalExpectedTasks}, completedTasks=${relevantCompletions.length}, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%, result={required:${required} completed:${completed} percentage:${percentage}}`);
       break;
     }
     case 'percentage_time': {
@@ -253,26 +261,38 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
       const completedTime = relevantCompletions.reduce((sum, completion) => {
         return sum + (completion.duration_minutes || 0);
       }, 0);
-      completed = totalPossibleTime > 0 ? (completedTime / totalPossibleTime) * 100 : 0;
-      required = goal.target_value;
+
+      // Compute completed as percent-of-possible (completed time / total possible time)
+      const completedPercent = totalPossibleTime > 0 ? (completedTime / totalPossibleTime) * 100 : 0;
+      const requiredPercent = Number(goal.target_value) || 0;
+      const progressToTarget = requiredPercent > 0 ? (completedPercent / requiredPercent) * 100 : 0;
+
+      completed = Math.round(completedPercent);
+      required = requiredPercent;
+      percentage = Math.min(Math.round(progressToTarget), 100);
+      
+      console.log(`[Goal] percentage_time "${goal.name}": totalPossibleTime=${totalPossibleTime}min, completedTime=${completedTime}min, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%, result={required:${required} completed:${completed} percentage:${percentage}}`);
       break;
     }
     case 'fixed_task_count':
       completed = relevantCompletions.length;
+      percentage = required > 0 ? (completed / required) * 100 : 0;
       break;
     case 'fixed_time':
       completed = relevantCompletions.reduce((sum, completion) => {
         return sum + (completion.duration_minutes || 0);
       }, 0);
+      percentage = required > 0 ? (completed / required) * 100 : 0;
       break;
     default:
       completed = relevantCompletions.length;
+      percentage = required > 0 ? (completed / required) * 100 : 0;
   }
 
   return {
     required: required,
     completed: completed,
-    percentage: required > 0 ? (completed / required) * 100 : 0
+    percentage: percentage
   };
 };
 
@@ -653,35 +673,48 @@ function getCurrentPeriodDates(periodType) {
 
 // Calculate percentage of task count
 function calculatePercentageTaskCount(goal, tasks, completions) {
+  // Compute percent-of-possible (completedPercent) and return required as target percent
   const totalTasks = tasks.length;
-  const requiredTasks = Math.ceil(totalTasks * (goal.target_value / 100));
   const completedTasks = completions.length;
-  const percentage = totalTasks > 0 ? (completedTasks / requiredTasks) * 100 : 0;
-  
-  return {
-    required: requiredTasks,
-    completed: completedTasks,
-    percentage: Math.min(percentage, 100),
-    isAchieved: completedTasks >= requiredTasks
+  const completedPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const requiredPercent = Number(goal.target_value) || 0;
+  const progressToTarget = requiredPercent > 0 ? (completedPercent / requiredPercent) * 100 : 0;
+
+  const result = {
+    required: requiredPercent,
+    completed: Math.round(completedPercent),
+    percentage: Math.min(Math.round(progressToTarget), 100),
+    isAchieved: completedPercent >= requiredPercent
   };
+  
+  console.log(`[Goal] percentage_task_count "${goal.name}": totalTasks=${totalTasks}, completedTasks=${completedTasks}, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%`, JSON.stringify(result));
+
+  return result;
 }
 
 // Calculate percentage of time
 function calculatePercentageTime(goal, tasks, completions) {
+  // Compute percent-of-possible time and return required as target percent
   const totalTime = tasks.reduce((sum, task) => sum + (task.duration_minutes || 0), 0);
-  const requiredTime = totalTime * (goal.target_value / 100);
   const completedTime = completions.reduce((sum, completion) => {
     const task = tasks.find(t => t.id === completion.task_id);
     return sum + (task ? (task.duration_minutes || 0) : 0);
   }, 0);
-  const percentage = totalTime > 0 ? (completedTime / requiredTime) * 100 : 0;
-  
-  return {
-    required: Math.round(requiredTime),
-    completed: Math.round(completedTime),
-    percentage: Math.min(percentage, 100),
-    isAchieved: completedTime >= requiredTime
+
+  const completedPercent = totalTime > 0 ? (completedTime / totalTime) * 100 : 0;
+  const requiredPercent = Number(goal.target_value) || 0;
+  const progressToTarget = requiredPercent > 0 ? (completedPercent / requiredPercent) * 100 : 0;
+
+  const result = {
+    required: requiredPercent,
+    completed: Math.round(completedPercent),
+    percentage: Math.min(Math.round(progressToTarget), 100),
+    isAchieved: completedPercent >= requiredPercent
   };
+  
+  console.log(`[Goal] percentage_time "${goal.name}": totalTime=${totalTime}min, completedTime=${completedTime}min, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%`, JSON.stringify(result));
+
+  return result;
 }
 
 // Calculate fixed task count

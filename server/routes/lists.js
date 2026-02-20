@@ -6,6 +6,8 @@ const Database = require('../database');
 const router = express.Router();
 const db = new Database();
 
+
+
 // Get all lists for authenticated users based on permissions
 router.get('/', authenticateToken, (req, res) => {
   // Check if database is available

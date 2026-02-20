@@ -8,19 +8,26 @@ All notable changes to The Nest will be documented in this file.
 - Added support for users first and last name
 - Display user's first name in welcome message
 - Task completions now show user's first name instead of username
+- Added help text explaining permission levels in user and list editors
 
 ### 🐛 Bug Fixes
 - Fixed user editor not pre-populating first/last name fields
 - Fixed task completions showing usernames instead of first names
 - Resolved browser caching problems preventing first name display
+- Fixed list editor buttons overflowing container on mobile devices
+- Fixed "Add List" button text not showing on mobile devices
 
 ### ⚒️ Enhancements
 - Users are now referenced by their first name rather than username
-- First/last name fields now appear above username field
 - Added automatic database schema migration for existing installations
-- Made list tabs consistent with settings tabs styling
-- Reduced tab padding for better mobile space utilization
-- Tightened spacing between header and list tabs
+- Edit list button now toggles the edit form (clicking again closes without saving)
+- Edit list form now appears below the edit button and above tasks
+- Edit task button now toggles the edit form (clicking again closes without saving)
+- Edit task form now appears directly below the task being edited
+- Navigating between lists now automatically closes any open editors without saving
+- Reduced horizontal padding in edit forms to match container padding
+- Evenly distributed buttons in create list and create task forms
+- UI Improvements
 
 ## [v1.0.0] - 2026-02-17
 

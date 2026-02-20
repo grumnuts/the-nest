@@ -12,6 +12,8 @@ const Dashboard = () => {
     description: '',
     reset_period: 'weekly'
   });
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionStatus, setActionStatus] = useState('success');
 
   useEffect(() => {
     fetchLists();
@@ -35,8 +37,12 @@ const Dashboard = () => {
       setNewList({ name: '', description: '', reset_period: 'weekly' });
       setShowCreateForm(false);
       fetchLists();
+      setActionMessage('');
     } catch (error) {
       console.error('Error creating list:', error);
+      setActionStatus('error');
+      setActionMessage('Error creating list');
+      setTimeout(() => setActionMessage(''), 2500);
     }
   };
 
@@ -88,7 +94,12 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4">
+        {actionMessage && (
+          <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {actionMessage}
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Welcome to The Nest</h1>
           <p className="mt-2 text-gray-600">Manage your tasks and track progress</p>
@@ -107,7 +118,7 @@ const Dashboard = () => {
         {showCreateForm && (
           <div className="mb-8 bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold mb-4">Create New List</h2>
-            <form onSubmit={handleCreateList} className="space-y-4">
+            <form onSubmit={handleCreateList} className="stack">
               <div>
                 <label className="label">List Name</label>
                 <input

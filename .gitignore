@@ -44,8 +44,8 @@ coverage/
 *.swo
 *~
 
-# Windsurf workspace configuration
-.windsurft/
+# AI workspace configuration
+.github/
 
 # OS generated files
 .DS_Store

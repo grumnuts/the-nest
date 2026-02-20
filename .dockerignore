@@ -119,8 +119,8 @@ webpack.config.js
 .eslintrc*
 .prettierrc*
 
-# Windsurf workspace
-.windsurft/
+# AI workspace
+.github/
 
 # Development utilities
 init-admin.js
