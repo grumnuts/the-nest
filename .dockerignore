@@ -120,7 +120,6 @@ webpack.config.js
 .prettierrc*
 
 # AI workspace
-.windsurft/
 .github/
 
 # Development utilities

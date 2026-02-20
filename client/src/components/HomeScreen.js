@@ -1630,47 +1630,6 @@ const HomeScreen = () => {
           </div>
         ) : (
           <div>
-            {/* List Tabs */}
-            <div className="flex space-x-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', marginBottom: '5px' }}>
-              {lists.map((list) => (
-                <div
-                  key={list.id}
-                  draggable={hasListAdminPermission(list.id)}
-                  onDragStart={(e) => handleDragStart(e, list)}
-                  onDragOver={(e) => handleDragOver(e, list)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, list)}
-                  data-draggable="true"
-                  data-list-id={list.id}
-                  className={`flex items-center space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-colors cursor-move relative whitespace-nowrap ${
-                    activeListId === list.id
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  } ${
-                    draggedList?.id === list.id ? 'opacity-50' : ''
-                  }`}
-                  onClick={() => setActiveListId(list.id)}
-                >
-                  {/* Left indicator - insert before */}
-                  {dragOverList?.id === list.id && dragOverList?.insertBefore && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-400 rounded-l-lg"></div>
-                  )}
-                  
-                  {/* Right indicator - insert after */}
-                  {dragOverList?.id === list.id && !dragOverList?.insertBefore && (
-                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-purple-400 rounded-r-lg"></div>
-                  )}
-                  
-                  {list.name}
-                </div>
-              ))}
-            </div>
-            {actionMessage && (
-              <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                {actionMessage}
-              </div>
-            )}
-
             {goals.length > 0 && (
               <div className={`glass rounded-xl px-2 sm:px-4 border border-purple-500/20 mb-1 ${
                 user?.hide_goals ? 'pt-1.5 pb-2' : 'pt-1.5 pb-4 sm:pt-2 sm:pb-6'
@@ -1848,6 +1807,47 @@ const HomeScreen = () => {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* List Tabs */}
+            <div className="flex space-x-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', marginBottom: '5px' }}>
+              {lists.map((list) => (
+                <div
+                  key={list.id}
+                  draggable={hasListAdminPermission(list.id)}
+                  onDragStart={(e) => handleDragStart(e, list)}
+                  onDragOver={(e) => handleDragOver(e, list)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, list)}
+                  data-draggable="true"
+                  data-list-id={list.id}
+                  className={`flex items-center space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-colors cursor-move relative whitespace-nowrap ${
+                    activeListId === list.id
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  } ${
+                    draggedList?.id === list.id ? 'opacity-50' : ''
+                  }`}
+                  onClick={() => setActiveListId(list.id)}
+                >
+                  {/* Left indicator - insert before */}
+                  {dragOverList?.id === list.id && dragOverList?.insertBefore && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-400 rounded-l-lg"></div>
+                  )}
+                  
+                  {/* Right indicator - insert after */}
+                  {dragOverList?.id === list.id && !dragOverList?.insertBefore && (
+                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-purple-400 rounded-r-lg"></div>
+                  )}
+                  
+                  {list.name}
+                </div>
+              ))}
+            </div>
+            {actionMessage && (
+              <div className={`text-sm mb-2 ${actionStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                {actionMessage}
               </div>
             )}
 
