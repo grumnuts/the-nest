@@ -1923,93 +1923,6 @@ const HomeScreen = () => {
                   </div>
                 )}
 
-                {/* Edit Task Modal */}
-                {showEditTask && (
-                  <div className="glass rounded-xl pt-3 px-6 pb-6 sm:pt-4 sm:px-6 sm:pb-6 border border-purple-500/20">
-                    <h3 className="text-xl font-semibold mb-4 text-white">Edit Task</h3>
-                    <form onSubmit={handleUpdateTask} className="stack">
-                      <div>
-                        <label className="label text-gray-200">Task Title *</label>
-                        <input
-                          type="text"
-                          value={editingTask.title}
-                          onChange={(e) => setEditingTask({...editingTask, title: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter task title"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="label text-gray-200">Description or instructions (optional)</label>
-                        <textarea
-                          value={editingTask.description}
-                          onChange={(e) => setEditingTask({...editingTask, description: e.target.value})}
-                          className="input w-full"
-                          placeholder="Enter description or instructions (optional)"
-                          rows={3}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="label text-gray-200">Duration (minutes)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={editingTask.duration_minutes}
-                          onChange={(e) => {
-                          const value = e.target.value;
-                          setEditingTask({...editingTask, duration_minutes: value === '' ? '' : parseInt(value) || 0 });
-                        }}
-                          className="input w-full"
-                          placeholder="0"
-                        />
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="edit_allow_multiple"
-                          checked={editingTask.allow_multiple_completions}
-                          onChange={(e) => setEditingTask({...editingTask, allow_multiple_completions: e.target.checked})}
-                          className="rounded"
-                        />
-                        <label htmlFor="edit_allow_multiple" className="text-gray-200">
-                          Allow multiple completions
-                        </label>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        <button type="submit" className="btn-primary flex-1 min-w-[100px]">
-                          Update Task
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowEditTask(false);
-                            setEditingTask(null);
-                          }}
-                          className="btn-secondary flex-1 min-w-[80px]"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDeleteTask(editingTask.id);
-                            setShowEditTask(false);
-                            setEditingTask(null);
-                          }}
-                          className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete Task</span>
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
-
                 {/* Edit List Modal */}
                 {showEditList && (
                   <div className="glass rounded-xl p-6 border border-purple-500/20">
@@ -2504,6 +2417,92 @@ const HomeScreen = () => {
                             </div>
                           </div>
                         </div>
+                        {/* Edit Task Form - shown below the task being edited */}
+                        {showEditTask && editingTask?.id === task.id && (
+                          <div className="glass rounded-xl pt-3 px-6 pb-6 sm:pt-4 sm:px-6 sm:pb-6 border border-purple-500/20 mt-2">
+                            <h3 className="text-xl font-semibold mb-4 text-white">Edit Task</h3>
+                            <form onSubmit={handleUpdateTask} className="stack">
+                              <div>
+                                <label className="label text-gray-200">Task Title *</label>
+                                <input
+                                  type="text"
+                                  value={editingTask.title}
+                                  onChange={(e) => setEditingTask({...editingTask, title: e.target.value})}
+                                  className="input w-full"
+                                  placeholder="Enter task title"
+                                  required
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="label text-gray-200">Description or instructions (optional)</label>
+                                <textarea
+                                  value={editingTask.description}
+                                  onChange={(e) => setEditingTask({...editingTask, description: e.target.value})}
+                                  className="input w-full"
+                                  placeholder="Enter description or instructions (optional)"
+                                  rows={3}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-gray-200">Duration (minutes)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editingTask.duration_minutes}
+                                  onChange={(e) => {
+                                  const value = e.target.value;
+                                  setEditingTask({...editingTask, duration_minutes: value === '' ? '' : parseInt(value) || 0 });
+                                }}
+                                  className="input w-full"
+                                  placeholder="0"
+                                />
+                              </div>
+
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="edit_allow_multiple"
+                                  checked={editingTask.allow_multiple_completions}
+                                  onChange={(e) => setEditingTask({...editingTask, allow_multiple_completions: e.target.checked})}
+                                  className="rounded"
+                                />
+                                <label htmlFor="edit_allow_multiple" className="text-gray-200">
+                                  Allow multiple completions
+                                </label>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-2">
+                                <button type="submit" className="btn-primary flex-1 min-w-[100px]">
+                                  Update Task
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowEditTask(false);
+                                    setEditingTask(null);
+                                  }}
+                                  className="btn-secondary flex-1 min-w-[80px]"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleDeleteTask(editingTask.id);
+                                    setShowEditTask(false);
+                                    setEditingTask(null);
+                                  }}
+                                  className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Delete Task</span>
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        )}
                       ))}
                     </div>
                   )}
