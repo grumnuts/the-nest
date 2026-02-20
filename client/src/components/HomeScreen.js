@@ -2066,7 +2066,7 @@ const HomeScreen = () => {
 
                   {/* Edit List Form - shown below the edit button */}
                   {showEditList && (
-                    <div className="glass rounded-xl p-6 border border-purple-500/20 mb-4">
+                    <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-purple-500/20 mb-4">
                       <h3 className="text-xl font-semibold mb-4 text-white">Edit List</h3>
                       <form onSubmit={handleUpdateList} className="stack">
                         <div>
@@ -2448,7 +2448,7 @@ const HomeScreen = () => {
                         </div>
                         {/* Edit Task Form - shown below the task being edited */}
                         {showEditTask && editingTask?.id === task.id && (
-                          <div className="glass rounded-xl pt-3 px-6 pb-6 sm:pt-4 sm:px-6 sm:pb-6 border border-purple-500/20 mt-2">
+                          <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-purple-500/20 mt-2">
                             <h3 className="text-xl font-semibold mb-4 text-white">Edit Task</h3>
                             <form onSubmit={handleUpdateTask} className="stack">
                               <div>
