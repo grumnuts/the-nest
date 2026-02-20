@@ -168,6 +168,7 @@ const HomeScreen = () => {
   const [listUsers, setListUsers] = useState([]);
   const [selectedListForUsers, setSelectedListForUsers] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
+  const [completionsToDelete, setCompletionsToDelete] = useState([]); // Track completion IDs to delete
   const [selectedNewUser, setSelectedNewUser] = useState('');
   const [selectedNewUserPermission, setSelectedNewUserPermission] = useState('user');
   const [pendingUserChanges, setPendingUserChanges] = useState([]); // Stage user changes locally
@@ -1121,6 +1122,7 @@ const HomeScreen = () => {
     if (showEditTask && editingTask?.id === task.id) {
       setShowEditTask(false);
       setEditingTask(null);
+      setCompletionsToDelete([]);
     } else {
       // Open edit form for this task
       setEditingTask({
@@ -1128,8 +1130,10 @@ const HomeScreen = () => {
         title: task.title,
         description: task.description || '',
         duration_minutes: task.duration_minutes || 0,
-        allow_multiple_completions: task.allow_multiple_completions === 1
+        allow_multiple_completions: task.allow_multiple_completions === 1,
+        completions: task.completions
       });
+      setCompletionsToDelete([]);
       setShowEditTask(true);
     }
   };
@@ -1144,6 +1148,15 @@ const HomeScreen = () => {
     }
     
     try {
+      // Delete marked completions first
+      if (completionsToDelete.length > 0) {
+        await Promise.all(
+          completionsToDelete.map(completionId =>
+            axios.delete(`/api/tasks/${editingTask.id}/completions/${completionId}`)
+          )
+        );
+      }
+      
       const response = await axios.patch(`/api/tasks/${editingTask.id}`, {
         title: editingTask.title,
         description: editingTask.description,
@@ -1153,6 +1166,7 @@ const HomeScreen = () => {
             fetchListData(activeListId);
       setShowEditTask(false);
       setEditingTask(null);
+      setCompletionsToDelete([]);
     } catch (error) {
       console.error('Error updating task:', error);
       const errorMsg = error.response?.data?.error || error.message;
@@ -2511,6 +2525,92 @@ const HomeScreen = () => {
                                   Allow multiple completions
                                 </label>
                               </div>
+
+                              {/* Completions Section */}
+                              {(() => {
+                                // Parse completions for this task
+                                let completions = [];
+                                if (editingTask.completions) {
+                                  try {
+                                    if (editingTask.completions.includes('},{')) {
+                                      const completionStrings = editingTask.completions.split('},{').map((str, index, arr) => {
+                                        if (index === 0) return str + '}';
+                                        if (index === arr.length - 1) return '{' + str;
+                                        return '{' + str + '}';
+                                      });
+                                      completions = completionStrings.map(str => JSON.parse(str));
+                                    } else {
+                                      completions = [JSON.parse(editingTask.completions)];
+                                    }
+                                  } catch (e) {
+                                    console.error('Error parsing completions:', e);
+                                  }
+                                }
+
+                                // Filter out completions with no id (these shouldn't exist but just in case)
+                                const validCompletions = completions.filter(c => c.id);
+
+                                if (validCompletions.length === 0) return null;
+
+                                return (
+                                  <div className="border-t border-gray-700 pt-4">
+                                    <h4 className="text-sm font-medium text-gray-300 mb-2">Completions for this period</h4>
+                                    <div className="space-y-2">
+                                      {validCompletions.map((completion, index) => {
+                                        const completedDate = new Date(completion.completed_at);
+                                        const displayName = completion.first_name || completion.username || 'Unknown';
+                                        const isMarkedForDeletion = completionsToDelete.includes(completion.id);
+                                        
+                                        return (
+                                          <div
+                                            key={`completion-${completion.id || index}`}
+                                            className={`flex items-center justify-between p-2 rounded-lg ${
+                                              isMarkedForDeletion ? 'bg-red-900/20 border border-red-500/30' : 'bg-gray-800/50'
+                                            }`}
+                                          >
+                                            <div className="flex items-center space-x-2 flex-1">
+                                              <div className="text-sm text-gray-300">
+                                                <span className="font-medium">{displayName}</span>
+                                                <span className="text-gray-400 ml-2">
+                                                  {completedDate.toLocaleString([], {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (isMarkedForDeletion) {
+                                                  setCompletionsToDelete(completionsToDelete.filter(id => id !== completion.id));
+                                                } else {
+                                                  setCompletionsToDelete([...completionsToDelete, completion.id]);
+                                                }
+                                              }}
+                                              className={`p-1.5 rounded transition-colors ${
+                                                isMarkedForDeletion
+                                                  ? 'bg-red-600 text-white hover:bg-red-700'
+                                                  : 'text-red-400 hover:text-red-300 hover:bg-red-900/20'
+                                              }`}
+                                              title={isMarkedForDeletion ? 'Unmark for deletion' : 'Mark for deletion'}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    {completionsToDelete.length > 0 && (
+                                      <p className="text-xs text-red-400 mt-2">
+                                        {completionsToDelete.length} completion{completionsToDelete.length > 1 ? 's' : ''} will be deleted when you click Update Task
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               
                               <div className="flex flex-wrap gap-2">
                                 <button type="submit" className="btn-primary flex-1 min-w-[100px]">
