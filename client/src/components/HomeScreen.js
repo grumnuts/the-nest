@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat, Users, UserPlus, UserMinus, User, Crown, Star } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat, Users, UserPlus, UserMinus, User, UserCheck, Crown, Star } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import ToggleSwitch from './ToggleSwitch';
@@ -1172,6 +1172,7 @@ const HomeScreen = () => {
         description: task.description || '',
         duration_minutes: task.duration_minutes || 0,
         allow_multiple_completions: task.allow_multiple_completions === 1,
+        assigned_to: task.assigned_to || null,
         completions: task.completions
       });
       setCompletionsToDelete([]);
@@ -1204,7 +1205,15 @@ const HomeScreen = () => {
         duration_minutes: editingTask.duration_minutes,
         allow_multiple_completions: editingTask.allow_multiple_completions
       });
-            fetchListData(activeListId);
+      
+      // Handle assignment update separately
+      if (editingTask.assigned_to !== undefined) {
+        await axios.patch(`/api/tasks/${editingTask.id}/assign`, {
+          assigned_to: editingTask.assigned_to || null
+        });
+      }
+      
+      fetchListData(activeListId);
       setShowEditTask(false);
       setEditingTask(null);
       setCompletionsToDelete([]);
@@ -2429,10 +2438,10 @@ const HomeScreen = () => {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 flex-shrink-0">
-                              {task.assigned_username && (
-                                <span className="text-sm text-gray-400">
-                                  <User className="h-3 w-3 inline mr-1" />
-                                  {task.assigned_username}
+                              {task.assigned_firstname && (
+                                <span className="text-sm text-blue-400 font-medium flex items-center gap-1">
+                                  <UserCheck className="h-3 w-3" />
+                                  {task.assigned_firstname}
                                 </span>
                               )}
                               {hasListAdminPermission(activeListId) && (
@@ -2623,6 +2632,22 @@ const HomeScreen = () => {
                                 <label htmlFor="edit_allow_multiple" className="text-gray-200">
                                   Allow multiple completions
                                 </label>
+                              </div>
+
+                              <div>
+                                <label className="label text-gray-200">Assign to (optional)</label>
+                                <select
+                                  value={editingTask.assigned_to || ''}
+                                  onChange={(e) => setEditingTask({...editingTask, assigned_to: e.target.value ? parseInt(e.target.value) : null})}
+                                  className="input w-full"
+                                >
+                                  <option value="">Unassigned</option>
+                                  {(listUsers || []).map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                      {user.first_name || user.username} ({user.username})
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
 
                               {/* Completions Section */}
