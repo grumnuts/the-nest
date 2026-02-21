@@ -1057,8 +1057,8 @@ const HomeScreen = () => {
       fetchListData(activeListId);
       fetchGoals(); // Immediate goal progress update
     } catch (error) {
-      console.error('Error updating task:', error);
-      showActionMessage('Error updating task. Please try again.', 'error');
+      console.error('Error updating task:', error.response?.data || error.message);
+      showActionMessage(error.response?.data?.error || 'Error updating task. Please try again.', 'error');
     }
   };
 
@@ -1372,8 +1372,8 @@ const HomeScreen = () => {
       // Refetch the task data to get updated completion info
             fetchListData(activeListId);
     } catch (error) {
-      console.error('Error marking task as done:', error);
-      showActionMessage('Error marking task as done. Please try again.', 'error');
+      console.error('Error marking task as done:', error.response?.data || error.message);
+      showActionMessage(error.response?.data?.error || 'Error marking task as done. Please try again.', 'error');
     }
   };
 
@@ -2531,43 +2531,45 @@ const HomeScreen = () => {
                                   );
                                 }
                                 
-                                // Icon button
-                                buttons.push(
-                                  <button
-                                    key="icon"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTaskIconClick(task);
-                                    }}
-                                    className="flex-shrink-0 transition-all"
-                                    title={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
-                                  >
-                                    {!task.is_completed ? (
-                                      // Uncompleted: Grey circle
-                                      <Circle className="h-6 w-6 text-gray-400 hover:text-gray-300" />
-                                    ) : task.allow_multiple_completions === 1 && isAnimating ? (
-                                      // Repeating task animating: Green filled circle with white checkmark
-                                      <div className="relative flex items-center justify-center">
-                                        <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                                          <Check className="h-4 w-4 text-white" />
+                                // Icon button - only show if task is not assigned or current user is assigned to it
+                                if (!task.assigned_to || task.assigned_to === user?.id) {
+                                  buttons.push(
+                                    <button
+                                      key="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTaskIconClick(task);
+                                      }}
+                                      className="flex-shrink-0 transition-all"
+                                      title={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
+                                    >
+                                      {!task.is_completed ? (
+                                        // Uncompleted: Grey circle
+                                        <Circle className="h-6 w-6 text-gray-400 hover:text-gray-300" />
+                                      ) : task.allow_multiple_completions === 1 && isAnimating ? (
+                                        // Repeating task animating: Green filled circle with white checkmark
+                                        <div className="relative flex items-center justify-center">
+                                          <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                                            <Check className="h-4 w-4 text-white" />
+                                          </div>
                                         </div>
-                                      </div>
-                                    ) : task.allow_multiple_completions === 1 ? (
-                                      // Repeating task completed: Green unfilled circle with green checkmark
-                                      <div className="relative flex items-center justify-center">
-                                        <Circle className="h-6 w-6 text-green-500" />
-                                        <Check className="h-3 w-3 text-green-500 absolute" />
-                                      </div>
-                                    ) : (
-                                      // Non-repeating task completed: Green filled circle with white checkmark
-                                      <div className="relative flex items-center justify-center">
-                                        <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                                          <Check className="h-4 w-4 text-white" />
+                                      ) : task.allow_multiple_completions === 1 ? (
+                                        // Repeating task completed: Green unfilled circle with green checkmark
+                                        <div className="relative flex items-center justify-center">
+                                          <Circle className="h-6 w-6 text-green-500" />
+                                          <Check className="h-3 w-3 text-green-500 absolute" />
                                         </div>
-                                      </div>
-                                    )}
-                                  </button>
-                                );
+                                      ) : (
+                                        // Non-repeating task completed: Green filled circle with white checkmark
+                                        <div className="relative flex items-center justify-center">
+                                          <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                                            <Check className="h-4 w-4 text-white" />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                }
                                 
                                 return (
                                   <div key="button-container" className="flex items-center space-x-2">

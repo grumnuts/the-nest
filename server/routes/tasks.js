@@ -66,9 +66,9 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
         return res.status(403).json({ error: 'No permission to access this list' });
       }
 
-      // Check assignment permissions: if a task is assigned, only the assigned user or admin/owner can complete it
-      if (is_completed && task.assigned_to && task.assigned_to !== userId && permission !== 'admin' && permission !== 'owner') {
-        return res.status(403).json({ error: 'Only the assigned user or an admin can complete this task' });
+      // Check assignment permissions: if a task is assigned, only the assigned user can complete it
+      if (is_completed && task.assigned_to && task.assigned_to !== userId) {
+        return res.status(403).json({ error: 'Only the assigned user can complete this task' });
       }
 
       // For completing tasks, both admin and user roles can do it
