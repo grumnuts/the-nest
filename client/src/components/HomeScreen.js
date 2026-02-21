@@ -2716,7 +2716,7 @@ const HomeScreen = () => {
                                 >
                                   <option value="">Select user</option>
                                   {listUsers.map(u => (
-                                    <option key={u.user_id} value={u.user_id}>
+                                    <option key={u.id} value={u.id}>
                                       {u.first_name || u.username}
                                     </option>
                                   ))}

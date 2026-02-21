@@ -327,6 +327,11 @@ router.post('/:taskId/completions', authenticateToken, (req, res) => {
   const { user_id, completed_at } = req.body;
   const currentUserId = req.user.userId;
 
+  // Validate user_id
+  if (!user_id || isNaN(parseInt(user_id))) {
+    return res.status(400).json({ error: 'Valid user_id is required' });
+  }
+
   // Get the task to check permissions
   db.getTaskById(taskId, (err, task) => {
     if (err) {
@@ -350,12 +355,14 @@ router.post('/:taskId/completions', authenticateToken, (req, res) => {
       // Add the completion
       db.addTaskCompletion(taskId, user_id, completed_at, (err) => {
         if (err) {
+          console.error('Error adding completion:', err);
           return res.status(500).json({ error: 'Error adding completion' });
         }
 
         // Update task status to completed
         db.updateTaskStatus(taskId, true, user_id, (err) => {
           if (err) {
+            console.error('Error updating task status:', err);
             return res.status(500).json({ error: 'Error updating task status' });
           }
 
