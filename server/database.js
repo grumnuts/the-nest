@@ -93,7 +93,7 @@ class Database {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           description TEXT,
-          reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'monthly', 'quarterly', 'annually', 'static')),
+          reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'fortnightly', 'monthly', 'quarterly', 'annually', 'static')),
           created_by INTEGER NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -314,6 +314,45 @@ class Database {
                 'INSERT INTO users (username, email, password_hash, is_admin, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 ['admin', 'admin@thenest.local', hash, 1, 'owner', now, now]
               );
+            }
+          });
+        }
+      });
+
+      // Ensure lists.reset_period allows fortnightly in existing databases
+      this.db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='lists'", (err, row) => {
+        if (err) {
+          console.error('Error reading lists schema:', err);
+          return;
+        }
+
+        if (row?.sql && !row.sql.includes('fortnightly')) {
+          this.db.exec(`
+            PRAGMA foreign_keys=off;
+            BEGIN TRANSACTION;
+            CREATE TABLE IF NOT EXISTS lists_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              description TEXT,
+              reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'fortnightly', 'monthly', 'quarterly', 'annually', 'static')),
+              created_by INTEGER NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              last_reset DATETIME,
+              is_active BOOLEAN DEFAULT 1,
+              sort_order INTEGER DEFAULT 0,
+              FOREIGN KEY (created_by) REFERENCES users (id)
+            );
+            INSERT INTO lists_new (id, name, description, reset_period, created_by, created_at, updated_at, last_reset, is_active, sort_order)
+            SELECT id, name, description, reset_period, created_by, created_at, updated_at, last_reset, is_active, sort_order
+            FROM lists;
+            DROP TABLE lists;
+            ALTER TABLE lists_new RENAME TO lists;
+            COMMIT;
+            PRAGMA foreign_keys=on;
+          `, (execErr) => {
+            if (execErr) {
+              console.error('Error migrating lists schema for fortnightly:', execErr);
             }
           });
         }

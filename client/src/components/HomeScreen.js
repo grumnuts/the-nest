@@ -233,6 +233,9 @@ const HomeScreen = () => {
       case 'weekly':
         d.setDate(d.getDate() + (direction === 'next' ? 7 : -7));
         break;
+      case 'fortnightly':
+        d.setDate(d.getDate() + (direction === 'next' ? 14 : -14));
+        break;
       case 'monthly':
         d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1));
         break;
@@ -255,6 +258,30 @@ const HomeScreen = () => {
     setListDates(prev => ({ ...prev, [listId]: todayKey }));
   };
 
+  const getFortnightRange = (dateStr) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    const weekStart = new Date(d);
+    const dow = weekStart.getDay();
+    weekStart.setDate(weekStart.getDate() - (dow === 0 ? 6 : dow - 1));
+
+    const anchor = new Date('1970-01-05T12:00:00');
+    const diffDays = Math.floor((weekStart - anchor) / (1000 * 60 * 60 * 24));
+    const weeksSinceAnchor = Math.floor(diffDays / 7);
+
+    const fortnightStart = new Date(weekStart);
+    if (weeksSinceAnchor % 2 !== 0) {
+      fortnightStart.setDate(fortnightStart.getDate() - 7);
+    }
+
+    const fortnightEnd = new Date(fortnightStart);
+    fortnightEnd.setDate(fortnightEnd.getDate() + 13);
+
+    return {
+      start: formatDateKey(fortnightStart),
+      end: formatDateKey(fortnightEnd)
+    };
+  };
+
   const getPeriodLabel = (list, dateStr) => {
     if (!list || list.reset_period === 'static') return '';
     const d = new Date(dateStr + 'T12:00:00');
@@ -274,6 +301,12 @@ const HomeScreen = () => {
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
         return `${weekStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} - ${weekEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      }
+      case 'fortnightly': {
+        const range = getFortnightRange(dateStr);
+        const startDate = new Date(range.start + 'T12:00:00');
+        const endDate = new Date(range.end + 'T12:00:00');
+        return `${startDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`;
       }
       case 'monthly':
         return d.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
@@ -304,6 +337,8 @@ const HomeScreen = () => {
         we.setDate(we.getDate() + 6);
         return { start: formatDateKey(ws), end: formatDateKey(we) };
       }
+      case 'fortnightly':
+        return getFortnightRange(dateStr);
       case 'monthly': {
         const ms = new Date(d.getFullYear(), d.getMonth(), 1);
         const me = new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -1438,6 +1473,7 @@ const HomeScreen = () => {
     switch (period) {
       case 'daily': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
       case 'weekly': return 'bg-green-500/20 text-green-300 border border-green-500/30';
+      case 'fortnightly': return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
       case 'monthly': return 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
       case 'quarterly': return 'bg-orange-500/20 text-orange-300 border border-orange-500/30';
       case 'annually': return 'bg-red-500/20 text-red-300 border border-red-500/30';
