@@ -66,6 +66,11 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
         return res.status(403).json({ error: 'No permission to access this list' });
       }
 
+      // Check assignment permissions: if a task is assigned, only the assigned user or admin/owner can complete it
+      if (is_completed && task.assigned_to && task.assigned_to !== userId && permission !== 'admin' && permission !== 'owner') {
+        return res.status(403).json({ error: 'Only the assigned user or an admin can complete this task' });
+      }
+
       // For completing tasks, both admin and user roles can do it
       // For uncompleting, we'll check in the undo endpoint
 
@@ -278,6 +283,78 @@ router.patch('/:id', authenticateToken, (req, res) => {
           message: 'Task updated successfully'
         });
       });
+    });
+  });
+});
+
+// Update task assignment
+router.patch('/:id/assign', authenticateToken, (req, res) => {
+  const taskId = req.params.id;
+  const { assigned_to } = req.body;
+  const userId = req.user.userId;
+
+  // First get the task to check permissions
+  db.getTaskById(taskId, (err, task) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching task' });
+    }
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has admin permission for the list
+    db.getUserListPermission(userId, task.list_id, (err, permission) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking permissions' });
+      }
+
+      if (permission !== 'admin' && permission !== 'owner') {
+        return res.status(403).json({ error: 'Only list admins can assign tasks' });
+      }
+
+      // If assigning to someone, verify they have access to the list
+      if (assigned_to) {
+        db.getUserListPermission(assigned_to, task.list_id, (err, userPermission) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error checking user permissions' });
+          }
+
+          if (!userPermission) {
+            return res.status(403).json({ error: 'User does not have access to this list' });
+          }
+
+          // Update the assignment
+          db.updateTaskAssignment(taskId, assigned_to, (err, changes) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error updating task assignment' });
+            }
+
+            if (changes === 0) {
+              return res.status(404).json({ error: 'Task not found' });
+            }
+
+            res.json({
+              message: 'Task assigned successfully'
+            });
+          });
+        });
+      } else {
+        // Unassign the task
+        db.updateTaskAssignment(taskId, null, (err, changes) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error updating task assignment' });
+          }
+
+          if (changes === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+          }
+
+          res.json({
+            message: 'Task unassigned successfully'
+          });
+        });
+      }
     });
   });
 });

@@ -94,3 +94,4 @@ docs/build/
 init-admin.js
 *.backup
 *.bak
+codereview.md

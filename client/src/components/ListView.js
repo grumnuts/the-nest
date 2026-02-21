@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Check, X, Target, History, User } from 'lucide-react';
+import { ArrowLeft, Plus, Check, X, Target, History, User, UserCheck } from 'lucide-react';
 import axios from 'axios';
 
 const ListView = () => {
@@ -17,11 +17,15 @@ const ListView = () => {
   const [history, setHistory] = useState([]);
   const [actionMessage, setActionMessage] = useState('');
   const [actionStatus, setActionStatus] = useState('success');
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [listUsers, setListUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    assigned_to: ''
+    assigned_to: '',
+    duration_minutes: ''
   });
   
   const [newGoal, setNewGoal] = useState({
@@ -34,17 +38,21 @@ const ListView = () => {
 
   const fetchListData = async () => {
     try {
-      const [listResponse, tasksResponse, goalsResponse, progressResponse] = await Promise.all([
+      const [listResponse, tasksResponse, goalsResponse, progressResponse, usersResponse, authResponse] = await Promise.all([
         axios.get(`/api/lists/${id}`),
         axios.get(`/api/tasks/list/${id}`),
         axios.get('/api/goals'),
-        axios.get(`/api/goals/progress/${id}`)
+        axios.get(`/api/goals/progress/${id}`),
+        axios.get(`/api/lists/${id}/users`).catch(() => ({ data: { users: [] } })),
+        axios.get('/api/auth/verify').catch(() => ({ data: { user: null } }))
       ]);
       
       setList(listResponse.data.list);
       setTasks(tasksResponse.data.tasks);
       setGoals(goalsResponse.data.goals);
       setProgress(progressResponse.data);
+      setListUsers(usersResponse.data.users || usersResponse.data || []);
+      setCurrentUser(authResponse.data.user);
     } catch (error) {
       console.error('Error fetching list data:', error);
     } finally {
@@ -55,18 +63,21 @@ const ListView = () => {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/tasks', {
+      const taskData = {
         ...newTask,
-        list_id: parseInt(id)
-      });
-      setNewTask({ title: '', description: '', assigned_to: '' });
+        list_id: parseInt(id),
+        duration_minutes: newTask.duration_minutes ? parseInt(newTask.duration_minutes) : 0,
+        assigned_to: newTask.assigned_to ? parseInt(newTask.assigned_to) : null
+      };
+      await axios.post('/api/tasks', taskData);
+      setNewTask({ title: '', description: '', assigned_to: '', duration_minutes: '' });
       setShowCreateTask(false);
       fetchListData();
       setActionMessage('');
     } catch (error) {
       console.error('Error creating task:', error);
       setActionStatus('error');
-      setActionMessage('Error creating task');
+      setActionMessage(`Error creating task: ${error.response?.data?.error || 'Unknown error'}`);
       setTimeout(() => setActionMessage(''), 2500);
     }
   };
@@ -79,6 +90,27 @@ const ListView = () => {
       fetchListData();
     } catch (error) {
       console.error('Error updating task:', error);
+      setActionStatus('error');
+      setActionMessage(error.response?.data?.error || 'Error updating task');
+      setTimeout(() => setActionMessage(''), 2500);
+    }
+  };
+
+  const handleAssignTask = async (taskId, userId) => {
+    try {
+      await axios.patch(`/api/tasks/${taskId}/assign`, {
+        assigned_to: userId || null
+      });
+      fetchListData();
+      setEditingTaskId(null);
+      setActionStatus('success');
+      setActionMessage('Task assigned successfully');
+      setTimeout(() => setActionMessage(''), 2500);
+    } catch (error) {
+      console.error('Error assigning task:', error);
+      setActionStatus('error');
+      setActionMessage(error.response?.data?.error || 'Error assigning task');
+      setTimeout(() => setActionMessage(''), 2500);
     }
   };
 
@@ -268,14 +300,30 @@ const ListView = () => {
                   />
                 </div>
                 <div>
-                  <label className="label">Assign to (user ID)</label>
+                  <label className="label">Duration (minutes)</label>
                   <input
                     type="number"
+                    min="0"
+                    className="input"
+                    value={newTask.duration_minutes}
+                    onChange={(e) => setNewTask({ ...newTask, duration_minutes: e.target.value })}
+                    placeholder="Leave empty or 0 for no duration"
+                  />
+                </div>
+                <div>
+                  <label className="label">Assign to (optional)</label>
+                  <select 
                     className="input"
                     value={newTask.assigned_to}
                     onChange={(e) => setNewTask({ ...newTask, assigned_to: e.target.value })}
-                    placeholder="Leave empty for unassigned"
-                  />
+                  >
+                    <option value="">Unassigned</option>
+                    {listUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.first_name || user.username} ({user.username})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex space-x-3">
                   <button type="submit" className="btn-primary">
@@ -360,43 +408,89 @@ const ListView = () => {
             ) : (
               <div className="stack">
                 {tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      task.is_completed ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => handleToggleTask(task.id, task.is_completed)}
-                        className={`flex items-center justify-center w-6 h-6 rounded-full border-2 ${
-                          task.is_completed
-                            ? 'bg-green-500 border-green-500 text-white'
-                            : 'border-gray-300 hover:border-gray-400'
+                  <div key={task.id}>
+                    {editingTaskId === task.id ? (
+                      /* Edit mode */
+                      <div className={`p-4 rounded-lg border ${
+                        task.is_completed ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
+                      }`}>
+                        <div className="mb-3">
+                          <label className="label text-sm">Assign to:</label>
+                          <select 
+                            className="input"
+                            onChange={(e) => handleAssignTask(task.id, e.target.value ? parseInt(e.target.value) : null)}
+                          >
+                            <option value="">Unassigned</option>
+                            {listUsers.map((user) => (
+                              <option key={user.id} value={user.id} selected={task.assigned_to === user.id}>
+                                {user.first_name || user.username}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button 
+                          onClick={() => setEditingTaskId(null)}
+                          className="btn-secondary text-sm"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    ) : (
+                      /* Display mode */
+                      <div
+                        className={`flex items-center justify-between p-4 rounded-lg border ${
+                          task.is_completed ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
                         }`}
                       >
-                        {task.is_completed && <Check className="h-4 w-4" />}
-                      </button>
-                      <div>
-                        <h3 className={`font-medium ${task.is_completed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                          {task.title}
-                        </h3>
-                        {task.description && (
-                          <p className={`text-sm ${task.is_completed ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {task.description}
-                          </p>
-                        )}
-                        {task.assigned_username && (
-                          <div className="flex items-center text-xs text-gray-500 mt-1">
-                            <User className="h-3 w-3 mr-1" />
-                            {task.assigned_username}
+                        <div className="flex items-center space-x-3 flex-1">
+                          <button
+                            onClick={() => handleToggleTask(task.id, task.is_completed)}
+                            className={`flex items-center justify-center w-6 h-6 rounded-full border-2 flex-shrink-0 ${
+                              task.is_completed
+                                ? 'bg-green-500 border-green-500 text-white'
+                                : 'border-gray-300 hover:border-gray-400'
+                            }`}
+                          >
+                            {task.is_completed && <Check className="h-4 w-4" />}
+                          </button>
+                          <div className="flex-1">
+                            <h3 className={`font-medium ${task.is_completed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                              {task.title}
+                            </h3>
+                            {task.description && (
+                              <p className={`text-sm ${task.is_completed ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {task.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                              {task.duration_minutes > 0 && (
+                                <span>{task.duration_minutes} min</span>
+                              )}
+                              {task.assigned_firstname && (
+                                <div className="flex items-center gap-1 text-blue-600 font-medium">
+                                  <UserCheck className="h-3 w-3" />
+                                  {task.assigned_firstname}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                    {task.is_completed && task.completed_at && (
-                      <div className="text-xs text-gray-500">
-                        {new Date(task.completed_at).toLocaleDateString('en-AU')}
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          {task.is_completed && task.completed_at && (
+                            <div className="text-xs text-gray-500 whitespace-nowrap">
+                              {new Date(task.completed_at).toLocaleDateString('en-AU')}
+                            </div>
+                          )}
+                          {list && (list.created_by === currentUser?.id || currentUser?.is_admin) && (
+                            <button
+                              onClick={() => setEditingTaskId(task.id)}
+                              className="btn-ghost text-sm px-2 py-1"
+                              title="Assign task"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
