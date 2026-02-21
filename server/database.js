@@ -93,7 +93,7 @@ class Database {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           description TEXT,
-          reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'monthly', 'quarterly', 'annually', 'static')),
+          reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'fortnightly', 'monthly', 'quarterly', 'annually', 'static')),
           created_by INTEGER NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -103,6 +103,45 @@ class Database {
           FOREIGN KEY (created_by) REFERENCES users (id)
         )
       `);
+
+      // Ensure lists.reset_period allows fortnightly in existing databases
+      this.db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='lists'", (err, row) => {
+        if (err) {
+          console.error('Error reading lists schema:', err);
+          return;
+        }
+
+        if (row?.sql && !row.sql.includes('fortnightly')) {
+          this.db.serialize(() => {
+            this.db.run('PRAGMA foreign_keys=off');
+            this.db.run('BEGIN TRANSACTION');
+            this.db.run(`
+              CREATE TABLE IF NOT EXISTS lists_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'fortnightly', 'monthly', 'quarterly', 'annually', 'static')),
+                created_by INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_reset DATETIME,
+                is_active BOOLEAN DEFAULT 1,
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (created_by) REFERENCES users (id)
+              )
+            `);
+            this.db.run(`
+              INSERT INTO lists_new (id, name, description, reset_period, created_by, created_at, updated_at, last_reset, is_active, sort_order)
+              SELECT id, name, description, reset_period, created_by, created_at, updated_at, last_reset, is_active, sort_order
+              FROM lists
+            `);
+            this.db.run('DROP TABLE lists');
+            this.db.run('ALTER TABLE lists_new RENAME TO lists');
+            this.db.run('COMMIT');
+            this.db.run('PRAGMA foreign_keys=on');
+          });
+        }
+      });
 
       // Tasks table
       this.db.run(`
