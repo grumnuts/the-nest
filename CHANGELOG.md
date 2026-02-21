@@ -17,6 +17,7 @@ All notable changes to The Nest will be documented in this file.
 - Fixed list editor buttons overflowing container on mobile devices
 - Fixed "Add List" button text not showing on mobile devices
 - Fixed list creation failing for fortnightly reset period
+- Fixed history navigation for fortnightly lists
 
 ### ⚒️ Enhancements
 - Users are now referenced by their first name rather than username
