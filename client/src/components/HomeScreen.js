@@ -6,19 +6,22 @@ import { useAuth } from '../contexts/AuthContext';
 import ToggleSwitch from './ToggleSwitch';
 import ConfirmDialog from './ConfirmDialog';
 import logoImage from '../assets/TheNestLogo.png';
-                        }
+// Helper function to get completion display name
 const getCompletionDisplayName = (completion) => {
   if (!completion) return '';
-                        }
-                        {/* Add Completion Form - shown below the task */}
+  
+  const firstName = completion.first_name;
+  
   // If completion has first name, use it
   if (firstName) {
     return firstName;
   }
-                        }
-                        {/* Add Completion Form - shown below the task */}
-                        }
-                        {/* Add Completion Form - shown below the task */}
+  
+  // Fallback to username if no first name is set
+  return completion.username || '';
+};
+
+// Helper function to get task completion display name
 const getTaskCompletionDisplayName = (task) => {
   if (!task) return '';
   
@@ -49,7 +52,8 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
           if (index === 0) return str + '}';
           if (index === arr.length - 1) return '{' + str;
           return '{' + str + '}';
-                        }
+        });
+        completions = completionStrings.map(str => JSON.parse(str));
       } else {
         // Single completion - parse directly
         completions = [JSON.parse(task.completions)];
