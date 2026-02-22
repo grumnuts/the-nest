@@ -4,6 +4,8 @@ All notable changes to The Nest will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-02-23
+
 ### ✨ New Features
 - Added support for users first and last name
 - Display user's first name in welcome message
