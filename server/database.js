@@ -506,6 +506,7 @@ class Database {
     this.db.all(`
       SELECT t.*, 
              u.username as assigned_username,
+             u.first_name as assigned_firstname,
              c.username as completed_by_username,
              c.first_name as completed_by_firstname,
              GROUP_CONCAT(
@@ -532,6 +533,7 @@ class Database {
     this.db.all(`
       SELECT t.*, 
              u.username as assigned_username,
+             u.first_name as assigned_firstname,
              GROUP_CONCAT(
                json_object(
                  'id', tc.id,
@@ -592,6 +594,7 @@ class Database {
     this.db.get(`
       SELECT t.*, 
              u.username as assigned_username,
+             u.first_name as assigned_firstname,
              c.username as completed_by_username,
              c.first_name as completed_by_firstname
       FROM tasks t 
@@ -621,6 +624,18 @@ class Database {
       WHERE id = ?
     `);
     stmt.run([title, description, durationMinutes, allowMultipleCompletions ? 1 : 0, localNow(), taskId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateTaskAssignment(taskId, assignedTo, callback) {
+    const stmt = this.db.prepare(`
+      UPDATE tasks 
+      SET assigned_to = ?, updated_at = ? 
+      WHERE id = ?
+    `);
+    stmt.run([assignedTo || null, localNow(), taskId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -838,13 +853,14 @@ class Database {
   // Get all users with permissions for a specific list
   getListUsers(listId, callback) {
     const stmt = this.db.prepare(`
-      SELECT u.id, u.username, ulp.permission_level 
+      SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, 
+             COALESCE(ulp.permission_level, 'owner') as permission_level
       FROM users u 
-      JOIN user_list_permissions ulp ON u.id = ulp.user_id 
-      WHERE ulp.list_id = ?
-      ORDER BY ulp.created_at ASC
+      LEFT JOIN user_list_permissions ulp ON u.id = ulp.user_id AND ulp.list_id = ?
+      WHERE ulp.list_id = ? OR u.id = (SELECT created_by FROM lists WHERE id = ?)
+      ORDER BY CASE WHEN ulp.permission_level = 'owner' THEN 1 WHEN ulp.permission_level = 'admin' THEN 2 ELSE 3 END, u.username ASC
     `);
-    stmt.all([listId], (err, rows) => {
+    stmt.all([listId, listId, listId], (err, rows) => {
       callback(err, rows);
     });
     stmt.finalize();

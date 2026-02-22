@@ -127,6 +127,7 @@ init-admin.js
 *.backup
 *.bak
 *.log
+codereview.md
 
 # Build artifacts that should be rebuilt in container
 client/build/

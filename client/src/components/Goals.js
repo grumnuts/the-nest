@@ -50,13 +50,6 @@ const Goals = forwardRef(({ hideHeader = false }, ref) => {
       const goalsData = response.data.goals;
       setGoals(goalsData);
       
-      // Auto-fetch periods for the first non-static goal
-      if (goalsData && goalsData.length > 0) {
-        const firstNonStaticGoal = goalsData.find(g => g.period_type !== 'static');
-        if (firstNonStaticGoal) {
-          fetchPeriods(firstNonStaticGoal.period_type);
-        }
-      }
     } catch (error) {
       console.error('Error fetching goals:', error);
     } finally {
