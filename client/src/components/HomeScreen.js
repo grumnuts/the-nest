@@ -2438,10 +2438,10 @@ const HomeScreen = () => {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 flex-shrink-0">
-                              {task.assigned_firstname && (
+                              {(task.assigned_firstname || task.assigned_username) && (
                                 <span className="text-sm text-blue-400 font-medium flex items-center gap-1">
                                   <UserCheck className="h-3 w-3" />
-                                  {task.assigned_firstname}
+                                  {task.assigned_firstname || task.assigned_username}
                                 </span>
                               )}
                               {hasListAdminPermission(activeListId) && (

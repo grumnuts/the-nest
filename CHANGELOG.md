@@ -32,6 +32,7 @@ All notable changes to The Nest will be documented in this file.
 - Navigating between lists now automatically closes any open editors without saving
 - Reduced horizontal padding in edit forms to match container padding
 - Evenly distributed buttons in create list and create task forms
+- Assigned user display now falls back to username when first name is missing
 - UI Improvements
 
 ## [v1.0.0] - 2026-02-17
