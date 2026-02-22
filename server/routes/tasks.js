@@ -66,6 +66,11 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
         return res.status(403).json({ error: 'No permission to access this list' });
       }
 
+      // Check assignment permissions: if a task is assigned, only the assigned user can complete it
+      if (is_completed && task.assigned_to && task.assigned_to !== userId) {
+        return res.status(403).json({ error: 'Only the assigned user can complete this task' });
+      }
+
       // For completing tasks, both admin and user roles can do it
       // For uncompleting, we'll check in the undo endpoint
 
@@ -282,6 +287,78 @@ router.patch('/:id', authenticateToken, (req, res) => {
   });
 });
 
+// Update task assignment
+router.patch('/:id/assign', authenticateToken, (req, res) => {
+  const taskId = req.params.id;
+  const { assigned_to } = req.body;
+  const userId = req.user.userId;
+
+  // First get the task to check permissions
+  db.getTaskById(taskId, (err, task) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching task' });
+    }
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has admin permission for the list
+    db.getUserListPermission(userId, task.list_id, (err, permission) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking permissions' });
+      }
+
+      if (permission !== 'admin' && permission !== 'owner') {
+        return res.status(403).json({ error: 'Only list admins can assign tasks' });
+      }
+
+      // If assigning to someone, verify they have access to the list
+      if (assigned_to) {
+        db.getUserListPermission(assigned_to, task.list_id, (err, userPermission) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error checking user permissions' });
+          }
+
+          if (!userPermission) {
+            return res.status(403).json({ error: 'User does not have access to this list' });
+          }
+
+          // Update the assignment
+          db.updateTaskAssignment(taskId, assigned_to, (err, changes) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error updating task assignment' });
+            }
+
+            if (changes === 0) {
+              return res.status(404).json({ error: 'Task not found' });
+            }
+
+            res.json({
+              message: 'Task assigned successfully'
+            });
+          });
+        });
+      } else {
+        // Unassign the task
+        db.updateTaskAssignment(taskId, null, (err, changes) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error updating task assignment' });
+          }
+
+          if (changes === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+          }
+
+          res.json({
+            message: 'Task unassigned successfully'
+          });
+        });
+      }
+    });
+  });
+});
+
 // Get tasks for a specific list (shared across all users)
 // Optional query params: ?date=YYYY-MM-DD or ?dateStart=YYYY-MM-DD&dateEnd=YYYY-MM-DD
 router.get('/list/:listId', authenticateToken, (req, res) => {
@@ -319,6 +396,99 @@ router.get('/list/:listId', authenticateToken, (req, res) => {
             res.json({ tasks });
     });
   }
+});
+
+// Add a new completion to a task
+router.post('/:taskId/completions', authenticateToken, (req, res) => {
+  const { taskId } = req.params;
+  const { user_id, completed_at } = req.body;
+  const currentUserId = req.user.userId;
+
+  // Validate user_id
+  if (!user_id || isNaN(parseInt(user_id))) {
+    return res.status(400).json({ error: 'Valid user_id is required' });
+  }
+
+  // Get the task to check permissions
+  db.getTaskById(taskId, (err, task) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching task' });
+    }
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has admin permission for the list
+    db.getUserListPermission(currentUserId, task.list_id, (err, permission) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking permissions' });
+      }
+
+      if (permission !== 'admin' && permission !== 'owner') {
+        return res.status(403).json({ error: 'Only list admins can add task completions' });
+      }
+
+      // Add the completion
+      db.addTaskCompletion(taskId, user_id, completed_at, (err) => {
+        if (err) {
+          console.error('Error adding completion:', err);
+          return res.status(500).json({ error: 'Error adding completion' });
+        }
+
+        // Update task status to completed
+        db.updateTaskStatus(taskId, true, user_id, (err) => {
+          if (err) {
+            console.error('Error updating task status:', err);
+            return res.status(500).json({ error: 'Error updating task status' });
+          }
+
+          res.status(201).json({ message: 'Completion added successfully' });
+        });
+      });
+    });
+  });
+});
+
+// Delete a specific task completion - must be before general delete route
+router.delete('/:taskId/completions/:completionId', authenticateToken, (req, res) => {
+  const { taskId, completionId } = req.params;
+  const userId = req.user.userId;
+
+  // Get the task to check permissions
+  db.getTaskById(taskId, (err, task) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching task' });
+    }
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has admin permission for the list
+    db.getUserListPermission(userId, task.list_id, (err, permission) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking permissions' });
+      }
+
+      if (permission !== 'admin' && permission !== 'owner') {
+        return res.status(403).json({ error: 'Only list admins can delete task completions' });
+      }
+
+      // Delete the completion
+      db.removeTaskCompletion(completionId, (err, changes) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error deleting completion' });
+        }
+
+        if (changes === 0) {
+          return res.status(404).json({ error: 'Completion not found' });
+        }
+
+        res.json({ message: 'Completion deleted successfully' });
+      });
+    });
+  });
 });
 
 // Delete a task

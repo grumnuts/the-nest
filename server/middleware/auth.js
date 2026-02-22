@@ -37,7 +37,7 @@ const validateLogin = [
 const validateList = [
   body('name').isLength({ min: 1, max: 100 }).trim().escape(),
   body('description').optional().isLength({ max: 500 }).trim().escape(),
-  body('reset_period').isIn(['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'static']),
+  body('reset_period').isIn(['daily', 'weekly', 'fortnightly', 'monthly', 'quarterly', 'annually', 'static']),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Edit2, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat, Users, UserPlus, UserMinus, User, Crown, Star } from 'lucide-react';
+import { Plus, RotateCcw, Edit2, Trash2, X, Menu, ChevronDown, ChevronLeft, ChevronRight, Settings, LogOut, CheckCircle2, Circle, Clock, Check, Target, Repeat, Users, UserPlus, UserMinus, User, UserCheck, Crown, Star } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import ToggleSwitch from './ToggleSwitch';
 import ConfirmDialog from './ConfirmDialog';
 import logoImage from '../assets/TheNestLogo.png';
-
 // Helper function to get completion display name
 const getCompletionDisplayName = (completion) => {
   if (!completion) return '';
@@ -168,6 +167,7 @@ const HomeScreen = () => {
   const [listUsers, setListUsers] = useState([]);
   const [selectedListForUsers, setSelectedListForUsers] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
+  const [completionsToDelete, setCompletionsToDelete] = useState([]); // Track completion IDs to delete
   const [selectedNewUser, setSelectedNewUser] = useState('');
   const [selectedNewUserPermission, setSelectedNewUserPermission] = useState('user');
   const [pendingUserChanges, setPendingUserChanges] = useState([]); // Stage user changes locally
@@ -192,6 +192,13 @@ const HomeScreen = () => {
   const [newListUsers, setNewListUsers] = useState([]);
   const [selectedNewListUser, setSelectedNewListUser] = useState('');
   const [selectedNewListUserPermission, setSelectedNewListUserPermission] = useState('user');
+  
+  // State for managing task completion dialog
+  const [addingCompletionForTask, setAddingCompletionForTask] = useState(null);
+  const [newCompletion, setNewCompletion] = useState({
+    user_id: '',
+    time: ''
+  });
   
   const activeList = lists.find(list => list.id === activeListId) || null;
 
@@ -230,6 +237,9 @@ const HomeScreen = () => {
       case 'weekly':
         d.setDate(d.getDate() + (direction === 'next' ? 7 : -7));
         break;
+      case 'fortnightly':
+        d.setDate(d.getDate() + (direction === 'next' ? 14 : -14));
+        break;
       case 'monthly':
         d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1));
         break;
@@ -252,6 +262,30 @@ const HomeScreen = () => {
     setListDates(prev => ({ ...prev, [listId]: todayKey }));
   };
 
+  const getFortnightRange = (dateStr) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    const weekStart = new Date(d);
+    const dow = weekStart.getDay();
+    weekStart.setDate(weekStart.getDate() - (dow === 0 ? 6 : dow - 1));
+
+    const anchor = new Date('1970-01-05T12:00:00');
+    const diffDays = Math.floor((weekStart - anchor) / (1000 * 60 * 60 * 24));
+    const weeksSinceAnchor = Math.floor(diffDays / 7);
+
+    const fortnightStart = new Date(weekStart);
+    if (weeksSinceAnchor % 2 !== 0) {
+      fortnightStart.setDate(fortnightStart.getDate() - 7);
+    }
+
+    const fortnightEnd = new Date(fortnightStart);
+    fortnightEnd.setDate(fortnightEnd.getDate() + 13);
+
+    return {
+      start: formatDateKey(fortnightStart),
+      end: formatDateKey(fortnightEnd)
+    };
+  };
+
   const getPeriodLabel = (list, dateStr) => {
     if (!list || list.reset_period === 'static') return '';
     const d = new Date(dateStr + 'T12:00:00');
@@ -271,6 +305,12 @@ const HomeScreen = () => {
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
         return `${weekStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} - ${weekEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      }
+      case 'fortnightly': {
+        const range = getFortnightRange(dateStr);
+        const startDate = new Date(range.start + 'T12:00:00');
+        const endDate = new Date(range.end + 'T12:00:00');
+        return `${startDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`;
       }
       case 'monthly':
         return d.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
@@ -301,6 +341,8 @@ const HomeScreen = () => {
         we.setDate(we.getDate() + 6);
         return { start: formatDateKey(ws), end: formatDateKey(we) };
       }
+      case 'fortnightly':
+        return getFortnightRange(dateStr);
       case 'monthly': {
         const ms = new Date(d.getFullYear(), d.getMonth(), 1);
         const me = new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -1015,8 +1057,8 @@ const HomeScreen = () => {
       fetchListData(activeListId);
       fetchGoals(); // Immediate goal progress update
     } catch (error) {
-      console.error('Error updating task:', error);
-      showActionMessage('Error updating task. Please try again.', 'error');
+      console.error('Error updating task:', error.response?.data || error.message);
+      showActionMessage(error.response?.data?.error || 'Error updating task. Please try again.', 'error');
     }
   };
 
@@ -1121,6 +1163,7 @@ const HomeScreen = () => {
     if (showEditTask && editingTask?.id === task.id) {
       setShowEditTask(false);
       setEditingTask(null);
+      setCompletionsToDelete([]);
     } else {
       // Open edit form for this task
       setEditingTask({
@@ -1128,8 +1171,11 @@ const HomeScreen = () => {
         title: task.title,
         description: task.description || '',
         duration_minutes: task.duration_minutes || 0,
-        allow_multiple_completions: task.allow_multiple_completions === 1
+        allow_multiple_completions: task.allow_multiple_completions === 1,
+        assigned_to: task.assigned_to || null,
+        completions: task.completions
       });
+      setCompletionsToDelete([]);
       setShowEditTask(true);
     }
   };
@@ -1144,19 +1190,67 @@ const HomeScreen = () => {
     }
     
     try {
+      // Delete marked completions first
+      if (completionsToDelete.length > 0) {
+        await Promise.all(
+          completionsToDelete.map(completionId =>
+            axios.delete(`/api/tasks/${editingTask.id}/completions/${completionId}`)
+          )
+        );
+      }
+      
       const response = await axios.patch(`/api/tasks/${editingTask.id}`, {
         title: editingTask.title,
         description: editingTask.description,
         duration_minutes: editingTask.duration_minutes,
         allow_multiple_completions: editingTask.allow_multiple_completions
       });
-            fetchListData(activeListId);
+      
+      // Handle assignment update separately
+      if (editingTask.assigned_to !== undefined) {
+        await axios.patch(`/api/tasks/${editingTask.id}/assign`, {
+          assigned_to: editingTask.assigned_to || null
+        });
+      }
+      
+      fetchListData(activeListId);
       setShowEditTask(false);
       setEditingTask(null);
+      setCompletionsToDelete([]);
     } catch (error) {
       console.error('Error updating task:', error);
       const errorMsg = error.response?.data?.error || error.message;
       showActionMessage(`Error updating task: ${errorMsg}`, 'error');
+    }
+  };
+
+  const handleAddCompletion = async (e) => {
+    e.preventDefault();
+    
+    // Check if user has admin permission for the current list
+    if (!hasListAdminPermission(activeListId)) {
+      showActionMessage('Only list admins can add completions', 'error');
+      return;
+    }
+    
+    try {
+      // Construct the completed_at timestamp
+      const selectedDate = getSelectedDate(activeListId);
+      const completed_at = `${selectedDate} ${newCompletion.time}:00`;
+      
+      await axios.post(`/api/tasks/${addingCompletionForTask.id}/completions`, {
+        user_id: parseInt(newCompletion.user_id),
+        completed_at
+      });
+      
+      fetchListData(activeListId);
+      setAddingCompletionForTask(null);
+      setNewCompletion({ user_id: '', time: '' });
+      showActionMessage('Completion added successfully', 'success');
+    } catch (error) {
+      console.error('Error adding completion:', error);
+      const errorMsg = error.response?.data?.error || error.message;
+      showActionMessage(`Error adding completion: ${errorMsg}`, 'error');
     }
   };
 
@@ -1278,8 +1372,8 @@ const HomeScreen = () => {
       // Refetch the task data to get updated completion info
             fetchListData(activeListId);
     } catch (error) {
-      console.error('Error marking task as done:', error);
-      showActionMessage('Error marking task as done. Please try again.', 'error');
+      console.error('Error marking task as done:', error.response?.data || error.message);
+      showActionMessage(error.response?.data?.error || 'Error marking task as done. Please try again.', 'error');
     }
   };
 
@@ -1375,6 +1469,8 @@ const HomeScreen = () => {
       setEditingList(null);
       setShowEditTask(false);
       setEditingTask(null);
+      setAddingCompletionForTask(null);
+      setNewCompletion({ user_id: '', time: '' });
       setActiveListId(lists[newIndex].id);
     }
   };
@@ -1390,6 +1486,7 @@ const HomeScreen = () => {
     switch (period) {
       case 'daily': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
       case 'weekly': return 'bg-green-500/20 text-green-300 border border-green-500/30';
+      case 'fortnightly': return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
       case 'monthly': return 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
       case 'quarterly': return 'bg-orange-500/20 text-orange-300 border border-orange-500/30';
       case 'annually': return 'bg-red-500/20 text-red-300 border border-red-500/30';
@@ -1679,6 +1776,8 @@ const HomeScreen = () => {
                     setEditingList(null);
                     setShowEditTask(false);
                     setEditingTask(null);
+                    setAddingCompletionForTask(null);
+                    setNewCompletion({ user_id: '', time: '' });
                     setActiveListId(list.id);
                   }}
                 >
@@ -2339,22 +2438,45 @@ const HomeScreen = () => {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 flex-shrink-0">
-                              {task.assigned_username && (
-                                <span className="text-sm text-gray-400">
-                                  <User className="h-3 w-3 inline mr-1" />
-                                  {task.assigned_username}
+                              {(task.assigned_firstname || task.assigned_username) && (
+                                <span className="text-sm text-blue-400 font-medium flex items-center gap-1">
+                                  <UserCheck className="h-3 w-3" />
+                                  {task.assigned_firstname || task.assigned_username}
                                 </span>
                               )}
                               {hasListAdminPermission(activeListId) && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditTask(task);
-                                  }}
-                                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Open add completion dialog
+                                      if (addingCompletionForTask?.id === task.id) {
+                                        setAddingCompletionForTask(null);
+                                        setNewCompletion({ user_id: '', time: '' });
+                                      } else {
+                                        setAddingCompletionForTask(task);
+                                        // Fetch list users to populate dropdown
+                                        fetchListUsers(activeListId);
+                                        // Set default time to now
+                                        const now = new Date();
+                                        const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                                        setNewCompletion({ user_id: '', time: timeString });
+                                      }
+                                    }}
+                                    className="text-green-400 hover:text-green-300 transition-colors"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditTask(task);
+                                    }}
+                                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </button>
+                                </>
                               )}
                               {(() => {
                                 const buttons = [];
@@ -2409,43 +2531,45 @@ const HomeScreen = () => {
                                   );
                                 }
                                 
-                                // Icon button
-                                buttons.push(
-                                  <button
-                                    key="icon"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTaskIconClick(task);
-                                    }}
-                                    className="flex-shrink-0 transition-all"
-                                    title={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
-                                  >
-                                    {!task.is_completed ? (
-                                      // Uncompleted: Grey circle
-                                      <Circle className="h-6 w-6 text-gray-400 hover:text-gray-300" />
-                                    ) : task.allow_multiple_completions === 1 && isAnimating ? (
-                                      // Repeating task animating: Green filled circle with white checkmark
-                                      <div className="relative flex items-center justify-center">
-                                        <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                                          <Check className="h-4 w-4 text-white" />
+                                // Icon button - only show if task is not assigned or current user is assigned to it
+                                if (!task.assigned_to || task.assigned_to === user?.id) {
+                                  buttons.push(
+                                    <button
+                                      key="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTaskIconClick(task);
+                                      }}
+                                      className="flex-shrink-0 transition-all"
+                                      title={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
+                                    >
+                                      {!task.is_completed ? (
+                                        // Uncompleted: Grey circle
+                                        <Circle className="h-6 w-6 text-gray-400 hover:text-gray-300" />
+                                      ) : task.allow_multiple_completions === 1 && isAnimating ? (
+                                        // Repeating task animating: Green filled circle with white checkmark
+                                        <div className="relative flex items-center justify-center">
+                                          <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                                            <Check className="h-4 w-4 text-white" />
+                                          </div>
                                         </div>
-                                      </div>
-                                    ) : task.allow_multiple_completions === 1 ? (
-                                      // Repeating task completed: Green unfilled circle with green checkmark
-                                      <div className="relative flex items-center justify-center">
-                                        <Circle className="h-6 w-6 text-green-500" />
-                                        <Check className="h-3 w-3 text-green-500 absolute" />
-                                      </div>
-                                    ) : (
-                                      // Non-repeating task completed: Green filled circle with white checkmark
-                                      <div className="relative flex items-center justify-center">
-                                        <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                                          <Check className="h-4 w-4 text-white" />
+                                      ) : task.allow_multiple_completions === 1 ? (
+                                        // Repeating task completed: Green unfilled circle with green checkmark
+                                        <div className="relative flex items-center justify-center">
+                                          <Circle className="h-6 w-6 text-green-500" />
+                                          <Check className="h-3 w-3 text-green-500 absolute" />
                                         </div>
-                                      </div>
-                                    )}
-                                  </button>
-                                );
+                                      ) : (
+                                        // Non-repeating task completed: Green filled circle with white checkmark
+                                        <div className="relative flex items-center justify-center">
+                                          <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                                            <Check className="h-4 w-4 text-white" />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                }
                                 
                                 return (
                                   <div key="button-container" className="flex items-center space-x-2">
@@ -2511,6 +2635,103 @@ const HomeScreen = () => {
                                   Allow multiple completions
                                 </label>
                               </div>
+
+                              <div>
+                                <label className="label text-gray-200">Assign to (optional)</label>
+                                <select
+                                  value={editingTask.assigned_to || ''}
+                                  onChange={(e) => setEditingTask({...editingTask, assigned_to: e.target.value ? parseInt(e.target.value) : null})}
+                                  className="input w-full"
+                                >
+                                  <option value="">Unassigned</option>
+                                  {(listUsers || []).map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                      {user.first_name || user.username} ({user.username})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Completions Section */}
+                              {(() => {
+                                // Parse completions for this task
+                                let completions = [];
+                                if (editingTask.completions) {
+                                  try {
+                                    if (editingTask.completions.includes('},{')) {
+                                      const completionStrings = editingTask.completions.split('},{').map((str, index, arr) => {
+                                        if (index === 0) return str + '}';
+                                        if (index === arr.length - 1) return '{' + str;
+                                        return '{' + str + '}';
+                                      });
+                                      completions = completionStrings.map(str => JSON.parse(str));
+                                    } else {
+                                      completions = [JSON.parse(editingTask.completions)];
+                                    }
+                                  } catch (e) {
+                                    console.error('Error parsing completions:', e);
+                                  }
+                                }
+
+                                // Filter out completions with no id (these shouldn't exist but just in case)
+                                const validCompletions = completions.filter(c => c.id);
+
+                                if (validCompletions.length === 0) return null;
+
+                                return (
+                                  <div className="border-t border-gray-700 pt-4">
+                                    <h4 className="text-sm font-medium text-gray-300 mb-2">Completions for this period</h4>
+                                    <div className="space-y-2">
+                                      {validCompletions.map((completion, index) => {
+                                        const completedDate = new Date(completion.completed_at);
+                                        const displayName = completion.first_name || completion.username || 'Unknown';
+                                        const isMarkedForDeletion = completionsToDelete.includes(completion.id);
+                                        
+                                        return (
+                                          <div
+                                            key={`completion-${completion.id || index}`}
+                                            className={`flex items-center justify-between p-2 rounded-lg ${
+                                              isMarkedForDeletion ? 'bg-red-900/20 border border-red-500/30' : 'bg-gray-800/50'
+                                            }`}
+                                          >
+                                            <div className="flex items-center space-x-2 flex-1">
+                                              <div className="text-sm text-gray-300">
+                                                <span className="font-medium">{displayName}</span>
+                                                <span className="text-gray-400 ml-2">
+                                                  {completedDate.toLocaleString([], {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (isMarkedForDeletion) {
+                                                  setCompletionsToDelete(completionsToDelete.filter(id => id !== completion.id));
+                                                } else {
+                                                  setCompletionsToDelete([...completionsToDelete, completion.id]);
+                                                }
+                                              }}
+                                              className={`p-1.5 rounded transition-colors ${
+                                                isMarkedForDeletion
+                                                  ? 'bg-red-600 text-white hover:bg-red-700'
+                                                  : 'text-red-400 hover:text-red-300 hover:bg-red-900/20'
+                                              }`}
+                                              title={isMarkedForDeletion ? 'Unmark for deletion' : 'Mark for deletion'}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                               
                               <div className="flex flex-wrap gap-2">
                                 <button type="submit" className="btn-primary flex-1 min-w-[100px]">
@@ -2537,6 +2758,57 @@ const HomeScreen = () => {
                                 >
                                   <Trash2 className="h-4 w-4" />
                                   <span>Delete Task</span>
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        )}
+                        {/* Add Completion Form - shown below the task */}
+                        {addingCompletionForTask?.id === task.id && (
+                          <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-green-500/20 mt-2">
+                            <h3 className="text-xl font-semibold mb-4 text-white">Add Completion</h3>
+                            <form onSubmit={handleAddCompletion} className="stack">
+                              <div>
+                                <label className="label text-gray-200">User *</label>
+                                <select
+                                  value={newCompletion.user_id}
+                                  onChange={(e) => setNewCompletion({...newCompletion, user_id: e.target.value})}
+                                  className="input w-full"
+                                  required
+                                >
+                                  <option value="">Select user</option>
+                                  {listUsers.map(u => (
+                                    <option key={u.id} value={u.id}>
+                                      {u.first_name || u.username}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              <div>
+                                <label className="label text-gray-200">Time *</label>
+                                <input
+                                  type="time"
+                                  value={newCompletion.time}
+                                  onChange={(e) => setNewCompletion({...newCompletion, time: e.target.value})}
+                                  className="input w-full"
+                                  required
+                                />
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-2">
+                                <button type="submit" className="btn-primary flex-1 min-w-[100px]">
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAddingCompletionForTask(null);
+                                    setNewCompletion({ user_id: '', time: '' });
+                                  }}
+                                  className="btn-secondary flex-1 min-w-[80px]"
+                                >
+                                  Cancel
                                 </button>
                               </div>
                             </form>

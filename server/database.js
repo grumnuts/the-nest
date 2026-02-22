@@ -93,7 +93,7 @@ class Database {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           description TEXT,
-          reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'monthly', 'quarterly', 'annually', 'static')),
+          reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'fortnightly', 'monthly', 'quarterly', 'annually', 'static')),
           created_by INTEGER NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -318,6 +318,45 @@ class Database {
           });
         }
       });
+
+      // Ensure lists.reset_period allows fortnightly in existing databases
+      this.db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='lists'", (err, row) => {
+        if (err) {
+          console.error('Error reading lists schema:', err);
+          return;
+        }
+
+        if (row?.sql && !row.sql.includes('fortnightly')) {
+          this.db.exec(`
+            PRAGMA foreign_keys=off;
+            BEGIN TRANSACTION;
+            CREATE TABLE IF NOT EXISTS lists_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              description TEXT,
+              reset_period TEXT NOT NULL CHECK (reset_period IN ('daily', 'weekly', 'fortnightly', 'monthly', 'quarterly', 'annually', 'static')),
+              created_by INTEGER NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              last_reset DATETIME,
+              is_active BOOLEAN DEFAULT 1,
+              sort_order INTEGER DEFAULT 0,
+              FOREIGN KEY (created_by) REFERENCES users (id)
+            );
+            INSERT INTO lists_new (id, name, description, reset_period, created_by, created_at, updated_at, last_reset, is_active, sort_order)
+            SELECT id, name, description, reset_period, created_by, created_at, updated_at, last_reset, is_active, sort_order
+            FROM lists;
+            DROP TABLE lists;
+            ALTER TABLE lists_new RENAME TO lists;
+            COMMIT;
+            PRAGMA foreign_keys=on;
+          `, (execErr) => {
+            if (execErr) {
+              console.error('Error migrating lists schema for fortnightly:', execErr);
+            }
+          });
+        }
+      });
     });
   }
 
@@ -467,6 +506,7 @@ class Database {
     this.db.all(`
       SELECT t.*, 
              u.username as assigned_username,
+             u.first_name as assigned_firstname,
              c.username as completed_by_username,
              c.first_name as completed_by_firstname,
              GROUP_CONCAT(
@@ -493,6 +533,7 @@ class Database {
     this.db.all(`
       SELECT t.*, 
              u.username as assigned_username,
+             u.first_name as assigned_firstname,
              GROUP_CONCAT(
                json_object(
                  'id', tc.id,
@@ -553,6 +594,7 @@ class Database {
     this.db.get(`
       SELECT t.*, 
              u.username as assigned_username,
+             u.first_name as assigned_firstname,
              c.username as completed_by_username,
              c.first_name as completed_by_firstname
       FROM tasks t 
@@ -582,6 +624,18 @@ class Database {
       WHERE id = ?
     `);
     stmt.run([title, description, durationMinutes, allowMultipleCompletions ? 1 : 0, localNow(), taskId], function(err) {
+      callback(err, this ? this.changes : 0);
+    });
+    stmt.finalize();
+  }
+
+  updateTaskAssignment(taskId, assignedTo, callback) {
+    const stmt = this.db.prepare(`
+      UPDATE tasks 
+      SET assigned_to = ?, updated_at = ? 
+      WHERE id = ?
+    `);
+    stmt.run([assignedTo || null, localNow(), taskId], function(err) {
       callback(err, this ? this.changes : 0);
     });
     stmt.finalize();
@@ -799,13 +853,14 @@ class Database {
   // Get all users with permissions for a specific list
   getListUsers(listId, callback) {
     const stmt = this.db.prepare(`
-      SELECT u.id, u.username, ulp.permission_level 
+      SELECT DISTINCT u.id, u.username, u.first_name, u.last_name, 
+             COALESCE(ulp.permission_level, 'owner') as permission_level
       FROM users u 
-      JOIN user_list_permissions ulp ON u.id = ulp.user_id 
-      WHERE ulp.list_id = ?
-      ORDER BY ulp.created_at ASC
+      LEFT JOIN user_list_permissions ulp ON u.id = ulp.user_id AND ulp.list_id = ?
+      WHERE ulp.list_id = ? OR u.id = (SELECT created_by FROM lists WHERE id = ?)
+      ORDER BY CASE WHEN ulp.permission_level = 'owner' THEN 1 WHEN ulp.permission_level = 'admin' THEN 2 ELSE 3 END, u.username ASC
     `);
-    stmt.all([listId], (err, rows) => {
+    stmt.all([listId, listId, listId], (err, rows) => {
       callback(err, rows);
     });
     stmt.finalize();
