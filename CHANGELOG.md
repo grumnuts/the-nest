@@ -21,6 +21,7 @@ All notable changes to The Nest will be documented in this file.
 - Fixed list creation failing for fortnightly reset period
 - Fixed history navigation for fortnightly lists
 - Fixed add completion user selection using correct list user id
+- Fixed goals view console error caused by missing period fetch handler
 
 ### ⚒️ Enhancements
 - Users are now referenced by their first name rather than username
