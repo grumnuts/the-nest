@@ -22,7 +22,7 @@ docker run -d \
   -v nest_data:/app/data \
   -e JWT_SECRET="$(openssl rand -base64 32)" \
   -e CLIENT_URL="http://localhost:5000" \
-  -e TZ="UTC" \
+  -e TZ="Australia/Sydney" \
   --restart unless-stopped \
   grumnuts/the-nest:latest
 ```
@@ -41,7 +41,7 @@ services:
     environment:
       - JWT_SECRET=CHANGE_ME_TO_RANDOM_32_CHAR_SECRET
       - CLIENT_URL=http://localhost:5000
-      - TZ=UTC
+      - TZ=Australia/Sydney
       - PUID=1001 # Optional
       - PGID=1001 # Optional
     volumes:
@@ -59,11 +59,13 @@ volumes:
 |----------|----------|---------|-------------|
 | `JWT_SECRET` | **Yes** | — | Secret key for auth tokens (min 32 chars) |
 | `CLIENT_URL` | **Yes** | — | URL users access the app from (for CORS) |
-| `TZ` | No | `UTC` | Timezone (e.g. `Australia/Brisbane`) |
+| `TZ` | No | `UTC` | Timezone for date/time operations (e.g. `Australia/Sydney`, `America/New_York`, `Europe/London`) |
 | `PUID` | No | `1001` | User ID for file permissions |
 | `PGID` | No | `1001` | Group ID for file permissions |
 | `EMERGENCY_RESET_PASSWORD` | No | — | Emergency password reset (see below) |
 | `EMERGENCY_RESET_USER` | No | — | Target user for emergency reset (default: admin) |
+
+> **TZ (Timezone)**: Critical for weekly/monthly/quarterly goals to reset at the correct time. Use your local timezone (e.g. `Australia/Sydney` for AEDT/AEST, `America/Los_Angeles` for PST/PDT). If left as `UTC`, goals may appear to reset early or late due to the time offset.
 
 > **PUID/PGID**: Only needed if you have volume permission issues on Linux. Set to match your host user (e.g. `1000`).
 
@@ -110,7 +112,7 @@ Edit your `docker-compose.yml` and add the emergency reset lines:
 environment:
   - JWT_SECRET=CHANGE_ME_TO_RANDOM_32_CHAR_SECRET
   - CLIENT_URL=http://localhost:5000
-  - TZ=UTC
+  - TZ=Australia/Sydney
   - EMERGENCY_RESET_USER=YOUR_USERNAME
   - EMERGENCY_RESET_PASSWORD=YOUR_NEW_PASSWORD
 ```

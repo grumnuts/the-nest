@@ -1,9 +1,11 @@
 require('dotenv').config({ override: false });
 
-// Set timezone from environment variable
-if (process.env.TZ) {
-  process.env.TZ = process.env.TZ;
-}
+// Log timezone information
+const timezone = process.env.TZ || 'system default';
+const now = new Date();
+console.log(`🌍 Server timezone: ${timezone}`);
+console.log(`🕐 Current time: ${now.toLocaleString('en-AU', { timeZone: process.env.TZ || undefined })}`);
+console.log(`📅 Current date: ${now.toLocaleDateString('en-AU', { timeZone: process.env.TZ || undefined, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
 
 const express = require('express');
 const cors = require('cors');
