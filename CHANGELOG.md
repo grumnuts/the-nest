@@ -1,8 +1,20 @@
-# Changelog
-
-All notable changes to The Nest will be documented in this file.
-
 ## [Unreleased]
+
+## [v1.1.1] - 2026-03-01
+
+### 🐛 Bug Fixes
+- Fixed weekly goals resetting prematurely due to timezone mismatch between server (UTC) and Australia
+- Fixed weekly period calculation using improper date arithmetic
+- Fixed completion entries not showing appropriate day format based on list type
+- Fixed weekly goal period end calculation causing goals to not count completions from Thursday onwards
+
+### ⚒️ Enhancements
+- Server now logs timezone information on startup for debugging
+- Updated documentation to explain importance of TZ environment variable
+- Changed default timezone examples from UTC to Australia/Sydney
+- Completion entries now display day information appropriately: daily lists show time only, weekly lists show abbreviated weekday, all other lists show date format
+
+## [v1.1.0] - 2026-02-23
 
 ### ✨ New Features
 - Added support for users first and last name

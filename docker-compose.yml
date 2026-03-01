@@ -7,7 +7,7 @@ services:
     environment:
       - JWT_SECRET=CHANGE_ME_TO_RANDOM_32_CHAR_SECRET
       - CLIENT_URL=http://localhost:5000
-      - TZ=UTC
+      - TZ=Australia/Sydney
       - PUID=1001 # Optional
       - PGID=1001 # Optional
     volumes:

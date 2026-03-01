@@ -93,7 +93,9 @@ const calculatePeriodDates = (periodType, date) => {
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Monday start
       start.setDate(start.getDate() + mondayOffset);
       start.setHours(0, 0, 0, 0);
-      end.setDate(start.getDate() + 6);
+      // Create end from start, not from original date
+      end.setTime(start.getTime());
+      end.setDate(end.getDate() + 6);
       end.setHours(23, 59, 59, 999);
       label = `Week of ${start.toLocaleDateString('en-AU')}`;
       break;
@@ -641,10 +643,12 @@ function getCurrentPeriodDates(periodType) {
       break;
     case 'weekly':
       const dayOfWeek = now.getDay();
-      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
-      periodStart.setDate(diff);
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust for Monday start
+      periodStart.setDate(now.getDate() + mondayOffset);
       periodStart.setHours(0, 0, 0, 0);
-      periodEnd.setDate(diff + 6);
+      // Create periodEnd from periodStart, not from now
+      periodEnd.setTime(periodStart.getTime());
+      periodEnd.setDate(periodEnd.getDate() + 6);
       periodEnd.setHours(23, 59, 59, 999);
       break;
     case 'monthly':
