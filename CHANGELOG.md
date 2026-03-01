@@ -8,6 +8,7 @@ All notable changes to The Nest will be documented in this file.
 - Fixed weekly goals resetting prematurely due to timezone mismatch between server (UTC) and Australia
 - Fixed weekly period calculation using improper date arithmetic
 - Fixed completion entries not showing appropriate day format based on list type
+- Fixed weekly goal period end calculation causing goals to not count completions from Thursday onwards
 
 ### ⚒️ Enhancements
 - Server now logs timezone information on startup for debugging
