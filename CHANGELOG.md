@@ -1,8 +1,6 @@
-# Changelog
-
-All notable changes to The Nest will be documented in this file.
-
 ## [Unreleased]
+
+## [v1.1.1] - 2026-03-01
 
 ### 🐛 Bug Fixes
 - Fixed weekly goals resetting prematurely due to timezone mismatch between server (UTC) and Australia
