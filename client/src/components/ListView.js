@@ -502,7 +502,29 @@ const ListView = () => {
                     <div className="flex items-center gap-2 ml-4">
                       {task.is_completed && task.completed_at && (
                         <div className="text-xs text-gray-500 whitespace-nowrap">
-                          {new Date(task.completed_at).toLocaleDateString('en-AU')}
+                          {(() => {
+                            const completedDate = new Date(task.completed_at);
+                            const resetPeriod = list?.reset_period || 'daily';
+                            
+                            switch (resetPeriod) {
+                              case 'daily':
+                                // Daily: just time
+                                return completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              
+                              case 'weekly':
+                                // Weekly: weekday + time
+                                const weekday = completedDate.toLocaleDateString('en-AU', { weekday: 'short' });
+                                const time = completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                return `${weekday} ${time}`;
+                              
+                              default:
+                                // Others: date + time
+                                const day = completedDate.getDate();
+                                const month = completedDate.getMonth() + 1;
+                                const timeStr = completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                return `${day}/${month} ${timeStr}`;
+                            }
+                          })()}
                         </div>
                       )}
                       {list && (list.created_by === currentUser?.id || currentUser?.is_admin) && (

@@ -36,10 +36,37 @@ const getTaskCompletionDisplayName = (task) => {
   return task.completed_by_username || '';
 };
 
-const TaskCompletionInfo = ({ task, isDailyList }) => {
+const TaskCompletionInfo = ({ task, list }) => {
   if (task.is_completed !== true && task.is_completed !== 1) {
     return null;
   }
+  
+  // Helper function to format completion date/time based on list reset period
+  const formatCompletionTime = (completedAt) => {
+    if (!completedAt) return '';
+    
+    const completedDate = new Date(completedAt);
+    const resetPeriod = list?.reset_period || 'daily';
+    
+    switch (resetPeriod) {
+      case 'daily':
+        // Daily: just time (e.g., "at 10:30 AM")
+        return ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      
+      case 'weekly':
+        // Weekly: weekday + time (e.g., "Mon at 10:30 AM")
+        const weekday = completedDate.toLocaleDateString('en-AU', { weekday: 'short' });
+        const time = completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return ` ${weekday} at ${time}`;
+      
+      default:
+        // Fortnightly, monthly, quarterly, annually, static: date + time (e.g., "13/3 at 10:30 AM")
+        const day = completedDate.getDate();
+        const month = completedDate.getMonth() + 1;
+        const timeStr = completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return ` ${day}/${month} at ${timeStr}`;
+    }
+  };
   
   // Parse completions if they exist
   let completions = [];
@@ -75,15 +102,7 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
             `Completed by ${getCompletionDisplayName(completion)}` : 
             'Completed';
           
-          let timeText = '';
-          if (completion.completed_at) {
-            const completedDate = new Date(completion.completed_at);
-            if (isDailyList()) {
-              timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-            } else {
-              timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
-            }
-          }
+          const timeText = formatCompletionTime(completion.completed_at);
           
           return (
             <p key={`completion-${index}`} className="text-green-400 text-xs mt-1">
@@ -100,15 +119,7 @@ const TaskCompletionInfo = ({ task, isDailyList }) => {
         `Completed by ${getTaskCompletionDisplayName(task)}` : 
         'Completed';
       
-      let timeText = '';
-      if (task.completed_at) {
-        const completedDate = new Date(task.completed_at);
-        if (isDailyList()) {
-          timeText = ` at ${completedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        } else {
-          timeText = ` on ${completedDate.toLocaleString([], { hour: '2-digit', minute: '2-digit' })}`;
-        }
-      }
+      const timeText = formatCompletionTime(task.completed_at);
       
       return (
         <p key="completed" className="text-green-400 text-xs mt-1">
@@ -2434,7 +2445,7 @@ const HomeScreen = () => {
                                 {task.description && (
                                   <p className="text-gray-400 text-sm mt-1">{task.description}</p>
                                 )}
-                                {(task.is_completed === true || task.is_completed === 1) && <TaskCompletionInfo task={task} isDailyList={isDailyList} />}
+                                {(task.is_completed === true || task.is_completed === 1) && <TaskCompletionInfo task={task} list={getActiveList()} />}
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 flex-shrink-0">
