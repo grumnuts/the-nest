@@ -4,6 +4,10 @@ All notable changes to The Nest will be documented in this file.
 
 ## [Unreleased]
 
+### 🐛 Bug Fixes
+- Fixed weekly goals resetting prematurely due to timezone mismatch between server (UTC) and Australia
+- Fixed weekly period calculation using improper date arithmetic
+
 ## [v1.1.0] - 2026-02-23
 
 ### ✨ New Features

@@ -641,10 +641,10 @@ function getCurrentPeriodDates(periodType) {
       break;
     case 'weekly':
       const dayOfWeek = now.getDay();
-      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
-      periodStart.setDate(diff);
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust for Monday start
+      periodStart.setDate(now.getDate() + mondayOffset);
       periodStart.setHours(0, 0, 0, 0);
-      periodEnd.setDate(diff + 6);
+      periodEnd.setDate(periodStart.getDate() + 6);
       periodEnd.setHours(23, 59, 59, 999);
       break;
     case 'monthly':
