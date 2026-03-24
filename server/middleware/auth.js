@@ -1,9 +1,16 @@
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// Fail fast if JWT_SECRET is missing or using the insecure default
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-secret-key-change-in-production') {
+  console.error('FATAL: JWT_SECRET environment variable is not set or is using the default placeholder value.');
+  console.error('Set a strong, random secret (e.g. openssl rand -base64 32) before starting the server.');
+  process.exit(1);
+}
 
-// Authentication middleware
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Authentication middleware - reads token from Authorization header
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -24,7 +31,7 @@ const authenticateToken = (req, res, next) => {
 // Validation middleware
 const validateLogin = [
   body('username').isLength({ min: 3, max: 30 }).trim().escape(),
-  body('password').notEmpty(),
+  body('password').isLength({ min: 1, max: 128 }),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -73,13 +80,6 @@ const validateGoal = [
   }
 ];
 
-// Helper function to check if user is admin or owner
-const checkAdminOrOwner = (req, res, next) => {
-  // This will be used in routes to check if user has admin/owner privileges
-  // The actual role check will be done in the routes using the user's role from JWT
-  next();
-};
-
 // Helper function to check if user has admin privileges (admin or owner)
 const hasAdminPrivileges = (user) => {
   return user.role === 'admin' || user.role === 'owner' || user.is_admin === 1;
@@ -96,7 +96,6 @@ module.exports = {
   validateList,
   validateTask,
   validateGoal,
-  checkAdminOrOwner,
   hasAdminPrivileges,
   hasOwnerPrivileges,
   JWT_SECRET

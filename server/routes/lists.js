@@ -324,28 +324,39 @@ router.delete('/:id/users/:userId', authenticateToken, (req, res) => {
 
 // Reorder lists
 router.post('/reorder', authenticateToken, checkAdmin, (req, res) => {
-  
   const { listIds } = req.body;
-  
-  if (!Array.isArray(listIds)) {
-    return res.status(400).json({ error: 'listIds must be an array' });
+
+  if (!Array.isArray(listIds) || listIds.length === 0) {
+    return res.status(400).json({ error: 'listIds must be a non-empty array' });
   }
 
-  // Update the sort_order for each list
-  let completedUpdates = 0;
-  const totalUpdates = listIds.length;
-  
-  listIds.forEach((listId, index) => {
-    db.updateListSortOrder(listId, index, (err, changes) => {
-      if (err) {
-        console.error(`Error updating sort order for list ${listId}:`, err);
-        return res.status(500).json({ error: 'Error updating list order' });
-      }
-      
-      completedUpdates++;
-      if (completedUpdates === totalUpdates) {
-        res.json({ message: 'List order updated successfully' });
-      }
+  // Wrap all updates in a transaction so the reorder is atomic
+  db.db.serialize(() => {
+    db.db.run('BEGIN TRANSACTION', (err) => {
+      if (err) return res.status(500).json({ error: 'Error starting transaction' });
+
+      let failed = false;
+      let pending = listIds.length;
+
+      listIds.forEach((listId, index) => {
+        db.updateListSortOrder(listId, index, (err) => {
+          if (failed) return;
+          if (err) {
+            failed = true;
+            console.error(`Error updating sort order for list ${listId}:`, err);
+            return db.db.run('ROLLBACK', () => {
+              res.status(500).json({ error: 'Error updating list order' });
+            });
+          }
+          pending--;
+          if (pending === 0) {
+            db.db.run('COMMIT', (commitErr) => {
+              if (commitErr) return res.status(500).json({ error: 'Error committing list order' });
+              res.json({ message: 'List order updated successfully' });
+            });
+          }
+        });
+      });
     });
   });
 });

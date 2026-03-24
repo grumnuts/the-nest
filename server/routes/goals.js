@@ -439,21 +439,26 @@ router.post('/', authenticateToken, checkAdmin, (req, res) => {
     listIds 
   } = req.body;
 
-  // Validate required fields
+  const validCalculationTypes = ['percentage_task_count', 'percentage_time', 'fixed_task_count', 'fixed_time'];
+  const validPeriodTypes = ['daily', 'weekly', 'monthly', 'quarterly', 'annually'];
+
   if (!userId || !name || !calculationType || targetValue === undefined || !periodType || !listIds) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
-
-  // Validate calculation type
-  const validCalculationTypes = ['percentage_task_count', 'percentage_time', 'fixed_task_count', 'fixed_time'];
+  if (typeof name !== 'string' || name.trim().length < 1 || name.length > 200) {
+    return res.status(400).json({ error: 'name must be between 1 and 200 characters' });
+  }
   if (!validCalculationTypes.includes(calculationType)) {
     return res.status(400).json({ error: 'Invalid calculation type' });
   }
-
-  // Validate period type
-  const validPeriodTypes = ['daily', 'weekly', 'monthly', 'quarterly', 'annually'];
   if (!validPeriodTypes.includes(periodType)) {
     return res.status(400).json({ error: 'Invalid period type' });
+  }
+  if (typeof targetValue !== 'number' || targetValue < 0 || targetValue > 1000000) {
+    return res.status(400).json({ error: 'targetValue must be a number between 0 and 1,000,000' });
+  }
+  if (!Array.isArray(listIds) || listIds.length === 0) {
+    return res.status(400).json({ error: 'listIds must be a non-empty array' });
   }
 
   db.createGoal(userId, name, description, calculationType, targetValue, periodType, listIds, req.user.userId, (err, goalId) => {
@@ -481,9 +486,26 @@ router.patch('/:id', authenticateToken, checkAdmin, (req, res) => {
     listIds 
   } = req.body;
 
-  // Validate required fields
+  const validCalculationTypes = ['percentage_task_count', 'percentage_time', 'fixed_task_count', 'fixed_time'];
+  const validPeriodTypes = ['daily', 'weekly', 'monthly', 'quarterly', 'annually'];
+
   if (!name || !calculationType || targetValue === undefined || !periodType || !listIds) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+  if (typeof name !== 'string' || name.trim().length < 1 || name.length > 200) {
+    return res.status(400).json({ error: 'name must be between 1 and 200 characters' });
+  }
+  if (!validCalculationTypes.includes(calculationType)) {
+    return res.status(400).json({ error: 'Invalid calculation type' });
+  }
+  if (!validPeriodTypes.includes(periodType)) {
+    return res.status(400).json({ error: 'Invalid period type' });
+  }
+  if (typeof targetValue !== 'number' || targetValue < 0 || targetValue > 1000000) {
+    return res.status(400).json({ error: 'targetValue must be a number between 0 and 1,000,000' });
+  }
+  if (!Array.isArray(listIds) || listIds.length === 0) {
+    return res.status(400).json({ error: 'listIds must be a non-empty array' });
   }
 
   db.updateGoal(goalId, name, description, calculationType, targetValue, periodType, listIds, (err, changes) => {

@@ -71,6 +71,11 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
         return res.status(403).json({ error: 'Only the assigned user can complete this task' });
       }
 
+      // Check assignment for uncompleting: regular users cannot uncomplete tasks assigned to someone else
+      if (!is_completed && task.assigned_to && task.assigned_to !== userId && permission === 'user') {
+        return res.status(403).json({ error: 'Only the assigned user or a list admin can uncomplete this task' });
+      }
+
       // For completing tasks, both admin and user roles can do it
       // For uncompleting, we'll check in the undo endpoint
 
@@ -359,6 +364,9 @@ router.patch('/:id/assign', authenticateToken, (req, res) => {
   });
 });
 
+// Validate that a string is a YYYY-MM-DD date
+const isValidDate = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str) && !isNaN(Date.parse(str));
+
 // Get tasks for a specific list (shared across all users)
 // Optional query params: ?date=YYYY-MM-DD or ?dateStart=YYYY-MM-DD&dateEnd=YYYY-MM-DD
 router.get('/list/:listId', authenticateToken, (req, res) => {
@@ -366,6 +374,10 @@ router.get('/list/:listId', authenticateToken, (req, res) => {
   const { date, dateStart, dateEnd } = req.query;
 
   if (dateStart && dateEnd) {
+    if (!isValidDate(dateStart) || !isValidDate(dateEnd)) {
+      return res.status(400).json({ error: 'dateStart and dateEnd must be valid dates in YYYY-MM-DD format' });
+    }
+
     // Range-scoped: return tasks with completions within the date range
     const start = `${dateStart} 00:00:00`;
     const end = `${dateEnd} 23:59:59`;
@@ -377,6 +389,10 @@ router.get('/list/:listId', authenticateToken, (req, res) => {
       res.json({ tasks });
     });
   } else if (date) {
+    if (!isValidDate(date)) {
+      return res.status(400).json({ error: 'date must be a valid date in YYYY-MM-DD format' });
+    }
+
     // Single date-scoped: return tasks with completions for that day
     const start = `${date} 00:00:00`;
     const end = `${date} 23:59:59`;

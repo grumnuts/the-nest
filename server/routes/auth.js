@@ -44,7 +44,7 @@ router.post('/login', validateLogin, (req, res) => {
           hide_completed_tasks: user.hide_completed_tasks 
         },
         JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '30d' }
       );
 
       res.json({
@@ -65,6 +65,12 @@ router.post('/login', validateLogin, (req, res) => {
       });
     });
   });
+});
+
+// Logout — client-side token removal is sufficient for stateless JWT,
+// but this endpoint exists so clients have a clean place to call on logout
+router.post('/logout', authenticateToken, (req, res) => {
+  res.json({ message: 'Logged out successfully' });
 });
 
 // Verify token
@@ -157,7 +163,7 @@ router.post('/change-username', authenticateToken, async (req, res) => {
                 hide_completed_tasks: updatedUser.hide_completed_tasks
               },
               JWT_SECRET,
-              { expiresIn: '24h' }
+              { expiresIn: '30d' }
             );
 
             res.json({
@@ -305,7 +311,7 @@ router.post('/change-email', authenticateToken, async (req, res) => {
                 hide_completed_tasks: updatedUser.hide_completed_tasks
               },
               JWT_SECRET,
-              { expiresIn: '24h' }
+              { expiresIn: '30d' }
             );
 
             res.json({
@@ -461,7 +467,7 @@ router.post('/update-profile', authenticateToken, async (req, res) => {
                   hide_completed_tasks: updatedUser.hide_completed_tasks
                 },
                 JWT_SECRET,
-                { expiresIn: '24h' }
+                { expiresIn: '30d' }
               );
 
               sendResponse(200, {

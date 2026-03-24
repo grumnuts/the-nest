@@ -1,5 +1,35 @@
 ## [Unreleased]
 
+## [v1.2.0] - 2026-03-24
+
+### 🔒 Security
+- **Re-enabled Helmet** security headers (X-Frame-Options, X-Content-Type-Options, HSTS, Referrer-Policy, etc.) — these were accidentally left disabled after a debugging session
+- **Re-enabled rate limiting** on all API endpoints (300 req/15 min general, 20 req/15 min on login) — was accidentally left disabled after a debugging session
+- **Server now refuses to start** without a valid `JWT_SECRET` environment variable — previously fell back to a hardcoded insecure default
+- **Removed hardcoded `admin123` default admin password** — first-run admin password is now cryptographically random and printed once to server logs
+- **Fixed CORS** — production no longer falls back to `origin: true` (allow all origins); requires explicit `CLIENT_URL`
+- **Fixed Docker database path detection** — now uses explicit `DOCKER_ENV=true` flag instead of fragile filesystem heuristics (`.dockerenv` detection)
+- **Prevent self-deletion** — users can no longer delete their own account via the admin panel
+- **Prevent admins deleting owners** — only owners can delete owner-level accounts
+- **Consistent admin role checks** — `checkAdmin` middleware and delete-user endpoint now use the `role` field consistently alongside the legacy `is_admin` flag
+
+### ✨ New Features
+- **Added `POST /api/auth/logout` endpoint** — client now explicitly notifies the server on logout
+- **Added `.env.example`** — documents all supported environment variables with descriptions
+
+### 🐛 Bug Fixes
+- **Fixed assigned task uncompletion** — regular users could previously uncomplete tasks assigned to someone else via the status endpoint; now only the assigned user or a list admin can uncomplete an assigned task
+- **Fixed user ID comparison inconsistency in HomeScreen** — auth user comparisons now consistently use `user.userId` instead of a mix of `user.id` and `user.userId`
+- **Fixed password minimum not enforced on user creation/update** — admins can no longer create or update accounts with passwords shorter than 8 characters
+
+### ⚒️ Enhancements
+- **Atomic list reorder** — list sort-order updates are now wrapped in a database transaction, preventing partial/inconsistent state on error
+- **Date parameter validation** — `/api/tasks/list/:id` now validates `date`, `dateStart`, and `dateEnd` query parameters as proper `YYYY-MM-DD` dates before using them
+- **Goal field validation** — create/update goal endpoints now validate `name` length, `targetValue` range (0–1,000,000), and that `listIds` is a non-empty array
+- **Reduced JSON body limit** from 10mb to 1mb
+- **bcrypt cost factor** increased from 10 to 12 rounds for new password hashes (existing hashes unaffected until next password change)
+- **Removed dead code** — unused `checkAdminOrOwner` pass-through middleware removed from auth module
+
 ## [v1.1.1] - 2026-03-01
 
 ### 🐛 Bug Fixes

@@ -37,6 +37,10 @@ router.post('/', authenticateToken, (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Username, email, and password are required' });
     }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
     
     // Check if user already exists
     db.db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], (err, existingUser) => {
@@ -122,6 +126,10 @@ router.put('/:id', authenticateToken, (req, res) => {
       if (!username || !email) {
         return res.status(400).json({ error: 'Username and email are required' });
       }
+
+      if (password && password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
       
       // Check if username/email already exists for another user
       db.db.get('SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?', [username, email, id], (err, existingUser) => {
@@ -199,23 +207,38 @@ router.delete('/:id', authenticateToken, (req, res) => {
     if (err) {
       return res.status(500).json({ error: 'Error checking user permissions' });
     }
-    
-    if (!adminUser || !adminUser.is_admin) {
+
+    if (!adminUser || !hasAdminPrivileges(adminUser)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
-    // Don't allow deleting admin account
-    if (parseInt(id) === 1) {
-      return res.status(403).json({ error: 'Cannot delete admin account' });
+
+    // Don't allow deleting your own account
+    if (parseInt(id) === adminUserId) {
+      return res.status(403).json({ error: 'Cannot delete your own account' });
     }
-    
-    // Delete user
-    db.db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Error deleting user' });
+
+    // Don't allow deleting the primary admin account (id=1) unless you're an owner
+    if (parseInt(id) === 1 && !hasOwnerPrivileges(adminUser)) {
+      return res.status(403).json({ error: 'Only owners can delete the admin account' });
+    }
+
+    // Don't allow admins to delete owners
+    db.getUserById(parseInt(id), (err, targetUser) => {
+      if (err) return res.status(500).json({ error: 'Error checking target user' });
+      if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+      if (targetUser.role === 'owner' && !hasOwnerPrivileges(adminUser)) {
+        return res.status(403).json({ error: 'Only owners can delete owner accounts' });
       }
-      
-      res.json({ message: 'User deleted successfully' });
+
+      // Delete user
+      db.db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Error deleting user' });
+        }
+
+        res.json({ message: 'User deleted successfully' });
+      });
     });
   });
 });

@@ -16,8 +16,8 @@ function localNow() {
 }
 
 // Use /app/data directory in Docker, local directory otherwise
-// Check if we're in Docker by looking for the Docker-specific path or environment
-const isDocker = process.env.DOCKER_ENV === 'true' || fs.existsSync('/.dockerenv') || process.env.NODE_ENV === 'production';
+// Rely on explicit DOCKER_ENV flag rather than heuristics
+const isDocker = process.env.DOCKER_ENV === 'true';
 const dataDir = isDocker ? '/app/data' : __dirname;
 const dbPath = path.join(dataDir, 'the_nest.db');
 try {
@@ -306,13 +306,25 @@ class Database {
       this.db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
         if (!err && row.count === 0) {
           const bcrypt = require('bcryptjs');
-          const defaultPassword = 'admin123';
-          bcrypt.hash(defaultPassword, 10, (hashErr, hash) => {
+          const crypto = require('crypto');
+          // Generate a cryptographically random default password — logged once at startup
+          const defaultPassword = crypto.randomBytes(12).toString('base64');
+          bcrypt.hash(defaultPassword, 12, (hashErr, hash) => {
             if (!hashErr) {
               const now = localNow();
               this.db.run(
                 'INSERT INTO users (username, email, password_hash, is_admin, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                ['admin', 'admin@thenest.local', hash, 1, 'owner', now, now]
+                ['admin', 'admin@thenest.local', hash, 1, 'owner', now, now],
+                (insertErr) => {
+                  if (!insertErr) {
+                    console.log('\n========================================');
+                    console.log('  FIRST RUN — DEFAULT ADMIN CREDENTIALS');
+                    console.log('  Username: admin');
+                    console.log(`  Password: ${defaultPassword}`);
+                    console.log('  Change this password immediately after login.');
+                    console.log('========================================\n');
+                  }
+                }
               );
             }
           });

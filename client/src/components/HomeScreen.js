@@ -389,8 +389,8 @@ const HomeScreen = () => {
           
           // Try multiple ways to find the user ID
           let userPermission = null;
-          if (user?.id) {
-            userPermission = userResponse.data.find(u => u.id === user.id);
+          if (user?.userId) {
+            userPermission = userResponse.data.find(u => u.id === user.userId);
           } else if (user?.username) {
             userPermission = userResponse.data.find(u => u.username === user.username);
           }
@@ -598,7 +598,7 @@ const HomeScreen = () => {
     
     // Add current user as owner by default
     const currentUser = {
-      id: user?.id,
+      id: user?.userId,
       username: user?.username,
       permission_level: 'owner'
     };
@@ -1099,7 +1099,7 @@ const HomeScreen = () => {
       // Add users to the new list (excluding current user who is automatically added as owner)
       for (const userListUser of newListUsers) {
         // Skip the current user since they're automatically added as owner by the backend
-        if (userListUser.id === user?.id) {
+        if (userListUser.id === user?.userId) {
           continue;
         }
         
@@ -1626,7 +1626,7 @@ const HomeScreen = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         {/* Show dropdown for all users except current user */}
-                        {user?.id !== listUser.id ? (
+                        {user?.userId !== listUser.id ? (
                           <select
                             value={listUser.permission_level}
                             onChange={(e) => {
@@ -1664,7 +1664,7 @@ const HomeScreen = () => {
                         )}
                         
                         {/* Show delete button for all users except current user */}
-                        {user?.id !== listUser.id && (
+                        {user?.userId !== listUser.id && (
                           <button
                             type="button"
                             onClick={() => removeUserFromNewList(listUser.id)}
@@ -2543,7 +2543,7 @@ const HomeScreen = () => {
                                 }
                                 
                                 // Icon button - only show if task is not assigned or current user is assigned to it
-                                if (!task.assigned_to || task.assigned_to === user?.id) {
+                                if (!task.assigned_to || task.assigned_to === user?.userId) {
                                   buttons.push(
                                     <button
                                       key="icon"
