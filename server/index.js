@@ -20,6 +20,7 @@ const listRoutes = require('./routes/lists');
 const taskRoutes = require('./routes/tasks');
 const goalRoutes = require('./routes/goals');
 const userRoutes = require('./routes/users');
+const auditRoutes = require('./routes/audit');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -81,6 +82,7 @@ app.use('/api/lists', listRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/audit', auditRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -96,14 +98,14 @@ app.get('/api/health', (req, res) => {
           database: 'DISCONNECTED',
           error: err.message,
           timestamp: new Date().toISOString(),
-          version: '1.2.0'
+          version: '1.3.0'
         });
       } else {
         res.json({
           status: 'OK',
           database: 'CONNECTED',
           timestamp: new Date().toISOString(),
-          version: '1.2.0'
+          version: '1.3.0'
         });
       }
     });
@@ -114,7 +116,7 @@ app.get('/api/health', (req, res) => {
       database: 'ERROR',
       error: error.message,
       timestamp: new Date().toISOString(),
-      version: '1.2.0'
+      version: '1.3.0'
     });
   }
 });

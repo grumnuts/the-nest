@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [v1.3.0] - 2026-03-30
+
+### ✨ New Features
+- **Audit Log** — new Audit Log tab in Settings (admin/owner only) showing a paginated, colour-coded table of all important system events with timestamps, usernames, and IP addresses
+- **Comprehensive event logging** — server now records login (success and failure with attempted username), logout, user creation/modification/deletion, username/email/password changes, profile updates, list creation/modification/deletion, and task creation/modification/deletion
+
+### 🐛 Bug Fixes
+- **Fixed sign-in rate-limit errors** — `loading` state was not exposed from `AuthContext`, causing the app to briefly show the login screen on every page load for users with a valid token; this triggered repeated login attempts and hit the auth rate limiter
+
 ## [v1.2.0] - 2026-03-24
 
 ### 🔒 Security

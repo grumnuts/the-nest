@@ -176,6 +176,19 @@ class Database {
         )
       `);
 
+      // Audit logs table
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_type TEXT NOT NULL,
+          user_id INTEGER,
+          username TEXT,
+          ip_address TEXT,
+          details TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Add missing columns to existing tasks table
       this.db.run(`ALTER TABLE tasks ADD COLUMN duration_minutes INTEGER DEFAULT 0`, (err) => {
         if (err && !err.message.includes('duplicate column name')) {
@@ -301,6 +314,8 @@ class Database {
       this.db.run('CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to)');
       this.db.run('CREATE INDEX IF NOT EXISTS idx_user_goals_user_id ON user_goals(user_id)');
       this.db.run('CREATE INDEX IF NOT EXISTS idx_list_snapshots_list_id ON list_snapshots(list_id)');
+      this.db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)');
+      this.db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)');
 
       // Create default admin user if no users exist
       this.db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
@@ -901,7 +916,28 @@ class Database {
     this.db.all('SELECT * FROM list_snapshots WHERE list_id = ? ORDER BY period_start DESC', [listId], callback);
   }
 
-  
+
+  // Audit log methods
+  addAuditLog(eventType, userId, username, ipAddress, details, callback) {
+    const stmt = this.db.prepare('INSERT INTO audit_logs (event_type, user_id, username, ip_address, details) VALUES (?, ?, ?, ?, ?)');
+    stmt.run([eventType, userId || null, username || null, ipAddress, details], function(err) {
+      if (callback) callback(err, this ? this.lastID : null);
+    });
+    stmt.finalize();
+  }
+
+  getAuditLogs(limit, offset, callback) {
+    this.db.all(
+      'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      [limit, offset],
+      callback
+    );
+  }
+
+  countAuditLogs(callback) {
+    this.db.get('SELECT COUNT(*) as count FROM audit_logs', [], callback);
+  }
+
   // Close database connection
   close() {
     this.db.close();

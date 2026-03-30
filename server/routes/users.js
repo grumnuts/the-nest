@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { authenticateToken, validateLogin, JWT_SECRET, hasAdminPrivileges, hasOwnerPrivileges } = require('../middleware/auth');
+const { logAuditEvent } = require('../middleware/audit');
 const Database = require('../database');
 
 const db = new Database();
@@ -79,6 +80,7 @@ router.post('/', authenticateToken, (req, res) => {
               userId: newUserId,
               role: userRole
             });
+            logAuditEvent(db, 'user.created', req, { targetUserId: newUserId, username, role: userRole });
           });
         });
       });
@@ -169,8 +171,9 @@ router.put('/:id', authenticateToken, (req, res) => {
                   if (err) {
                     return res.status(500).json({ error: 'Error updating user role' });
                   }
-                  
+
                   res.json({ message: 'User updated successfully' });
+                  logAuditEvent(db, 'user.updated', req, { targetUserId: parseInt(id), targetUsername: username, role: userRole, passwordChanged: true });
                 });
               });
             });
@@ -181,14 +184,15 @@ router.put('/:id', authenticateToken, (req, res) => {
             if (err) {
               return res.status(500).json({ error: 'Error updating user' });
             }
-            
+
             // Update role
             db.db.run('UPDATE users SET role = ?, is_admin = ? WHERE id = ?', [userRole, isAdmin, id], (err) => {
               if (err) {
                 return res.status(500).json({ error: 'Error updating user role' });
               }
-              
+
               res.json({ message: 'User updated successfully' });
+              logAuditEvent(db, 'user.updated', req, { targetUserId: parseInt(id), targetUsername: username, role: userRole });
             });
           });
         }
@@ -238,6 +242,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
         }
 
         res.json({ message: 'User deleted successfully' });
+        logAuditEvent(db, 'user.deleted', req, { targetUserId: parseInt(id), targetUsername: targetUser.username });
       });
     });
   });
@@ -342,6 +347,7 @@ router.patch('/profile', authenticateToken, (req, res) => {
             is_admin: user.is_admin
           }
         });
+        logAuditEvent(db, 'user.profile_updated', req, { username, email });
       });
     });
   });

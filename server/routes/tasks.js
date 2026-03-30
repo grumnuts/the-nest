@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, validateTask } = require('../middleware/auth');
 const { checkAdmin } = require('../middleware/admin');
+const { logAuditEvent } = require('../middleware/audit');
 const Database = require('../database');
 
 const router = express.Router();
@@ -32,6 +33,7 @@ router.post('/', authenticateToken, validateTask, (req, res) => {
         message: 'Task created successfully',
         taskId
       });
+      logAuditEvent(db, 'task.created', req, { taskId, title, listId: list_id });
     });
   });
 });
@@ -85,7 +87,7 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
           if (err) {
             return res.status(500).json({ error: 'Error adding task completion' });
           }
-          
+
           // Update task status to completed
           db.updateTaskStatus(taskId, true, userId, (err, changes) => {
             if (err) {
@@ -96,6 +98,7 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
               message: 'Task completed successfully',
               is_completed: true
             });
+            logAuditEvent(db, 'task.completed', req, { taskId: parseInt(taskId), title: task.title });
           });
         });
       } else if (is_completed) {
@@ -104,7 +107,7 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
           if (err) {
             return res.status(500).json({ error: 'Error adding task completion' });
           }
-          
+
           // Update task status to completed
           db.updateTaskStatus(taskId, true, userId, (err, changes) => {
             if (err) {
@@ -119,6 +122,7 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
               message: 'Task completed successfully',
               is_completed: true
             });
+            logAuditEvent(db, 'task.completed', req, { taskId: parseInt(taskId), title: task.title });
           });
         });
       } else {
@@ -136,6 +140,7 @@ router.patch('/:id/status', authenticateToken, (req, res) => {
             message: 'Task status updated successfully',
             is_completed: false
           });
+          logAuditEvent(db, 'task.uncompleted', req, { taskId: parseInt(taskId), title: task.title });
         });
       }
     });
@@ -287,6 +292,7 @@ router.patch('/:id', authenticateToken, (req, res) => {
         res.json({
           message: 'Task updated successfully'
         });
+        logAuditEvent(db, 'task.updated', req, { taskId: parseInt(taskId), title });
       });
     });
   });
@@ -546,6 +552,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
         res.json({
           message: 'Task deleted successfully'
         });
+        logAuditEvent(db, 'task.deleted', req, { taskId: parseInt(taskId), title: task.title });
       });
     });
   });

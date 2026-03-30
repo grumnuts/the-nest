@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, validateList } = require('../middleware/auth');
 const { checkAdmin } = require('../middleware/admin');
+const { logAuditEvent } = require('../middleware/audit');
 const Database = require('../database');
 
 const router = express.Router();
@@ -55,6 +56,7 @@ router.post('/', authenticateToken, validateList, (req, res) => {
         message: 'List created successfully',
         listId
       });
+      logAuditEvent(db, 'list.created', req, { listId, name, reset_period });
     });
   });
 });
@@ -165,6 +167,7 @@ router.patch('/:id', authenticateToken, (req, res) => {
       res.json({
         message: 'List updated successfully'
       });
+      logAuditEvent(db, 'list.updated', req, { listId: parseInt(listId), name, reset_period });
     });
   });
 });
@@ -203,6 +206,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
       res.json({
         message: 'List deleted successfully'
       });
+      logAuditEvent(db, 'list.deleted', req, { listId: parseInt(listId), name: listAccess.name });
     });
   });
 });

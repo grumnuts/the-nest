@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validateLogin, authenticateToken, JWT_SECRET } = require('../middleware/auth');
+const { logAuditEvent, getClientIp } = require('../middleware/audit');
 const Database = require('../database');
 
 const router = express.Router();
@@ -11,12 +12,20 @@ const db = new Database();
 router.post('/login', validateLogin, (req, res) => {
   const { username, password } = req.body;
 
+  const auditLogin = (eventType, userId, details) => {
+    const ip = getClientIp(req);
+    db.addAuditLog(eventType, userId, username, ip, JSON.stringify(details), (err) => {
+      if (err) console.error('Audit log error:', err.message);
+    });
+  };
+
   db.getUserByUsername(username, (err, user) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
 
     if (!user) {
+      auditLogin('user.login_failed', null, { reason: 'User not found' });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -27,6 +36,7 @@ router.post('/login', validateLogin, (req, res) => {
       }
 
       if (!isValid) {
+        auditLogin('user.login_failed', user.id, { reason: 'Invalid password' });
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
@@ -50,19 +60,20 @@ router.post('/login', validateLogin, (req, res) => {
       res.json({
         message: 'Login successful',
         token,
-        user: { 
-          id: user.id, 
+        user: {
+          id: user.id,
           userId: user.id, // Keep for backward compatibility
-          username: user.username, 
-          email: user.email, 
+          username: user.username,
+          email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
           role: user.role || (user.is_admin ? 'admin' : 'user'),
           is_admin: user.is_admin, // Keep for backward compatibility
-          hide_goals: user.hide_goals, 
-          hide_completed_tasks: user.hide_completed_tasks 
+          hide_goals: user.hide_goals,
+          hide_completed_tasks: user.hide_completed_tasks
         }
       });
+      auditLogin('user.login', user.id, {});
     });
   });
 });
@@ -70,6 +81,7 @@ router.post('/login', validateLogin, (req, res) => {
 // Logout — client-side token removal is sufficient for stateless JWT,
 // but this endpoint exists so clients have a clean place to call on logout
 router.post('/logout', authenticateToken, (req, res) => {
+  logAuditEvent(db, 'user.logout', req, {});
   res.json({ message: 'Logged out successfully' });
 });
 
@@ -169,10 +181,10 @@ router.post('/change-username', authenticateToken, async (req, res) => {
             res.json({
               message: 'Username updated successfully',
               token,
-              user: { 
+              user: {
                 id: updatedUser.id,
-                userId: updatedUser.id, 
-                username: updatedUser.username, 
+                userId: updatedUser.id,
+                username: updatedUser.username,
                 email: updatedUser.email,
                 first_name: updatedUser.first_name,
                 last_name: updatedUser.last_name,
@@ -182,6 +194,7 @@ router.post('/change-username', authenticateToken, async (req, res) => {
                 hide_completed_tasks: updatedUser.hide_completed_tasks
               }
             });
+            logAuditEvent(db, 'user.username_changed', req, { oldUsername: user.username, newUsername });
           });
         });
       });
@@ -229,6 +242,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
         }
 
         res.json({ message: 'Password updated successfully' });
+        logAuditEvent(db, 'user.password_changed', req, {});
       });
     });
   } catch (error) {
@@ -317,10 +331,10 @@ router.post('/change-email', authenticateToken, async (req, res) => {
             res.json({
               message: 'Email updated successfully',
               token,
-              user: { 
+              user: {
                 id: updatedUser.id,
-                userId: updatedUser.id, 
-                username: updatedUser.username, 
+                userId: updatedUser.id,
+                username: updatedUser.username,
                 email: updatedUser.email,
                 first_name: updatedUser.first_name,
                 last_name: updatedUser.last_name,
@@ -330,6 +344,7 @@ router.post('/change-email', authenticateToken, async (req, res) => {
                 hide_completed_tasks: updatedUser.hide_completed_tasks
               }
             });
+            logAuditEvent(db, 'user.email_changed', req, { oldEmail: user.email, newEmail });
           });
         });
       });
@@ -473,10 +488,10 @@ router.post('/update-profile', authenticateToken, async (req, res) => {
               sendResponse(200, {
                 message: 'Profile updated successfully',
                 token,
-                user: { 
+                user: {
                   id: updatedUser.id,
-                  userId: updatedUser.id, 
-                  username: updatedUser.username, 
+                  userId: updatedUser.id,
+                  username: updatedUser.username,
                   email: updatedUser.email,
                   first_name: updatedUser.first_name,
                   last_name: updatedUser.last_name,
@@ -485,6 +500,12 @@ router.post('/update-profile', authenticateToken, async (req, res) => {
                   hide_goals: updatedUser.hide_goals,
                   hide_completed_tasks: updatedUser.hide_completed_tasks
                 }
+              });
+              logAuditEvent(db, 'user.profile_updated', req, {
+                username: newUsername,
+                email: newEmail,
+                firstName: newFirstName,
+                lastName: newLastName
               });
             } catch (jwtError) {
               console.error('JWT signing error:', jwtError);

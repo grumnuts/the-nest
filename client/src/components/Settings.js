@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Users, Target, Plus, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeft, User, Users, Target, Plus, Trash2, Edit2, ScrollText } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import Goals from './Goals';
@@ -34,6 +34,13 @@ const Settings = () => {
   const [userSaveMessage, setUserSaveMessage] = useState('');
   const [userSaveStatus, setUserSaveStatus] = useState('success');
 
+  // Audit log state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditOffset, setAuditOffset] = useState(0);
+  const AUDIT_PAGE_SIZE = 50;
+
   // Helper function to get user's full name
   const getUserFullName = (user) => {
     if (!user) return '';
@@ -50,10 +57,13 @@ const Settings = () => {
     return user.username;
   };
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.is_admin === 1;
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'goals', label: 'Goals', icon: Target },
-    { id: 'users', label: 'Users', icon: Users }
+    { id: 'users', label: 'Users', icon: Users },
+    ...(isAdmin ? [{ id: 'audit', label: 'Audit Log', icon: ScrollText }] : [])
   ];
 
   // Fetch users from API
@@ -74,6 +84,26 @@ const Settings = () => {
       fetchUsers();
     }
   }, [activeTab, currentUser]);
+
+  const fetchAuditLogs = async (offset = 0) => {
+    setAuditLoading(true);
+    try {
+      const response = await axios.get(`/api/audit?limit=${AUDIT_PAGE_SIZE}&offset=${offset}`);
+      setAuditLogs(response.data.logs);
+      setAuditTotal(response.data.total);
+      setAuditOffset(offset);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'audit') {
+      fetchAuditLogs(0);
+    }
+  }, [activeTab]);
 
   // Populate form when editing user changes
   useEffect(() => {
@@ -213,6 +243,55 @@ const Settings = () => {
     setUserSaveStatus(status);
     setUserSaveMessage(message);
     setTimeout(() => setUserSaveMessage(''), 2500);
+  };
+
+  const getEventBadgeStyle = (eventType) => {
+    if (eventType === 'user.login' || eventType === 'task.completed') return 'bg-green-500/20 text-green-300';
+    if (eventType === 'user.logout') return 'bg-slate-500/20 text-slate-300';
+    if (eventType === 'user.login_failed') return 'bg-red-500/20 text-red-300';
+    if (eventType.endsWith('.created')) return 'bg-blue-500/20 text-blue-300';
+    if (eventType.endsWith('.deleted')) return 'bg-red-500/20 text-red-300';
+    if (eventType === 'task.uncompleted') return 'bg-orange-500/20 text-orange-300';
+    if (eventType === 'user.password_changed') return 'bg-purple-500/20 text-purple-300';
+    return 'bg-yellow-500/20 text-yellow-300';
+  };
+
+  const formatAuditDetails = (eventType, detailsStr) => {
+    try {
+      const d = detailsStr ? JSON.parse(detailsStr) : {};
+      switch (eventType) {
+        case 'user.login': return 'Logged in';
+        case 'user.logout': return 'Logged out';
+        case 'user.login_failed': return `Failed login attempt${d.reason ? ` — ${d.reason.toLowerCase()}` : ''}`;
+        case 'user.created': return `Created user "${d.username}"${d.role ? ` (${d.role})` : ''}`;
+        case 'user.updated': return `Updated user "${d.targetUsername}"${d.role ? ` — role: ${d.role}` : ''}${d.passwordChanged ? ', password reset' : ''}`;
+        case 'user.deleted': return `Deleted user "${d.targetUsername}"`;
+        case 'user.profile_updated': return `Updated own profile${d.username ? ` — username: ${d.username}` : ''}`;
+        case 'user.username_changed': return `Changed username from "${d.oldUsername}" to "${d.newUsername}"`;
+        case 'user.password_changed': return 'Changed own password';
+        case 'user.email_changed': return `Changed email from "${d.oldEmail}" to "${d.newEmail}"`;
+        case 'list.created': return `Created list "${d.name}"`;
+        case 'list.updated': return `Updated list "${d.name}"`;
+        case 'list.deleted': return `Deleted list "${d.name}"`;
+        case 'task.created': return `Created task "${d.title}"`;
+        case 'task.updated': return `Updated task "${d.title}"`;
+        case 'task.deleted': return `Deleted task "${d.title}"`;
+        case 'task.completed': return `Completed task "${d.title}"`;
+        case 'task.uncompleted': return `Uncompleted task "${d.title}"`;
+        default: return detailsStr || '';
+      }
+    } catch {
+      return detailsStr || '';
+    }
+  };
+
+  const formatAuditTimestamp = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleString([], {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
   };
 
   return (
@@ -615,9 +694,101 @@ const Settings = () => {
               )}
             </div>
           )}
+
+          {activeTab === 'audit' && (
+            <div className="glass rounded-xl px-2 sm:px-4 pt-1.5 pb-4 sm:pt-2 sm:pb-6 border border-purple-500/20">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-white flex items-center">
+                  <ScrollText className="h-5 w-5 mr-2 text-purple-400" />
+                  Audit Log
+                </h2>
+                <button
+                  onClick={() => fetchAuditLogs(auditOffset)}
+                  className="btn-secondary flex items-center space-x-2 text-sm"
+                >
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {auditLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-gray-400 border-b border-slate-700">
+                          <th className="pb-2 pr-4 font-medium whitespace-nowrap">Timestamp</th>
+                          <th className="pb-2 pr-4 font-medium whitespace-nowrap">Event</th>
+                          <th className="pb-2 pr-4 font-medium whitespace-nowrap">User</th>
+                          <th className="pb-2 pr-4 font-medium whitespace-nowrap">IP Address</th>
+                          <th className="pb-2 font-medium">Details</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {auditLogs.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-gray-500">No audit log entries</td>
+                          </tr>
+                        ) : (
+                          auditLogs.map((log) => (
+                            <tr key={log.id} className="hover:bg-slate-800/30">
+                              <td className="py-2 pr-4 text-gray-400 whitespace-nowrap font-mono text-xs">
+                                {formatAuditTimestamp(log.created_at)}
+                              </td>
+                              <td className="py-2 pr-4 whitespace-nowrap">
+                                <span className={`text-xs px-2 py-0.5 rounded font-mono ${getEventBadgeStyle(log.event_type)}`}>
+                                  {log.event_type}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-4 text-gray-300 whitespace-nowrap">
+                                {log.username || <span className="text-gray-500 italic">unknown</span>}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-400 whitespace-nowrap font-mono text-xs">
+                                {log.ip_address || '—'}
+                              </td>
+                              <td className="py-2 text-gray-300">
+                                {formatAuditDetails(log.event_type, log.details)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {auditTotal > AUDIT_PAGE_SIZE && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700">
+                      <span className="text-sm text-gray-400">
+                        Showing {auditOffset + 1}–{Math.min(auditOffset + AUDIT_PAGE_SIZE, auditTotal)} of {auditTotal}
+                      </span>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => fetchAuditLogs(Math.max(0, auditOffset - AUDIT_PAGE_SIZE))}
+                          disabled={auditOffset === 0}
+                          className="btn-secondary text-sm disabled:opacity-40"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => fetchAuditLogs(auditOffset + AUDIT_PAGE_SIZE)}
+                          disabled={auditOffset + AUDIT_PAGE_SIZE >= auditTotal}
+                          className="btn-secondary text-sm disabled:opacity-40"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
-      
+
       <ConfirmDialog
         isOpen={!!userToDelete}
         title="Delete User"
