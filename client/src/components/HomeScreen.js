@@ -1997,11 +1997,14 @@ const HomeScreen = () => {
               <div className="stack">
                 {/* Add Task Form */}
                 {showCreateTask && (
-                  <div className="glass rounded-xl pt-3 px-6 pb-6 sm:pt-4 sm:px-6 sm:pb-6 border border-purple-500/20">
-                    <h3 className="text-xl font-semibold mb-4 text-white">Add New Task</h3>
-                    <form onSubmit={handleCreateTask} className="stack">
+                  <div className="rounded-xl p-5 sm:p-6 border border-purple-500/30 bg-gray-900/85 backdrop-blur-md shadow-2xl">
+                    <div className="flex items-center mb-5">
+                      <div className="w-1 h-5 bg-purple-500 rounded-full mr-3"></div>
+                      <h3 className="text-base font-semibold text-white tracking-wide">Add New Task</h3>
+                    </div>
+                    <form onSubmit={handleCreateTask} className="space-y-4">
                       <div>
-                        <label className="label text-gray-200">Task Title *</label>
+                        <label className="label text-gray-300 block mb-1.5">Task Title *</label>
                         <input
                           type="text"
                           value={newTask.title}
@@ -2012,17 +2015,17 @@ const HomeScreen = () => {
                         />
                       </div>
                       <div>
-                        <label className="label text-gray-200">Description or instructions (optional)</label>
+                        <label className="label text-gray-300 block mb-1.5">Description <span className="text-gray-500 font-normal">(optional)</span></label>
                         <textarea
                           value={newTask.description}
                           onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                          className="input w-full"
-                          placeholder="Enter description or instructions (optional)"
+                          className="input w-full h-auto py-2.5"
+                          placeholder="Enter description or instructions"
                           rows={3}
                         />
                       </div>
                       <div>
-                        <label className="label text-gray-200">Duration (minutes)</label>
+                        <label className="label text-gray-300 block mb-1.5">Duration <span className="text-gray-500 font-normal">(minutes)</span></label>
                         <input
                           type="number"
                           value={newTask.duration_minutes}
@@ -2036,19 +2039,18 @@ const HomeScreen = () => {
                         />
                       </div>
 
-                      <div className="flex items-center space-x-2">
+                      <label className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
                         <input
                           type="checkbox"
                           id="allow_multiple"
                           checked={newTask.allow_multiple_completions}
                           onChange={(e) => setNewTask({ ...newTask, allow_multiple_completions: e.target.checked })}
-                          className="rounded"
+                          className="h-4 w-4 rounded border-gray-500 accent-purple-500"
                         />
-                        <label htmlFor="allow_multiple" className="text-gray-200">
-                          Allow multiple completions
-                        </label>
-                      </div>
-                      <div className="flex gap-2">
+                        <span className="text-sm text-gray-200">Allow multiple completions</span>
+                      </label>
+
+                      <div className="flex gap-2 pt-1">
                         <button type="submit" className="btn-primary flex-1">
                           Add Task
                         </button>
@@ -2181,11 +2183,14 @@ const HomeScreen = () => {
 
                   {/* Edit List Form - shown below the edit button */}
                   {showEditList && (
-                    <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-purple-500/20 mb-4">
-                      <h3 className="text-xl font-semibold mb-4 text-white">Edit List</h3>
-                      <form onSubmit={handleUpdateList} className="stack">
+                    <div className="rounded-xl p-5 sm:p-6 border border-purple-500/30 bg-gray-900/85 backdrop-blur-md shadow-2xl mb-4">
+                      <div className="flex items-center mb-5">
+                        <div className="w-1 h-5 bg-purple-500 rounded-full mr-3"></div>
+                        <h3 className="text-base font-semibold text-white tracking-wide">Edit List</h3>
+                      </div>
+                      <form onSubmit={handleUpdateList} className="space-y-4">
                         <div>
-                          <label className="label text-gray-200">List Name *</label>
+                          <label className="label text-gray-300 block mb-1.5">List Name *</label>
                           <input
                             type="text"
                             value={editingList.name}
@@ -2195,20 +2200,20 @@ const HomeScreen = () => {
                             required
                           />
                         </div>
-                        
+
                         <div>
-                          <label className="label text-gray-200">Description (optional)</label>
+                          <label className="label text-gray-300 block mb-1.5">Description <span className="text-gray-500 font-normal">(optional)</span></label>
                           <textarea
                             value={editingList.description}
                             onChange={(e) => setEditingList({...editingList, description: e.target.value})}
-                            className="input w-full"
+                            className="input w-full h-auto py-2.5"
                             placeholder="Enter list description"
                             rows={3}
                           />
                         </div>
 
                         <div>
-                          <label className="label text-gray-200">Reset Period</label>
+                          <label className="label text-gray-300 block mb-1.5">Reset Period</label>
                           <select
                             value={editingList.reset_period}
                             onChange={(e) => setEditingList({...editingList, reset_period: e.target.value})}
@@ -2224,33 +2229,26 @@ const HomeScreen = () => {
                         </div>
 
                         {/* List Permissions Section */}
-                        <div className="border-t border-gray-700 pt-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <h4 className="text-lg font-medium text-white flex items-center">
-                              <Users className="h-5 w-5 mr-2 text-purple-400" />
-                              List Permissions
-                            </h4>
+                        <div className="rounded-lg border border-white/10 bg-white/5 overflow-hidden">
+                          <div className="flex items-center px-4 py-3 border-b border-white/10 bg-white/5">
+                            <Users className="h-4 w-4 mr-2 text-purple-400" />
+                            <h4 className="text-sm font-semibold text-white">List Permissions</h4>
                           </div>
-                          
-                          <div className="stack mb-4">
+
+                          <div className="divide-y divide-white/5">
                             {(listUsers || []).map((listUser) => (
-                              <div key={listUser.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
-                                <div className="flex items-center space-x-3">
-                                  <div className="relative">
-                                    {listUser.permission_level === 'owner' ? (
-                                      <Crown className="h-4 w-4 text-yellow-400" />
-                                    ) : listUser.permission_level === 'admin' ? (
-                                      <Settings className="h-4 w-4 text-orange-400" />
-                                    ) : (
-                                      <User className="h-4 w-4 text-blue-400" />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="text-white font-medium text-sm">{listUser.username}</p>
-                                  </div>
+                              <div key={listUser.id} className="flex items-center justify-between px-4 py-2.5">
+                                <div className="flex items-center space-x-2.5">
+                                  {listUser.permission_level === 'owner' ? (
+                                    <Crown className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                                  ) : listUser.permission_level === 'admin' ? (
+                                    <Settings className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                                  ) : (
+                                    <User className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                                  )}
+                                  <p className="text-white text-sm font-medium">{listUser.username}</p>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  {/* Show dropdown for all users except current user */}
                                   {user?.userId !== listUser.id ? (
                                     <select
                                       value={getEffectivePermission(listUser.id, listUser.permission_level)}
@@ -2258,21 +2256,16 @@ const HomeScreen = () => {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         const newPermission = e.target.value;
-                                        
-                                        // Remove any existing changes for this user
                                         const filteredChanges = pendingUserChanges.filter(
                                           change => change.userId !== listUser.id
                                         );
-                                        
-                                        // Add update change
                                         setPendingUserChanges([...filteredChanges, {
                                           action: 'update',
                                           userId: listUser.id,
                                           permissionLevel: newPermission
                                         }]);
-                                        
                                       }}
-                                      className="bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                      className="bg-gray-800 text-white text-xs rounded-md px-2 py-1 border border-gray-600 focus:border-purple-500 focus:outline-none"
                                       disabled={user?.userId === listUser.id}
                                     >
                                       <option value="owner">Owner</option>
@@ -2280,11 +2273,9 @@ const HomeScreen = () => {
                                       <option value="user">User</option>
                                     </select>
                                   ) : (
-                                    // Show empty space for current user as owner to maintain alignment
-                                    <div className="w-20"></div>
+                                    <div className="w-16"></div>
                                   )}
-                                  
-                                  {/* Show delete button for all users except current user */}
+
                                   {user?.userId !== listUser.id && (
                                     <button
                                       type="button"
@@ -2293,24 +2284,24 @@ const HomeScreen = () => {
                                         e.stopPropagation();
                                         removeUserFromList(selectedListForUsers, listUser.id);
                                       }}
-                                      className="text-red-400 hover:text-red-300 transition-colors"
+                                      className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded"
                                       title="Remove user"
                                     >
-                                      <UserMinus className="h-3 w-3" />
+                                      <UserMinus className="h-3.5 w-3.5" />
                                     </button>
                                   )}
                                 </div>
                               </div>
                             ))}
                           </div>
-                          
-                          <div className="border-t border-gray-700 pt-3">
-                            <p className="text-xs text-gray-400 mb-2">Add new user:</p>
-                            <div className="stack">
+
+                          <div className="px-4 py-3 border-t border-white/10 bg-black/20 space-y-3">
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Add user</p>
+                            <div className="flex gap-2">
                               <select
                                 value={selectedNewUser}
                                 onChange={(e) => setSelectedNewUser(e.target.value)}
-                                className="input w-full"
+                                className="input flex-1 text-sm"
                               >
                                 <option value="">Select a user...</option>
                                 {allUsers
@@ -2325,34 +2316,34 @@ const HomeScreen = () => {
                               <select
                                 value={selectedNewUserPermission}
                                 onChange={(e) => setSelectedNewUserPermission(e.target.value)}
-                                className="input w-full"
+                                className="input w-28 text-sm"
                               >
                                 <option value="user">User</option>
                                 <option value="admin">Admin</option>
                                 <option value="owner">Owner</option>
                               </select>
-                              <div className="text-xs text-gray-400 space-y-1">
-                                <p><span className="font-medium text-gray-300">Owner:</span> Can manage settings and tasks</p>
-                                <p><span className="font-medium text-gray-300">Admin:</span> Can manage tasks</p>
-                                <p><span className="font-medium text-gray-300">User:</span> Can view and complete tasks</p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  addUserToListBySelection(selectedListForUsers, selectedNewUser, selectedNewUserPermission);
-                                  setSelectedNewUser('');
-                                  setSelectedNewUserPermission('user');
-                                }}
-                                className="btn-primary w-full flex items-center justify-center"
-                              >
-                                <UserPlus className="h-3 w-3 mr-2" />
-                                Add User
-                              </button>
                             </div>
+                            <div className="text-xs text-gray-500 flex gap-3">
+                              <span><span className="text-gray-400">Owner:</span> manage settings</span>
+                              <span><span className="text-gray-400">Admin:</span> manage tasks</span>
+                              <span><span className="text-gray-400">User:</span> complete tasks</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                addUserToListBySelection(selectedListForUsers, selectedNewUser, selectedNewUserPermission);
+                                setSelectedNewUser('');
+                                setSelectedNewUserPermission('user');
+                              }}
+                              className="btn-primary w-full flex items-center justify-center text-sm py-1.5"
+                            >
+                              <UserPlus className="h-3.5 w-3.5 mr-2" />
+                              Add User
+                            </button>
                           </div>
                         </div>
-                        
-                        <div className="flex flex-wrap gap-2">
+
+                        <div className="flex flex-wrap gap-2 pt-1">
                           <button type="submit" className="btn-primary flex-1 min-w-[100px]">
                             Update List
                           </button>
@@ -2373,7 +2364,7 @@ const HomeScreen = () => {
                               setShowEditList(false);
                               setEditingList(null);
                             }}
-                            className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
+                            className="btn bg-red-600/80 text-white hover:bg-red-600 flex items-center justify-center space-x-2 flex-1 min-w-[120px] border border-red-500/30"
                           >
                             <Trash2 className="h-4 w-4" />
                             <span>Delete List</span>
@@ -2593,11 +2584,14 @@ const HomeScreen = () => {
                         </div>
                         {/* Edit Task Form - shown below the task being edited */}
                         {showEditTask && editingTask?.id === task.id && (
-                          <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-purple-500/20 mt-2">
-                            <h3 className="text-xl font-semibold mb-4 text-white">Edit Task</h3>
-                            <form onSubmit={handleUpdateTask} className="stack">
+                          <div className="rounded-xl p-5 sm:p-6 border border-purple-500/30 bg-gray-900/85 backdrop-blur-md shadow-2xl mt-2">
+                            <div className="flex items-center mb-5">
+                              <div className="w-1 h-5 bg-purple-500 rounded-full mr-3"></div>
+                              <h3 className="text-base font-semibold text-white tracking-wide">Edit Task</h3>
+                            </div>
+                            <form onSubmit={handleUpdateTask} className="space-y-4">
                               <div>
-                                <label className="label text-gray-200">Task Title *</label>
+                                <label className="label text-gray-300 block mb-1.5">Task Title *</label>
                                 <input
                                   type="text"
                                   value={editingTask.title}
@@ -2607,20 +2601,20 @@ const HomeScreen = () => {
                                   required
                                 />
                               </div>
-                              
+
                               <div>
-                                <label className="label text-gray-200">Description or instructions (optional)</label>
+                                <label className="label text-gray-300 block mb-1.5">Description <span className="text-gray-500 font-normal">(optional)</span></label>
                                 <textarea
                                   value={editingTask.description}
                                   onChange={(e) => setEditingTask({...editingTask, description: e.target.value})}
-                                  className="input w-full"
-                                  placeholder="Enter description or instructions (optional)"
+                                  className="input w-full h-auto py-2.5"
+                                  placeholder="Enter description or instructions"
                                   rows={3}
                                 />
                               </div>
 
                               <div>
-                                <label className="label text-gray-200">Duration (minutes)</label>
+                                <label className="label text-gray-300 block mb-1.5">Duration <span className="text-gray-500 font-normal">(minutes)</span></label>
                                 <input
                                   type="number"
                                   min="0"
@@ -2634,21 +2628,19 @@ const HomeScreen = () => {
                                 />
                               </div>
 
-                              <div className="flex items-center space-x-2">
+                              <label className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
                                 <input
                                   type="checkbox"
                                   id="edit_allow_multiple"
                                   checked={editingTask.allow_multiple_completions}
                                   onChange={(e) => setEditingTask({...editingTask, allow_multiple_completions: e.target.checked})}
-                                  className="rounded"
+                                  className="h-4 w-4 rounded border-gray-500 accent-purple-500"
                                 />
-                                <label htmlFor="edit_allow_multiple" className="text-gray-200">
-                                  Allow multiple completions
-                                </label>
-                              </div>
+                                <span className="text-sm text-gray-200">Allow multiple completions</span>
+                              </label>
 
                               <div>
-                                <label className="label text-gray-200">Assign to (optional)</label>
+                                <label className="label text-gray-300 block mb-1.5">Assign to <span className="text-gray-500 font-normal">(optional)</span></label>
                                 <select
                                   value={editingTask.assigned_to || ''}
                                   onChange={(e) => setEditingTask({...editingTask, assigned_to: e.target.value ? parseInt(e.target.value) : null})}
@@ -2690,33 +2682,33 @@ const HomeScreen = () => {
                                 if (validCompletions.length === 0) return null;
 
                                 return (
-                                  <div className="border-t border-gray-700 pt-4">
-                                    <h4 className="text-sm font-medium text-gray-300 mb-2">Completions for this period</h4>
-                                    <div className="space-y-2">
+                                  <div className="rounded-lg border border-white/10 bg-white/5 overflow-hidden">
+                                    <div className="px-4 py-2.5 border-b border-white/10 bg-white/5">
+                                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Completions this period</h4>
+                                    </div>
+                                    <div className="divide-y divide-white/5">
                                       {validCompletions.map((completion, index) => {
                                         const completedDate = new Date(completion.completed_at);
                                         const displayName = completion.first_name || completion.username || 'Unknown';
                                         const isMarkedForDeletion = completionsToDelete.includes(completion.id);
-                                        
+
                                         return (
                                           <div
                                             key={`completion-${completion.id || index}`}
-                                            className={`flex items-center justify-between p-2 rounded-lg ${
-                                              isMarkedForDeletion ? 'bg-red-900/20 border border-red-500/30' : 'bg-gray-800/50'
+                                            className={`flex items-center justify-between px-4 py-2.5 ${
+                                              isMarkedForDeletion ? 'bg-red-900/20' : ''
                                             }`}
                                           >
-                                            <div className="flex items-center space-x-2 flex-1">
-                                              <div className="text-sm text-gray-300">
-                                                <span className="font-medium">{displayName}</span>
-                                                <span className="text-gray-400 ml-2">
-                                                  {completedDate.toLocaleString([], {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                  })}
-                                                </span>
-                                              </div>
+                                            <div className="text-sm">
+                                              <span className="text-white font-medium">{displayName}</span>
+                                              <span className="text-gray-500 ml-2">
+                                                {completedDate.toLocaleString([], {
+                                                  month: 'short',
+                                                  day: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit'
+                                                })}
+                                              </span>
                                             </div>
                                             <button
                                               type="button"
@@ -2730,11 +2722,11 @@ const HomeScreen = () => {
                                               className={`p-1.5 rounded transition-colors ${
                                                 isMarkedForDeletion
                                                   ? 'bg-red-600 text-white hover:bg-red-700'
-                                                  : 'text-red-400 hover:text-red-300 hover:bg-red-900/20'
+                                                  : 'text-gray-500 hover:text-red-400 hover:bg-red-900/20'
                                               }`}
                                               title={isMarkedForDeletion ? 'Unmark for deletion' : 'Mark for deletion'}
                                             >
-                                              <Trash2 className="h-4 w-4" />
+                                              <Trash2 className="h-3.5 w-3.5" />
                                             </button>
                                           </div>
                                         );
@@ -2743,8 +2735,8 @@ const HomeScreen = () => {
                                   </div>
                                 );
                               })()}
-                              
-                              <div className="flex flex-wrap gap-2">
+
+                              <div className="flex flex-wrap gap-2 pt-1">
                                 <button type="submit" className="btn-primary flex-1 min-w-[100px]">
                                   Update Task
                                 </button>
@@ -2765,7 +2757,7 @@ const HomeScreen = () => {
                                     setShowEditTask(false);
                                     setEditingTask(null);
                                   }}
-                                  className="btn bg-red-600 text-white hover:bg-red-700 flex items-center justify-center space-x-2 flex-1 min-w-[120px]"
+                                  className="btn bg-red-600/80 text-white hover:bg-red-600 flex items-center justify-center space-x-2 flex-1 min-w-[120px] border border-red-500/30"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                   <span>Delete Task</span>
@@ -2776,11 +2768,14 @@ const HomeScreen = () => {
                         )}
                         {/* Add Completion Form - shown below the task */}
                         {addingCompletionForTask?.id === task.id && (
-                          <div className="glass rounded-xl pt-3 px-2 pb-6 sm:pt-4 sm:px-4 sm:pb-6 border border-green-500/20 mt-2">
-                            <h3 className="text-xl font-semibold mb-4 text-white">Add Completion</h3>
-                            <form onSubmit={handleAddCompletion} className="stack">
+                          <div className="rounded-xl p-5 sm:p-6 border border-green-500/30 bg-gray-900/85 backdrop-blur-md shadow-2xl mt-2">
+                            <div className="flex items-center mb-5">
+                              <div className="w-1 h-5 bg-green-500 rounded-full mr-3"></div>
+                              <h3 className="text-base font-semibold text-white tracking-wide">Add Completion</h3>
+                            </div>
+                            <form onSubmit={handleAddCompletion} className="space-y-4">
                               <div>
-                                <label className="label text-gray-200">User *</label>
+                                <label className="label text-gray-300 block mb-1.5">User *</label>
                                 <select
                                   value={newCompletion.user_id}
                                   onChange={(e) => setNewCompletion({...newCompletion, user_id: e.target.value})}
@@ -2795,9 +2790,9 @@ const HomeScreen = () => {
                                   ))}
                                 </select>
                               </div>
-                              
+
                               <div>
-                                <label className="label text-gray-200">Time *</label>
+                                <label className="label text-gray-300 block mb-1.5">Time *</label>
                                 <input
                                   type="time"
                                   value={newCompletion.time}
@@ -2806,8 +2801,8 @@ const HomeScreen = () => {
                                   required
                                 />
                               </div>
-                              
-                              <div className="flex flex-wrap gap-2">
+
+                              <div className="flex flex-wrap gap-2 pt-1">
                                 <button type="submit" className="btn-primary flex-1 min-w-[100px]">
                                   Save
                                 </button>

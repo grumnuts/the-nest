@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [v1.3.1] - 2026-03-31
+
+### ⚒️ Enhancements
+- **Improved editor modals** — Edit List, Edit Task, Add Task, and Add Completion forms now have better visual hierarchy, proper field spacing, a styled checkbox, a card-based permissions panel, and a more polished overall appearance
+
 ## [v1.3.0] - 2026-03-30
 
 ### ✨ New Features
