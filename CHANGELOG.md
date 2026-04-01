@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [v1.3.2] - 2026-04-01
+
+### 🐛 Bug Fixes
+- **Reduced request volume on task completion** — toggling a task now only re-fetches tasks and progress (2 requests) instead of all list data (6 requests), preventing rate limit errors during active use
+- **Removed redundant auth verification calls** — `ListView` now reads the current user from `AuthContext` instead of calling `/api/auth/verify` on every data refresh
+
+### ⚒️ Enhancements
+- **Raised rate limits** — general API limit increased from 300 → 600 req/15 min; auth login limit increased from 20 → 100 req/15 min, giving households sharing an IP more headroom
+
 ## [v1.3.1] - 2026-03-31
 
 ### ⚒️ Enhancements

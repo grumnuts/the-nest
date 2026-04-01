@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Check, X, Target, History, User, UserCheck } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const ListView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [list, setList] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -19,7 +21,6 @@ const ListView = () => {
   const [actionStatus, setActionStatus] = useState('success');
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [listUsers, setListUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
   const [editingTask, setEditingTask] = useState({
     title: '',
     description: '',
@@ -44,21 +45,19 @@ const ListView = () => {
 
   const fetchListData = async () => {
     try {
-      const [listResponse, tasksResponse, goalsResponse, progressResponse, usersResponse, authResponse] = await Promise.all([
+      const [listResponse, tasksResponse, goalsResponse, progressResponse, usersResponse] = await Promise.all([
         axios.get(`/api/lists/${id}`),
         axios.get(`/api/tasks/list/${id}`),
         axios.get('/api/goals'),
         axios.get(`/api/goals/progress/${id}`),
         axios.get(`/api/lists/${id}/users`).catch(() => ({ data: { users: [] } })),
-        axios.get('/api/auth/verify').catch(() => ({ data: { user: null } }))
       ]);
-      
+
       setList(listResponse.data.list);
       setTasks(tasksResponse.data.tasks);
       setGoals(goalsResponse.data.goals);
       setProgress(progressResponse.data);
       setListUsers(usersResponse.data.users || usersResponse.data || []);
-      setCurrentUser(authResponse.data.user);
     } catch (error) {
       console.error('Error fetching list data:', error);
     } finally {
@@ -93,7 +92,12 @@ const ListView = () => {
       await axios.patch(`/api/tasks/${taskId}/status`, {
         is_completed: !isCompleted
       });
-      fetchListData();
+      const [tasksResponse, progressResponse] = await Promise.all([
+        axios.get(`/api/tasks/list/${id}`),
+        axios.get(`/api/goals/progress/${id}`),
+      ]);
+      setTasks(tasksResponse.data.tasks);
+      setProgress(progressResponse.data);
     } catch (error) {
       console.error('Error updating task:', error);
       setActionStatus('error');

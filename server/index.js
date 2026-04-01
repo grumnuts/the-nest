@@ -48,19 +48,19 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(cors(corsOptions));
 
-// General API rate limit: 300 requests per 15 minutes per IP
+// General API rate limit: 600 requests per 15 minutes per IP
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 600,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// Strict rate limit on auth endpoints: 20 attempts per 15 minutes per IP
+// Auth rate limit: 100 attempts per 15 minutes per IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many login attempts, please try again later.' }
