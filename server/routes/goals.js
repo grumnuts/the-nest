@@ -237,8 +237,8 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
       
       completed = Math.round(completedPercent);
       required = requiredPercent;
-      percentage = Math.min(Math.round(progressToTarget), 100);
-      
+      percentage = Math.round(progressToTarget);
+
       console.log(`[Goal] percentage_task_count "${goal.name}": totalExpectedTasks=${totalExpectedTasks}, completedTasks=${relevantCompletions.length}, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%, result={required:${required} completed:${completed} percentage:${percentage}}`);
       break;
     }
@@ -271,8 +271,8 @@ const calculatePeriodProgress = async (goal, listIds, periodStart, periodEnd, is
 
       completed = Math.round(completedPercent);
       required = requiredPercent;
-      percentage = Math.min(Math.round(progressToTarget), 100);
-      
+      percentage = Math.round(progressToTarget);
+
       console.log(`[Goal] percentage_time "${goal.name}": totalPossibleTime=${totalPossibleTime}min, completedTime=${completedTime}min, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%, result={required:${required} completed:${completed} percentage:${percentage}}`);
       break;
     }
@@ -709,10 +709,10 @@ function calculatePercentageTaskCount(goal, tasks, completions) {
   const result = {
     required: requiredPercent,
     completed: Math.round(completedPercent),
-    percentage: Math.min(Math.round(progressToTarget), 100),
+    percentage: Math.round(progressToTarget),
     isAchieved: completedPercent >= requiredPercent
   };
-  
+
   console.log(`[Goal] percentage_task_count "${goal.name}": totalTasks=${totalTasks}, completedTasks=${completedTasks}, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%`, JSON.stringify(result));
 
   return result;
@@ -734,10 +734,10 @@ function calculatePercentageTime(goal, tasks, completions) {
   const result = {
     required: requiredPercent,
     completed: Math.round(completedPercent),
-    percentage: Math.min(Math.round(progressToTarget), 100),
+    percentage: Math.round(progressToTarget),
     isAchieved: completedPercent >= requiredPercent
   };
-  
+
   console.log(`[Goal] percentage_time "${goal.name}": totalTime=${totalTime}min, completedTime=${completedTime}min, completedPercent=${completedPercent.toFixed(1)}%, requiredPercent=${requiredPercent}%, progressToTarget=${progressToTarget.toFixed(1)}%`, JSON.stringify(result));
 
   return result;
@@ -752,7 +752,7 @@ function calculateFixedTaskCount(goal, tasks, completions) {
   return {
     required: requiredTasks,
     completed: completedTasks,
-    percentage: Math.min(percentage, 100),
+    percentage: percentage,
     isAchieved: completedTasks >= requiredTasks
   };
 }
@@ -769,7 +769,7 @@ function calculateFixedTime(goal, tasks, completions) {
   return {
     required: requiredTime,
     completed: Math.round(completedTime),
-    percentage: Math.min(percentage, 100),
+    percentage: percentage,
     isAchieved: completedTime >= requiredTime
   };
 }
