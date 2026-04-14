@@ -21,7 +21,7 @@ docker buildx build \
   --platform linux/amd64,linux/arm64 \
   --file Dockerfile \
   --tag "$DOCKER_HUB_USERNAME/$IMAGE_NAME:$VERSION" \
-  --tag "$DOCKER_HUB_USERNAME/$IMAGE_NAME:$(date +%Y%m%d)" \
+  --tag "$DOCKER_HUB_USERNAME/$IMAGE_NAME:latest" \
   --push \
   .
 
