@@ -373,6 +373,20 @@ const HomeScreen = () => {
     }
   };
 
+  // Lightweight list fetch used in polling — no per-list permission requests
+  const fetchListsOnly = async () => {
+    try {
+      const response = await axios.get('/api/lists');
+      setLists(response.data.lists);
+      if (response.data.lists.length > 0 && !activeListId) {
+        setActiveListId(response.data.lists[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching lists:', error);
+    }
+  };
+
+  // Full list fetch including per-list permissions — used on initial load and after permission changes
   const fetchLists = async () => {
     try {
       const response = await axios.get('/api/lists');
@@ -380,13 +394,13 @@ const HomeScreen = () => {
       if (response.data.lists.length > 0 && !activeListId) {
         setActiveListId(response.data.lists[0].id);
       }
-      
+
       // Fetch actual permissions for each list
       const permissions = {};
       for (const list of response.data.lists) {
         try {
           const userResponse = await axios.get(`/api/lists/${list.id}/users`);
-          
+
           // Try multiple ways to find the user ID
           let userPermission = null;
           if (user?.userId) {
@@ -394,7 +408,7 @@ const HomeScreen = () => {
           } else if (user?.username) {
             userPermission = userResponse.data.find(u => u.username === user.username);
           }
-          
+
           permissions[list.id] = userPermission ? userPermission.permission_level : null;
         } catch (error) {
           console.error(`Error fetching permissions for list ${list.id}:`, error);
@@ -778,15 +792,14 @@ const HomeScreen = () => {
     loadData();
   }, []);
 
-  // Real-time updates - poll for changes every 2s
+  // Background polling — 30s interval, skips when tab is hidden
   useEffect(() => {
     const interval = setInterval(() => {
-      if (activeListId) {
-        fetchListData(activeListId);
-      }
-      fetchLists();
+      if (document.hidden) return;
+      if (activeListId) fetchListData(activeListId);
+      fetchListsOnly();
       fetchGoals();
-    }, 2000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [activeListId, listDates]);

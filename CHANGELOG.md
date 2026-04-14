@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [v1.3.3] - 2026-04-14
+
+### 🐛 Bug Fixes
+- **Fixed persistent rate limit errors after session timeout** — background polling continued firing every 2 seconds even when the tab was idle for hours, exhausting the rate limit and blocking sign-in. Poll interval slowed to 30 seconds and skips entirely when the tab is hidden
+- **Eliminated N+1 permission requests in polling** — `fetchLists` was fetching per-list user/permission data on every poll tick (1 + N requests per cycle); polling now uses a lightweight single-request fetch, reserving the full permissions load for initial page load and after permission changes
+- **Session expiry now stops polling immediately** — a new axios 401 interceptor in `AuthContext` clears auth state the moment a request returns 401, causing the app to redirect to the login screen and halting all background requests
+
 ## [v1.3.2] - 2026-04-01
 
 ### 🐛 Bug Fixes

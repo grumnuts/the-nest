@@ -16,6 +16,22 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Clear auth state on any 401 so polling and other requests stop immediately
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response?.status === 401 && localStorage.getItem('token')) {
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+          setUser(null);
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, []);
+
+  useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
