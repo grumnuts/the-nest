@@ -1,6 +1,6 @@
 ## [Unreleased]
 
-## [v1.3.3] - 2026-04-14
+## [v1.3.4] - 2026-04-14
 
 ### 🐛 Bug Fixes
 - **Fixed persistent rate limit errors after session timeout** — background polling continued firing every 2 seconds even when the tab was idle for hours, exhausting the rate limit and blocking sign-in. Poll interval slowed to 30 seconds and skips entirely when the tab is hidden
